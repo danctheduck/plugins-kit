@@ -258,14 +258,20 @@ class TestShippedDefaults:
         assert models == [
             "sol",
             "opus",
+            "opus",
             "sol",
+            "luna",
             "sonnet",
-            "sonnet",
+            "haiku",
+            "luna",
+            "haiku",
+            "luna",
+            "haiku",
+            "luna",
+            "haiku",
             "luna",
             "sonnet",
             "luna",
-            "sonnet",
-            "sonnet",
         ]
         assert all(":" not in model for model in models)
 
@@ -1385,14 +1391,15 @@ class TestCodexAbsentVariant:
 
     def test_fan_out_row_defaults_to_its_claude_entry_without_codex(self, without):
         row = _row_lines_matching(without, "If `fan-out`")
-        assert [line.split()[0] for line in row[1:]] == ["luna", "sonnet"]
-        assert "unreachable" in row[1]
-        assert "[default]" in row[2]
+        assert [line.split()[0] for line in row[1:]] == ["haiku", "luna"]
+        assert "unreachable" in row[2]
+        assert "[default]" in row[1]
 
-    def test_a_codex_only_row_carries_the_floor_without_codex(self, without):
+    def test_every_shipped_row_keeps_a_claude_seat_without_codex(self, without):
         row = "\n".join(_row_lines_matching(without, "If `cross-check`"))
-        assert "no usable model here" in row
-        assert "sol: unreachable" in row
+        assert "no usable model here" not in row
+        assert "unreachable" in row
+        assert "[default]" in row
 
     def test_fan_out_collapse_test_survives_without_codex(self, without):
         assert "`fan-out`" in without

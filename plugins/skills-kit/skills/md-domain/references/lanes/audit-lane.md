@@ -55,7 +55,8 @@ order:
 
 | family | shipped default |
 |---|---|
-| `detect`, `classify`, `coverage`, `generate`, `remediate` | `[{id: sonnet, effort: low}]` |
+| `detect`, `coverage`, `generate` | `[{id: sonnet, effort: low}]` |
+| `classify`, `remediate` | `[{id: haiku, effort: low}]` |
 | `audit_job` | `[{id: luna, effort: high}, {id: sonnet, effort: low}]` |
 
 **Layers.** Shipped `skills_kit_lib/defaults/lane_models.yaml`, then the user

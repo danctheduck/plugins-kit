@@ -110,7 +110,7 @@ claude_md:
         triggers; the review-reducer invariants (NOT-AUDITED passes through
         relabel untouched and is counted apart from diffClean, fan-out threshold 1
         under review, the attributable/SERIOUS keep-rule); and the lane model routing
-        (resolved from the lane_models slot; shipped default sonnet + low effort for every lane, amended 2026-10-02).
+        (resolved from the lane_models slot; shipped defaults in skills_kit_lib/defaults/lane_models.yaml, amended 2026-10-02).
 
         Consequence for anyone editing this tree: a change that alters any of
         those is not a refactor. It needs its own decision and its own golden-
@@ -746,7 +746,7 @@ claude_md:
       added: "2026-09-07"
     - id: detect_lanes_take_a_configured_route_not_a_pinned_model
       keywords: [detect lane model, lane_models, agent_route, drop incompatible, luna, adapter seam, md-audit-evidence-pack, configurable model, in-process prompt build]
-      summary: The md-domain lanes take model and effort from the lane_models config slot (shipped default sonnet low); ids that agent()/Agent cannot run are dropped and reported, never an error. This supersedes the earlier rule that detect lanes are pinned and never configurable (decision 2026-10-02).
+      summary: The md-domain lanes take model and effort from the lane_models config slot (shipped defaults in skills_kit_lib/defaults/lane_models.yaml); ids that agent()/Agent cannot run are dropped and reported, never an error. This supersedes the earlier rule that detect lanes are pinned and never configurable (decision 2026-10-02).
       detail: |
         Mechanism: references/lanes/audit-lane.md, "Lane models". The design
         record for the md-audit-evidence-pack adapter seam lives in the

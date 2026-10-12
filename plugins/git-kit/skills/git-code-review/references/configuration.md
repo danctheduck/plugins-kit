@@ -122,6 +122,7 @@ profiles:
     - .tsv
     - .md
   reviewers:
+  # Reviewer lanes do not use haiku: diff chunks reach 1 MB (about 250-350k tokens) and haiku sessions compact at 100k.
   - name: reviewer_a_claude_md_compliance
     model:
     - {id: luna, effort: high}
@@ -130,12 +131,14 @@ profiles:
     model:
     - {id: luna, effort: high}
     - {id: sonnet, effort: low}
+  # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
   validator_models:
-    bug: [{id: sonnet, effort: low}]
-    claude_md: [{id: sonnet, effort: low}]
+    bug: [{id: haiku, effort: low}]
+    claude_md: [{id: haiku, effort: low}]
 - id: code
   selection: {}
   reviewers:
+  # Reviewer lanes do not use haiku: diff chunks reach 1 MB (about 250-350k tokens) and haiku sessions compact at 100k.
   - name: reviewer_a_claude_md_compliance
     model:
     - {id: luna, effort: high}
@@ -143,13 +146,15 @@ profiles:
   - name: reviewer_b_diff_only_bugs
     model:
     - {id: opus, effort: medium}
+    - {id: sol, effort: medium}
   - name: reviewer_c_introduced_code
     model:
     - {id: sol, effort: high}
     - {id: opus, effort: high}
+  # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
   validator_models:
     bug: [{id: opus, effort: medium}]
-    claude_md: [{id: sonnet, effort: low}]
+    claude_md: [{id: haiku, effort: low}]
 ```
 
 ## What an `effort` value may name

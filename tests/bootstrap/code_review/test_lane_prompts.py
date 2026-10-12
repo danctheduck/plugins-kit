@@ -46,11 +46,11 @@ class TestShippedDefaultsPreserveAgentDispatch:
         """The no-override path must still run on a machine with no endpoint.
 
         Every shipped reviewer's resolved `model` is a list of `{id, effort}`
-        entries ending in an Agent alias, so a machine without
+        entries stating an Agent alias, so a machine without
         llm-scripting-kit, or whose endpoints are all unusable, still routes
         every lane through the Agent tool. The one shipped endpoint entry is
-        `luna` ahead of `sonnet` on reviewer_a and reviewer_b (data_only and code)
-        and `sol` ahead of `opus` on reviewer_c. Validators are never
+        `luna` ahead of `sonnet` on reviewer_a (both profiles) and data_only reviewer_b,
+        `sol` behind `opus` on code reviewer_b, and `sol` ahead of `opus` on reviewer_c. Validators are never
         endpoint-eligible, so each reason is a one-entry list holding an alias.
         """
         config, _provenance = rp.resolve_config(tmp_path / "project", home=tmp_path / "home")
@@ -64,8 +64,8 @@ class TestShippedDefaultsPreserveAgentDispatch:
                 )
                 assert all(set(entry) == {"id", "effort"} for entry in entries)
                 ids = [entry["id"] for entry in entries]
-                assert lp.is_agent_alias(ids[-1]), (
-                    f"shipped {profile['id']}.{reviewer['name']} does not end in an Agent alias"
+                assert any(lp.is_agent_alias(model_id) for model_id in ids), (
+                    f"shipped {profile['id']}.{reviewer['name']} states no Agent alias"
                 )
                 endpoint_entries.extend(
                     (profile["id"], reviewer["name"], model_id)
@@ -83,6 +83,7 @@ class TestShippedDefaultsPreserveAgentDispatch:
             ("data_only", "reviewer_a_claude_md_compliance", "luna"),
             ("data_only", "reviewer_b_diff_only_bugs", "luna"),
             ("code", "reviewer_a_claude_md_compliance", "luna"),
+            ("code", "reviewer_b_diff_only_bugs", "sol"),
             ("code", "reviewer_c_introduced_code", "sol"),
         ]
 

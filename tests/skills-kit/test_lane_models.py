@@ -39,12 +39,13 @@ TOOL = PLUGIN / "scripts" / "skills_kit_tool.py"
 RESOLVE = PLUGIN / "scripts" / "resolve_standards.py"
 
 SONNET_LOW = [{"id": "sonnet", "effort": "low"}]
+HAIKU_LOW = [{"id": "haiku", "effort": "low"}]
 SHIPPED = {
     "detect": SONNET_LOW,
-    "classify": SONNET_LOW,
+    "classify": HAIKU_LOW,
     "coverage": SONNET_LOW,
     "generate": SONNET_LOW,
-    "remediate": SONNET_LOW,
+    "remediate": HAIKU_LOW,
     "audit_job": [{"id": "luna", "effort": "high"}, {"id": "sonnet", "effort": "low"}],
 }
 

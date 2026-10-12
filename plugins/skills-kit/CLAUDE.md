@@ -267,7 +267,7 @@ claude_md:
       origin: Arch-review finding S19 (2026-06-09); path updated for the md-domain fold (2026-07-29).
       added: "2026-06-10"
   conventions:
-    - rule: "Audit workflow lanes take an explicit model AND effort from the lane_models config slot -- never inherit either from the session and never hard-code a `model:` literal in a workflow script. Every script takes a REQUIRED `laneModels = {run, dropped}` argument and throws when it is absent. The shipped default is sonnet + low for every md-domain lane (audit_job is luna high then sonnet low). Ids that agent()/Agent cannot run (anything outside fable, opus, sonnet, haiku) are dropped and reported, not rejected. Slot, layers and drop rule: skills/md-domain/references/lanes/audit-lane.md, 'Lane models'. A new audit workflow script must follow the same shape."
+    - rule: "Audit workflow lanes take an explicit model AND effort from the lane_models config slot -- never inherit either from the session and never hard-code a `model:` literal in a workflow script. Every script takes a REQUIRED `laneModels = {run, dropped}` argument and throws when it is absent. The shipped defaults live in skills_kit_lib/defaults/lane_models.yaml (haiku + low for the decided-edit lanes classify and remediate, sonnet + low for the rest; audit_job is luna high then sonnet low). Ids that agent()/Agent cannot run (anything outside fable, opus, sonnet, haiku) are dropped and reported, not rejected. Slot, layers and drop rule: skills/md-domain/references/lanes/audit-lane.md, 'Lane models'. A new audit workflow script must follow the same shape."
       keywords:
         - workflow lane model
         - lane_models
