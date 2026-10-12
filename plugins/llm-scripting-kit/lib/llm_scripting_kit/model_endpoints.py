@@ -58,6 +58,10 @@ the schema can grow additively)::
         effort: <effort>                    # optional harness setting
         name: <human label>                 # optional
         conserve_usage: <bool | mapping>    # optional; see usage_budget.py
+        context_budget: <int tokens>        # optional, either kind; the largest
+                                            #   estimated input to route here
+                                            #   (describe --context-tokens);
+                                            #   null = no budget (overrides a lower layer)
 
 Entry ids are the endpoint names: ``llm_scripting_kit.models.resolve_endpoint``
 injects each entry as a named endpoint, so ``resolve_endpoint("<entry id>")``
@@ -154,6 +158,7 @@ class EndpointEntry:
     effort: Optional[str] = None
     tier: Optional[int] = None
     family: Optional[str] = None
+    context_budget: Optional[int] = None
     conserve_usage: Optional[ConserveSpec] = None
     routing: Optional["RoutingConfig"] = None
     key_file: Optional[str] = None
@@ -312,6 +317,27 @@ def parse_classification_fields(
             )
         family = value.strip()
     return tier, family
+
+
+def parse_context_budget(
+    raw: Mapping[str, object], *, source: str, entry_id: str
+) -> Optional[int]:
+    """Validate the optional ``context_budget`` (a positive integer of tokens).
+
+    An explicit null means "no budget" (a higher config layer's way to remove
+    a lower layer's value); any other non-positive-integer value raises.
+    """
+    if "context_budget" not in raw:
+        return None
+    value = raw["context_budget"]
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise EndpointMetadataError(
+            f"{source}: entry '{entry_id}' has invalid 'context_budget' ({value!r}); "
+            "expected a positive integer number of tokens"
+        )
+    return value
 
 
 def parse_routing(
@@ -620,6 +646,9 @@ def load_endpoint_registry(
                     ),
                     tier=tier,
                     family=family,
+                    context_budget=parse_context_budget(
+                        raw, source=f"model-endpoints registry '{path}'", entry_id=key
+                    ),
                     conserve_usage=_conserve_spec(
                         raw, source=f"model-endpoints registry '{path}'", entry_id=key
                     ),
@@ -666,6 +695,9 @@ def load_endpoint_registry(
                 kind=TRANSPORT_KIND,
                 tier=tier,
                 family=family,
+                context_budget=parse_context_budget(
+                    raw, source=f"model-endpoints registry '{path}'", entry_id=key
+                ),
                 conserve_usage=_conserve_spec(
                     raw, source=f"model-endpoints registry '{path}'", entry_id=key
                 ),

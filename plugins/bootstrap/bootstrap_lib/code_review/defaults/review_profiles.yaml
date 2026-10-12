@@ -1,3 +1,23 @@
+# Input-token estimate used to route a lane to a model whose context_budget fits.
+# est_tokens = ceil(input bytes / bytes_per_token) + lane_base_tokens.
+# bytes_per_token -- established: per-read context deltas in a Haiku 5.5
+#   review-lane subagent transcript, 2026-10-12 (Claude Code 2.1.296), counting
+#   Read output with its line-number prefixes because that is what a lane
+#   ingests. 40,000 bytes of unified diff = 21,022 tokens (1.90 B/token);
+#   40,000 bytes of plugins/CLAUDE.md = 18,486 (2.16); 40,000 bytes of Python =
+#   20,676 (1.93). The minimum (1.9) is used so the estimate errs high.
+# lane_base_tokens -- established: a bare git-kit:review-lane-low Haiku subagent
+#   in plugins-kit measured 80,141 first-turn tokens on 2026-10-12. The
+#   auto-loaded project-root CLAUDE.md (113,832 B, about 45.5k tokens at
+#   bytes_per_token) is counted separately from its actual bytes; the remainder
+#   (about 34.6k: system prompt, tools, user-level instruction files, skill and
+#   agent listings) rounds to 35000. That 45.5k figure was derived at 2.5
+#   B/token; at 1.9 B/token the estimate over-counts the auto-loaded root
+#   CLAUDE.md, which is conservative: it errs toward the next entry.
+#   Machine- and session-dependent; override in the user or project layer.
+context_estimate:
+  bytes_per_token: 1.9
+  lane_base_tokens: 35000
 profiles:
 - id: data_only
   selection:
@@ -9,31 +29,39 @@ profiles:
     - .tsv
     - .md
   reviewers:
+  # haiku runs a lane when its estimated input fits its context_budget, otherwise the next entry runs.
   - name: reviewer_a_claude_md_compliance
     model:
-    - {id: luna, effort: high}
+    - {id: haiku, effort: low}
     - {id: sonnet, effort: low}
+    - {id: luna, effort: high}
   - name: reviewer_b_diff_only_bugs
     model:
-    - {id: luna, effort: high}
+    - {id: haiku, effort: low}
     - {id: sonnet, effort: low}
+    - {id: luna, effort: high}
+  # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
   validator_models:
-    bug: [{id: sonnet, effort: low}]
-    claude_md: [{id: sonnet, effort: low}]
+    bug: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
+    claude_md: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
 - id: code
   selection: {}
   reviewers:
+  # haiku runs a lane when its estimated input fits its context_budget, otherwise the next entry runs.
   - name: reviewer_a_claude_md_compliance
     model:
-    - {id: luna, effort: high}
+    - {id: haiku, effort: low}
     - {id: sonnet, effort: low}
+    - {id: luna, effort: high}
   - name: reviewer_b_diff_only_bugs
     model:
     - {id: opus, effort: medium}
+    - {id: sol, effort: medium}
   - name: reviewer_c_introduced_code
     model:
     - {id: sol, effort: high}
     - {id: opus, effort: high}
+  # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
   validator_models:
     bug: [{id: opus, effort: medium}]
-    claude_md: [{id: sonnet, effort: low}]
+    claude_md: [{id: haiku, effort: low}, {id: sonnet, effort: low}]

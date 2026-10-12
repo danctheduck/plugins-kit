@@ -154,6 +154,18 @@ llm-scripting-kit 0.61.0 each raise a distinct `RuntimeWarning` naming the
 install or update command, once per state. Pinned by
 `test_backpressure_classifier_seam.py`.
 
+A caller outside `call_llm` supplies its own error shapes through three
+constructor seams. `is_backpressure(exc)` decides what is waited out (default
+`gate.is_transient_halt`). `retry_after(exc)` reads the wait hint (default
+`gate.halt_retry_after`, which raises `TypeError` for an error that is not a
+`PipelineHaltError`); `retry_after=None` always backs off. `not_admitted(exc)`
+marks an error raised before dispatch: its slot is released without counting
+toward recovery (default: nothing is). For a gated `call_within_budget`, pass
+`deadlines.refused_before_dispatch`: it accepts `CircuitOpen` and
+`BudgetExhausted` (both `deadlines.NotDispatched`; `BudgetExhausted` is also a
+`DeadlineExpired`) and rejects a `DeadlineExpired` raised after dispatch, which
+counts as admitted. `run(fn, label=)` names the call in the notice line.
+
 ## Plugin-opinion razor (hardcoded numbers)
 
 | Opinion | Default | Seam | Verdict |
@@ -204,10 +216,12 @@ one unit's wall-time budget, shared by its first call and repairs.
 `call_within_budget(budget, timeout_s, call, is_timeout=..., circuit=...,
 uncharged=...)` runs one admitted call with `min(timeout_s, remaining)`, charges
 its wall time, turns a budget-imposed timeout into `DeadlineExpired`, and
-refuses before dispatch when the budget is spent or the circuit is open
-(`CircuitOpen`). Call it inside the gate, `gate.run(lambda:
-call_within_budget(...))`, with `uncharged` accepting the backpressure halt so
-queueing and backoff are not charged. `DeadlineCircuit(limit=2)` opens after
+refuses before dispatch when the budget is spent (`BudgetExhausted`) or the
+circuit is open (`CircuitOpen`); both are `NotDispatched`. Call it inside the
+gate, `gate.run(lambda: call_within_budget(...))`, with `uncharged` accepting
+the backpressure error so queueing and backoff are not charged, and the gate
+built with `not_admitted=deadlines.refused_before_dispatch` so a refusal does
+not count toward recovery. `DeadlineCircuit(limit=2)` opens after
 `limit` consecutive units END on a deadline (`record_outcome`, once per unit)
 and stays open. `DeadlineNotes(path)` counts expiries per attempt key; a note
 orders work (mark the unit `deferred`) and never suppresses it.

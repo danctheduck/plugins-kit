@@ -256,11 +256,33 @@ What is shown and what is not:
 - **Shown:** usable entries, out-of-quota entries with their reset time, and
   unreachable entries -- all real on this machine.
 - **Hidden, silently:** an id that resolves to nothing, one this caller cannot
-  route, one that fails `--requirements`, and one you `--exclude`. No notice or
+  route, one that fails `--requirements`, one you `--exclude`, and (with
+  `--context-tokens N`) one whose `context_budget` is below N. No notice or
   warning is printed for them.
 - **The floor:** when no usable entry is left, `describe` exits `1` with a JSON
   error on stderr that lists EVERY declared id and what happened to it, in
-  declared order. That is where a typo shows up.
+  declared order. That is where a typo shows up; an entry cut by
+  `--context-tokens` reads `over context budget (<budget> < <N>)`.
+
+`context_budget` is an optional positive integer on any registry entry (harness
+or transport), merged across layers like the other keys: the largest estimated
+input, in tokens, that the entry should be routed. `describe ... --context-tokens N`
+(Python: `describe(..., context_tokens=N)`) leaves out entries whose budget is
+below N; entries without a budget, and calls without the flag, are unaffected.
+The shipped `haiku` entry sets 100000 as a routing budget (its price tier), not
+its native window; larger inputs route to the next entry. An Agent-tool
+subagent does not apply the user's `autoCompactWindow` (measured: 219,988
+context tokens, no compaction event), so for subagents this budget is the only
+bound; a `claude -p` Haiku session does apply it and compacts below the
+configured window.
+
+The default for `haiku` is 100000. Override it per preference: set a different
+integer under `endpoints.haiku.context_budget` to change it, or set it to `null`
+to remove it (the entry is then never filtered by `--context-tokens`). Put the
+override in `~/.claude/config/llm-scripting-kit.yaml` (fleet), the machine file,
+or a project file; the highest-precedence layer that mentions the key wins, and
+an explicit `null` overrides a lower layer's integer. Other non-integer or
+non-positive values raise.
 
 ### `record-halt` -- write an observed quota halt back
 

@@ -208,8 +208,27 @@ def _add_describe_args(parser: argparse.ArgumentParser) -> None:
         default=[],
         help="An id the caller has ruled out; repeatable or comma-separated.",
     )
+    parser.add_argument(
+        "--context-tokens",
+        type=_non_negative_int,
+        default=None,
+        help=(
+            "Estimated input size in tokens: an entry whose context_budget is "
+            "below it is left out of the menu."
+        ),
+    )
     parser.add_argument("--json", action="store_true", help="Emit the ranking as JSON.")
     _add_project_arg(parser)
+
+
+def _non_negative_int(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        value = -1
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"expected a non-negative integer, got {text!r}")
+    return value
 
 
 def _split_ids(values: Optional[list[str]]) -> list[str]:
@@ -826,6 +845,7 @@ def _cmd_describe(ids: list[str], args: argparse.Namespace) -> int:
         backend_factory=_backend_factory if args.caller == "process" else None,
         exclude=_split_ids(args.exclude),
         dispatchable=tuple(args.dispatchable),
+        context_tokens=args.context_tokens,
     )
     if args.json:
         _json(ranking.to_json())

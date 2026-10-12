@@ -271,7 +271,7 @@ def _validate_issue(item: Any, index: int) -> dict[str, Any]:
 # Bumped whenever any prompt text below changes, so a recorded lane result says
 # which wording produced it. A comparison across prompt versions is not a
 # like-for-like measurement, and without this the difference is invisible.
-PROMPT_VERSION = "9"
+PROMPT_VERSION = "10"
 
 
 # The false-positive guardrails, stated once. These are the same rules the
@@ -378,6 +378,16 @@ it, no Markdown code fence. Each element is an object with exactly these keys:
 Return [] when there is nothing to report."""
 
 
+# The Read tool returns a bounded page per call and appends a "[Truncated:
+# PARTIAL view ... offset=<n> limit=<m>" notice. A reviewer that stops at the
+# first page reviews only part of its input, so the rule is stated once here
+# and embedded in every reviewer prompt.
+FULL_READ_RULE = """\
+Read in full. Read the assigned chunk diff, and every CLAUDE.md you are
+directed to read, in full: when Read returns a partial view, continue with the
+offset it names until the last line. Never review from a partial page."""
+
+
 @dataclass(frozen=True)
 class LanePrompt:
     """The canonical prompt for one reviewer lane."""
@@ -400,6 +410,8 @@ keys, schema or column-count violations, and broken cross-file references.
 Restrictions. The diff below is everything you get and everything you may
 consider. Do not ask for other files, do not reason about code you cannot see,
 and do not report an issue in a file that does not appear in this diff.
+
+{FULL_READ_RULE}
 
 {GUARDRAILS}
 
@@ -445,6 +457,8 @@ reviewer.
 Restrictions. Only report issues in files that appear in this diff, and only for
 what this change introduces -- a pre-existing violation is not yours to report.
 
+{FULL_READ_RULE}
+
 {GUARDRAILS}
 
 {OUTPUT_INSTRUCTION}"""
@@ -479,6 +493,8 @@ Restrictions. Only report issues in files that appear in this diff. When the
 context you would need to settle an issue is not in one of those files, you
 cannot settle it -- do not report it. The silenced-error rule is the one
 exception.
+
+{FULL_READ_RULE}
 
 {GUARDRAILS}
 

@@ -168,6 +168,12 @@ The unit emits substantially more than you need to keep.
 **Test:** would you skim and discard most of the output?
 **Gloss:** "emits much more than you need to keep"
 
+### `large-context` `[skill]` `render: glossed`
+The unit must hold a large context at once, beyond what small-context seats are priced or compacted for.
+**Test:** must the unit hold more than about 100k tokens of context at once --
+whole-repository reads, long documents, large diffs?
+**Gloss:** "the unit must hold more than about 100k tokens of context at once -- whole-repository reads, long documents, large diffs -- so it is never routed to a seat priced or compacted for small contexts"
+
 ### `cross-check` `[skill]` `render: glossed`
 An independent second opinion on a conclusion Claude already reached.
 **Test:** does a conclusion already exist, and is the point to have it challenged by

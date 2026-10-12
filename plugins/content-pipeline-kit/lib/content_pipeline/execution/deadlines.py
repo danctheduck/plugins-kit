@@ -10,7 +10,11 @@ time:
   wall time from dispatch to return is charged (success or failure), and a
   timeout that the budget, not the call's own timeout, imposed is re-raised
   as :class:`DeadlineExpired`. A call made with no budget left raises
-  :class:`DeadlineExpired` without dispatching.
+  :class:`BudgetExhausted` (a :class:`DeadlineExpired`) without dispatching.
+  Both refusals made before dispatch derive from :class:`NotDispatched`, and
+  :func:`refused_before_dispatch` is the predicate a concurrency gate takes
+  (``AdaptiveGate(not_admitted=...)``) so a refused call does not count as
+  admitted.
 - :class:`DeadlineCircuit` -- sticky and run-wide. The consumer records each
   unit's TERMINAL outcome (did the unit end on a deadline or not); after
   ``limit`` consecutive deadline outcomes it opens and stays open, and
@@ -49,12 +53,25 @@ _NOTE_FIELDS = ("subject", "expiries", "last_run_id")
 _STORE_LOCK = threading.RLock()
 
 
+class NotDispatched(Exception):
+    """Base of every refusal :func:`call_within_budget` makes before dispatch."""
+
+
 class DeadlineExpired(Exception):
     """The unit's budget ran out before or during a call."""
 
 
-class CircuitOpen(Exception):
+class BudgetExhausted(DeadlineExpired, NotDispatched):
+    """The unit's budget was already spent; the call was not dispatched."""
+
+
+class CircuitOpen(NotDispatched):
     """The run-wide deadline circuit is open; no budgeted call is dispatched."""
+
+
+def refused_before_dispatch(exc: BaseException) -> bool:
+    """Whether ``exc`` is a refusal made before the call reached the endpoint."""
+    return isinstance(exc, NotDispatched)
 
 
 class UnitBudget:
@@ -138,13 +155,15 @@ def call_within_budget(
     exception ``is_timeout`` accepts is re-raised as :class:`DeadlineExpired`
     when the budget was the binding limit, and unchanged when the call's own
     timeout was. Raises :class:`CircuitOpen` without dispatching when
-    ``circuit`` is open, and :class:`DeadlineExpired` when nothing remains.
+    ``circuit`` is open, and :class:`BudgetExhausted` (a
+    :class:`DeadlineExpired`) when nothing remains; both are
+    :class:`NotDispatched`.
     """
     if circuit is not None and circuit.is_open():
         raise CircuitOpen("the deadline circuit opened after consecutive unit deadlines")
     remaining = budget.remaining()
     if remaining <= 0:
-        raise DeadlineExpired("the unit budget is exhausted")
+        raise BudgetExhausted("the unit budget is exhausted")
     budget_limited = remaining <= timeout_seconds
     dispatched = budget.clock()
     try:
@@ -242,8 +261,11 @@ def _validate_payload(payload: object) -> None:
 
 
 __all__ = [
+    "NotDispatched",
     "DeadlineExpired",
+    "BudgetExhausted",
     "CircuitOpen",
+    "refused_before_dispatch",
     "UnitBudget",
     "DeadlineCircuit",
     "call_within_budget",

@@ -26,12 +26,11 @@
 // a future edit that "optimizes" it into a flat parallel() reintroduces exactly
 // the defect the settled model was created to remove.
 //
-// MODEL PINNING. opus + high, matching the detect/classify pin rather than the
-// remediate pin (skills-kit/CLAUDE.md, "Audit workflow lanes pin an explicit model
-// AND effort"). Generation is judgment core, not application of an already-made
-// decision: it places facts, words a hoist so it is true as stated at a new depth,
-// and de-duplicates against an ambient chain. Remediation's sonnet+low pin is for
-// applying edits the Q&A gate already decided; nothing here has been decided yet.
+// MODEL PINNING. The model and effort come from the generate slot of
+// lane_models (skills_kit_lib/defaults/lane_models.yaml and its user/project
+// layers), not from a pin in this file. Generation places facts, words a hoist
+// so it is true as stated at a new depth, and de-duplicates against an ambient
+// chain, so its slot reads whole documents rather than applying decided edits.
 //
 // args = {
 //   subjects: [ { root: string,

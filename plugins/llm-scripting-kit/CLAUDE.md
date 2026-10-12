@@ -334,6 +334,21 @@ for callers with no loop of their own. Five things are easy to break:
   with". Without it, each sibling costs one failed dispatch (drill finding
   F4). A new caller that omits `entries` reintroduces that gap.
 
+- **`context_budget` leaves an entry out of the menu silently.** An entry
+  whose `context_budget` (optional positive integer on any registry entry) is
+  below the estimated input is hidden by `describe --context-tokens N`
+  (`describe(context_tokens=)`); the floor lists it as `over context budget`.
+  Shipped `haiku` is 100000, a routing/pricing budget and not its native
+  window. An Agent-tool subagent does not apply the user's `autoCompactWindow`
+  (measured: 219,988 context tokens, no compaction event), so for subagents
+  this budget is the only bound; a `claude -p` Haiku session does apply it and
+  compacts below the configured window. Override with an integer, or remove with `null`, in
+  `~/.claude/config/llm-scripting-kit.yaml`, the machine `config.yaml`, or a
+  project config; an explicit `null` beats a lower layer's integer. git-kit
+  and p4-kit code review pass the per-chunk estimate
+  (`bootstrap_lib.code_review.token_estimate`; constants in the review
+  profile's `context_estimate`). Human-facing detail: README, "describe".
+
 The `usage` and `describe` verbs are the inspection surfaces for a check that
 is otherwise invisible.
 

@@ -1196,6 +1196,9 @@ claude_md:
     - rule: All work happens in the project folder. A worktree is only a read-only copy of the project at a specific commit, a scratch directory only holds a subset of the project for a tool, and whoever creates either removes it as soon as it is no longer needed.
       keywords: [worktree, git worktree add, EnterWorktree, isolation, second checkout, scratch directory, parallel writers, read-only snapshot, cleanup, merge-base baseline]
       why: The user's standing rule for this repo. Parallel writers share this folder with separate file ownership, and git reads or builds any revision without a checkout, so a second copy is rarely needed and never a place to do work. See "Worktrees and scratch copies" in Development Workflow.
+    - rule: Every shipped model declaration lists at least one Claude-harness and one Codex-harness entry, so an action survives either usage pool running out.
+      keywords: [model declaration, routing row, reviewer model, claude and codex, usage pool, shipped defaults, fallback, harness family]
+      why: Shipped defaults must let a user with only Claude or only Codex usage remaining still perform the action. Exemptions (review validator_models, skills-kit agent-only lane families, workflow-kit EXECUTOR_MODELS) are named, each with a reason, in tests/repo-scripts/test_shipped_model_families.py; a new Claude-only declaration fails that test.
     - rule: When a machine is wedged, snapshot its state before any repair, and ship the repair in bootstrap or bootstrap-stuck-fix rather than fixing the machine by hand.
       keywords: [wedged machine, snapshot first, hand repair, manual fix, anti-pattern, ship the repair]
       why: A hand-repair reaches one machine and destroys the evidence every other machine's fix depends on. See the never_hand_repair_a_wedge insight and the anti-pattern section in Bootstrap.

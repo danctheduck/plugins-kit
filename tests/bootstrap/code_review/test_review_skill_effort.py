@@ -144,7 +144,9 @@ def test_validators_dispatch_to_the_effort_agent(vcs: str) -> None:
     action = _flat(validate["action"])
     kit = KIT[vcs]
     assert "an ordered list of one or more `{id, effort}` entries" in action
-    assert "Dispatch the first Agent entry." in action
+    assert "Choose per issue the first Agent entry that `describe` leaves usable." in action
+    assert "--context-tokens <est_tokens.validator of the issue's chunk>" in action
+    assert "llm-scripting-kit 0.63.0 or later" in action
     assert f"`subagent_type: {kit}:review-lane-<entry effort>` and `model: <id>`" in action
 
 
@@ -220,7 +222,7 @@ def test_worked_overrides_use_the_entry_shape_with_a_level_placeholder(vcs: str)
     examples = _example_blocks(gen.render_configuration(vcs))
     assert len(examples) >= 3
     for example in examples:
-        for profile in example["profiles"]:
+        for profile in example.get("profiles", []):
             for reviewer in profile["reviewers"]:
                 assert "effort" not in reviewer, "lane-level effort was removed"
                 assert isinstance(reviewer["model"], list) and reviewer["model"]
