@@ -153,11 +153,15 @@ endpoints:
   # resolves to the current Opus, while a dated id such as claude-opus-5 keeps
   # serving that release after an upgrade. Pin a dated id in a user layer only
   # to hold a release deliberately.
+  # context_budget is a ROUTING budget, not Haiku 5.5's native window (1M): it
+  # keeps Haiku at its under-100k price and below the point where a user's
+  # auto-compaction fires; larger inputs route to the next entry.
   haiku:
     harness: claude
     model: haiku
     tier: 1
     family: anthropic
+    context_budget: 100000
   sonnet:
     harness: claude
     model: sonnet

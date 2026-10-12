@@ -51,7 +51,7 @@ class TestShippedDefaultsPreserveAgentDispatch:
         every lane through the Agent tool. The one shipped endpoint entry is
         `luna` ahead of `sonnet` on reviewer_a (both profiles) and data_only reviewer_b,
         `sol` behind `opus` on code reviewer_b, and `sol` ahead of `opus` on reviewer_c. Validators are never
-        endpoint-eligible, so each reason is a one-entry list holding an alias.
+        endpoint-eligible, so each reason is a list holding only aliases.
         """
         config, _provenance = rp.resolve_config(tmp_path / "project", home=tmp_path / "home")
         config = rp.apply_model_priority(config)
@@ -73,11 +73,11 @@ class TestShippedDefaultsPreserveAgentDispatch:
                     if not lp.is_agent_alias(model_id)
                 )
             for reason, entries in profile["validator_models"].items():
-                assert isinstance(entries, list) and len(entries) == 1, (
-                    f"shipped {profile['id']}.validator_models.{reason} is not a one-entry list"
+                assert isinstance(entries, list) and entries, (
+                    f"shipped {profile['id']}.validator_models.{reason} is not a non-empty list"
                 )
-                assert lp.is_agent_alias(entries[0]["id"]), (
-                    f"shipped {profile['id']}.validator_models.{reason} is not an Agent alias"
+                assert all(lp.is_agent_alias(entry["id"]) for entry in entries), (
+                    f"shipped {profile['id']}.validator_models.{reason} holds a non-Agent entry"
                 )
         assert endpoint_entries == [
             ("data_only", "reviewer_a_claude_md_compliance", "luna"),
@@ -497,3 +497,11 @@ class TestMechanicalFindingsInPrompt:
                 {"file": "old.py", "checks_run": [], "findings": []},
                 {"file": "new.py", "mechanical_contract": 2, "checks_run": [], "findings": []},
             ])
+
+
+def test_full_read_rule_in_every_canonical_prompt() -> None:
+    sentence = "continue with the offset it names until the last line"
+    for lane, prompt in lp.LANE_PROMPTS.items():
+        flat = " ".join(prompt.system.split())
+        assert sentence in flat, lane
+        assert "Never review from a partial page." in flat, lane

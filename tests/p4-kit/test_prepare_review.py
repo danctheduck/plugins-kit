@@ -1719,6 +1719,7 @@ class TestBuildBundle:
         # Diff content lives in chunk files on disk now; no inline `diff` field.
         assert "diff" not in bundle
         assert len(bundle["diff_chunks"]) >= 1
+        assert all("validator" in c["est_tokens"] for c in bundle["diff_chunks"])
         assert "==== //depot/src/foo.cpp#1" in _concat_diff_from_chunks(bundle)
         assert len(bundle["changed_files"]) == 1
         cf = bundle["changed_files"][0]

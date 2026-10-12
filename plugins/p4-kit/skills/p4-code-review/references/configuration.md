@@ -112,6 +112,9 @@ when there are findings, and 2 when a layer is malformed or invalid.
 ## Shipped defaults
 
 ```yaml
+context_estimate:
+  bytes_per_token: 2.5
+  lane_base_tokens: 35000
 profiles:
 - id: data_only
   selection:
@@ -123,27 +126,30 @@ profiles:
     - .tsv
     - .md
   reviewers:
-  # Reviewer lanes do not use haiku: diff chunks reach 1 MB (about 250-350k tokens) and haiku sessions compact at 100k.
+  # haiku runs a lane when its estimated input fits its context_budget, otherwise the next entry runs.
   - name: reviewer_a_claude_md_compliance
     model:
-    - {id: luna, effort: high}
+    - {id: haiku, effort: low}
     - {id: sonnet, effort: low}
+    - {id: luna, effort: high}
   - name: reviewer_b_diff_only_bugs
     model:
-    - {id: luna, effort: high}
+    - {id: haiku, effort: low}
     - {id: sonnet, effort: low}
+    - {id: luna, effort: high}
   # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
   validator_models:
-    bug: [{id: haiku, effort: low}]
-    claude_md: [{id: haiku, effort: low}]
+    bug: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
+    claude_md: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
 - id: code
   selection: {}
   reviewers:
-  # Reviewer lanes do not use haiku: diff chunks reach 1 MB (about 250-350k tokens) and haiku sessions compact at 100k.
+  # haiku runs a lane when its estimated input fits its context_budget, otherwise the next entry runs.
   - name: reviewer_a_claude_md_compliance
     model:
-    - {id: luna, effort: high}
+    - {id: haiku, effort: low}
     - {id: sonnet, effort: low}
+    - {id: luna, effort: high}
   - name: reviewer_b_diff_only_bugs
     model:
     - {id: opus, effort: medium}
@@ -155,7 +161,7 @@ profiles:
   # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
   validator_models:
     bug: [{id: opus, effort: medium}]
-    claude_md: [{id: haiku, effort: low}]
+    claude_md: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
 ```
 
 ## What an `effort` value may name
@@ -237,14 +243,19 @@ no separate field to set.
 
 ### How a multi-entry declaration is routed
 
-For a reviewer whose declaration has two or more entries, the skill runs
+For each (reviewer, chunk) pair whose reviewer declaration has two or more entries, the skill runs
 
-    ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <id>... --caller session [--project-root <root>] [--dispatchable transport] [--self <id>]
+    ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <id>... --caller session --context-tokens <chunk est_tokens> [--project-root <root>] [--dispatchable transport] [--self <id>]
 
 (Windows: ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe), and prints its output verbatim: the entries this machine can use or will be able to use, in pace
 order, the one marked `[default]`, and the rule text that says how to choose, how to announce
 the choice, and when to re-select. The skill follows that printed rule rather than restating
-it, so the rule you read in a review is the rule llm-scripting-kit applied. `--self` names the
+it, so the rule you read in a review is the rule llm-scripting-kit applied. `--context-tokens`
+is the chunk's estimated input for that reviewer (`diff_chunks[i].est_tokens`): describe leaves
+out every entry whose registry `context_budget` is smaller, so `haiku` (budget 100000) runs a
+lane only when the chunk fits and the next entry runs otherwise. A validator is routed the same
+way per issue, over the validator list and the issue's chunk `est_tokens.validator`. An installed
+llm-scripting-kit that rejects `--context-tokens` fails the lane. `--self` names the
 model the reviewing session runs on; describe marks that entry `[author]`, and its rule
 prefers a non-author entry.
 
@@ -373,11 +384,33 @@ pinned to Sonnet with nothing to choose between. To keep a cross-family entry ah
 state the list you want instead:
 `model: [{id: luna, effort: <level>}, {id: sonnet, effort: <level>}]`.
 
+## Context estimate
+
+Top-level `context_estimate` holds the two constants behind each chunk's `est_tokens`, the
+figure that decides which model entry fits a lane's `context_budget`:
+
+| Key | Meaning | Shipped |
+|---|---|---|
+| `bytes_per_token` | bytes of diff, CLAUDE.md and file text counted as one token | `2.5` |
+| `lane_base_tokens` | tokens every lane spends before its own input (system prompt, tools, user-level instruction files, listings) | `35000` |
+
+`est_tokens = ceil(input bytes / bytes_per_token) + lane_base_tokens`. It layers like any other
+key: a user or project layer states only the key it changes, and prepare computes `est_tokens`
+from the values resolved for the project root it reviews. Each value must be a positive number;
+an unknown key or a non-positive value is a hard error. The measured basis for the shipped
+values is in the shipped defaults file. A project whose auto-loaded instruction files are
+smaller than the shipped basis assumes can lower `lane_base_tokens`:
+
+```yaml
+context_estimate:
+  lane_base_tokens: 20000
+```
+
 ## Inspecting the resolved table
 
     "${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" "${P4_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}/scripts/render_review_profiles.py" --project-root <project root>
 
-prints the merged `profiles` table as YAML, then a `---` separator, then which layers were
+prints the merged `profiles` table as YAML, then the resolved `context_estimate` mapping, then a `---` separator, then which layers were
 applied and (for any absent override) the path that would create it. Each reviewer's `model`
 is its `{id, effort}` entry list in declared order, and each validator reason is an ordered entry
 list. When any layer is incomplete it prints the findings to stderr instead and exits

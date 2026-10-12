@@ -98,7 +98,8 @@ Output schema:
       "bundle_dir": "<absolute path to bundle directory>",
       "diff_chunks": [
         {"index": 0, "path": "chunks/chunk-000.diff",
-         "files": ["<depot path>", ...], "bytes": <int>}
+         "files": ["<depot path>", ...], "bytes": <int>,
+         "est_tokens": {"<reviewer name>": <int>, ..., "validator": <int>}}
       ],
       "changed_files": [
         {"depot": "<depot path>", "local": "<local path>",
