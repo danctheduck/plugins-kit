@@ -67,8 +67,10 @@ Rules: `CLAUDE.md`, "Backend selection".
 
 Wrap calls in `content_pipeline.llm.gate.AdaptiveGate` (or
 `call_llm_gated(gate, backend, ...)`), one gate per run. An overload halt is
-waited out, not failed. Rules, defaults and the give-up behavior: `CLAUDE.md`,
-"The adaptive gate".
+waited out, not failed. A caller with its own error types passes
+`is_backpressure=`, `retry_after=` (or `None`) and, around
+`deadlines.call_within_budget`, `not_admitted=deadlines.refused_before_dispatch`.
+Rules, defaults and the give-up behavior: `CLAUDE.md`, "The adaptive gate".
 
 ## Parallel dependency graphs, deadlines and the failure cache
 

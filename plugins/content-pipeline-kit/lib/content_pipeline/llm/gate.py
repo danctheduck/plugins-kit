@@ -10,6 +10,17 @@ back toward ``jobs``. A call still refused after ``give_up_s`` fails loudly
 with :class:`EndpointBusyError`, and so does every later call at once.
 Every other error (quota, auth, credit, unreachable) passes through unchanged.
 
+Callers outside :func:`call_llm_gated` supply their own error shapes through
+three seams. ``is_backpressure(exc)`` decides which errors the gate waits out
+(default :func:`is_transient_halt`). ``retry_after(exc)`` reads the
+endpoint's wait hint from such an error (default :func:`halt_retry_after`,
+which refuses an error that is not a ``PipelineHaltError``); pass
+``retry_after=None`` to always back off. ``not_admitted(exc)`` marks an
+error raised BEFORE the call reached the endpoint (an open circuit, an
+exhausted unit budget): its slot is released without counting toward
+recovery. ``content_pipeline.execution.deadlines.refused_before_dispatch`` is
+that predicate for :func:`~content_pipeline.execution.deadlines.call_within_budget`.
+
 The backoff, cap, give-up and recovery numbers are library defaults and
 constructor parameters (``base_s``, ``cap_s``, ``give_up_s``,
 ``recover_after``); see the razor table in the plugin CLAUDE.md.
@@ -40,6 +51,31 @@ class EndpointBusyError(RuntimeError):
     """The endpoint refused admission for longer than the gate's overall cap."""
 
 
+def is_transient_halt(exc: BaseException) -> bool:
+    """Default backpressure predicate: a halt whose kind is in TRANSIENT_KINDS."""
+    return isinstance(exc, platform.PipelineHaltError) and exc.kind in TRANSIENT_KINDS
+
+
+def halt_retry_after(exc: BaseException) -> Optional[float]:
+    """Default retry-after extractor: ``PipelineHaltError.retry_after_s``.
+
+    Raises ``TypeError`` for any other error: a gate given its own
+    ``is_backpressure`` must also say how to read the wait hint, or pass
+    ``retry_after=None`` to always back off.
+    """
+    if not isinstance(exc, platform.PipelineHaltError):
+        raise TypeError(
+            "AdaptiveGate: backpressure error %s is not a PipelineHaltError; pass "
+            "retry_after=<extractor> or retry_after=None to always back off"
+            % type(exc).__name__
+        )
+    return exc.retry_after_s
+
+
+def _never(exc: BaseException) -> bool:
+    return False
+
+
 class AdaptiveGate:
     def __init__(
         self,
@@ -53,6 +89,9 @@ class AdaptiveGate:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
         jitter: Callable[[], float] = random.random,
+        is_backpressure: Callable[[BaseException], bool] = is_transient_halt,
+        retry_after: Optional[Callable[[BaseException], Optional[float]]] = halt_retry_after,
+        not_admitted: Callable[[BaseException], bool] = _never,
     ) -> None:
         self.jobs = max(1, jobs)
         self.limit = self.jobs
@@ -64,6 +103,9 @@ class AdaptiveGate:
         self.clock = clock
         self.sleep = sleep
         self.jitter = jitter
+        self.is_backpressure = is_backpressure
+        self.retry_after = retry_after
+        self.not_admitted = not_admitted
         self.in_flight = 0
         self.refusals = 0
         self.gave_up: Optional[str] = None
@@ -87,8 +129,12 @@ class AdaptiveGate:
             self.in_flight += 1
             return self._epoch
 
-    def _release(self, epoch: int, refused: bool) -> int:
-        """Free a slot; return the limit the refused call saw, or 0."""
+    def _release(self, epoch: int, refused: bool, *, admitted: bool = True) -> int:
+        """Free a slot; return the limit the refused call saw, or 0.
+
+        A call that was not refused counts toward recovery only when it was
+        ``admitted`` -- it reached the endpoint.
+        """
         with self._cond:
             self.in_flight -= 1
             before = 0
@@ -99,7 +145,7 @@ class AdaptiveGate:
                 if epoch == self._epoch and self.limit > 1:
                     self.limit = max(1, self.limit // 2)
                     self._epoch += 1
-            else:
+            elif admitted:
                 self._admitted += 1
                 if self._admitted >= self.recover_after and self.limit < self.jobs:
                     self.limit += 1
@@ -114,8 +160,23 @@ class AdaptiveGate:
         step = min(self.cap_s, self.base_s * (2 ** attempt))
         return step / 2 + step / 2 * self.jitter()
 
-    def run(self, fn: Callable[[], T]) -> T:
-        """Run ``fn`` under the gate, waiting out backpressure halts."""
+    def _classify(self, epoch: int, exc: BaseException) -> bool:
+        """Return whether ``exc`` is backpressure; release the slot if it is not."""
+        try:
+            backpressure = self.is_backpressure(exc)
+            admitted = backpressure or not self.not_admitted(exc)
+        except BaseException:
+            self._release(epoch, refused=False)
+            raise
+        if not backpressure:
+            self._release(epoch, refused=False, admitted=admitted)
+        return backpressure
+
+    def run(self, fn: Callable[[], T], *, label: Optional[str] = None) -> T:
+        """Run ``fn`` under the gate, waiting out backpressure errors.
+
+        ``label`` names the call in the notice line.
+        """
         started = self.clock()
         attempt = 0
         while True:
@@ -124,9 +185,8 @@ class AdaptiveGate:
             epoch = self._acquire()
             try:
                 result = fn()
-            except platform.PipelineHaltError as exc:
-                if exc.kind not in TRANSIENT_KINDS:
-                    self._release(epoch, refused=False)
+            except BaseException as exc:
+                if not self._classify(epoch, exc):
                     raise
                 waited = self.clock() - started
                 if waited >= self.give_up_s:
@@ -142,20 +202,21 @@ class AdaptiveGate:
                     self._release(epoch, refused=True)
                     raise EndpointBusyError(self.gave_up) from exc
                 before = self._release(epoch, refused=True)
+                hint = None if self.retry_after is None else self.retry_after(exc)
                 delay = min(
-                    self._delay(attempt, exc.retry_after_s),
+                    self._delay(attempt, hint),
                     max(0.0, self.give_up_s - waited),
                 )
                 self.notice(
-                    "endpoint busy (%s); concurrency %d -> %d, retrying in %ds"
-                    % (str(exc)[:120], before, self.limit, delay)
+                    "endpoint busy (%s); concurrency %d -> %d, retrying %sin %ds"
+                    % (
+                        str(exc)[:120], before, self.limit,
+                        "" if label is None else label + " ", delay,
+                    )
                 )
                 attempt += 1
                 self.sleep(delay)
                 continue
-            except BaseException:
-                self._release(epoch, refused=False)
-                raise
             self._release(epoch, refused=False)
             return result
 

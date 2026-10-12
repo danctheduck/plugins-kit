@@ -212,3 +212,110 @@ def test_blocked_waiter_raises_when_another_thread_gives_up():
     assert isinstance(errors["h"], EndpointBusyError)
     assert isinstance(errors["w"], EndpointBusyError)
     assert ran == [] and g.in_flight == 0
+
+
+# --- Seams for callers outside call_llm (content-pipeline-kit 0.36.0) ---
+
+from content_pipeline.execution.deadlines import (  # noqa: E402
+    BudgetExhausted, CircuitOpen, DeadlineCircuit, DeadlineExpired, UnitBudget,
+    call_within_budget, refused_before_dispatch,
+)
+
+
+class Busy(Exception):
+    """A caller's own backpressure error: not a PipelineHaltError, no retry_after_s."""
+
+
+class CallTimeout(Exception):
+    pass
+
+
+def is_busy(exc):
+    return isinstance(exc, Busy)
+
+
+def test_injected_predicate_waits_out_a_foreign_error_without_retry_after():
+    g, c, notes = make(is_backpressure=is_busy, retry_after=None)
+    fn, st = flaky([Busy("queue full"), Busy("queue full")])
+    assert g.run(fn, label="page-7") == "ok"
+    assert c.slept == [15.0, 30.0]  # base 30, equal jitter at jitter()==0
+    assert st["n"] == 3 and g.refusals == 2 and g.in_flight == 0
+    assert "retrying page-7 in" in notes[0]
+
+
+def test_injected_predicate_replaces_the_default():
+    g, c, _ = make(is_backpressure=is_busy, retry_after=None)
+    with pytest.raises(PipelineHaltError):
+        g.run(flaky([bp(1.0)])[0])
+    assert c.slept == [] and g.refusals == 0 and g.in_flight == 0
+
+
+def test_injected_extractor_reads_the_callers_hint():
+    class Hinted(Exception):
+        wait = 7.0
+
+    g, c, _ = make(is_backpressure=lambda e: isinstance(e, Hinted), retry_after=lambda e: e.wait)
+    g.run(flaky([Hinted()])[0])
+    assert c.slept == [7.0]
+
+
+def test_default_extractor_refuses_a_foreign_error_loudly():
+    g, c, _ = make(is_backpressure=is_busy)
+    with pytest.raises(TypeError, match="retry_after"):
+        g.run(flaky([Busy("x")])[0])
+    assert c.slept == [] and g.in_flight == 0
+
+
+def _recovering_gate():
+    """jobs=2 halved to 1 by one refusal; its admitted retry is 1 of 2 to recover."""
+    g, c, _ = make(jobs=2, recover_after=2, not_admitted=refused_before_dispatch)
+    g.run(flaky([bp()])[0])
+    assert g.limit == 1 and g._admitted == 1
+    return g, c
+
+
+def test_pre_dispatch_refusals_do_not_advance_recovery():
+    g, _ = _recovering_gate()
+    circuit = DeadlineCircuit(limit=1)
+    circuit.record_outcome(deadline_expired=True)
+    with pytest.raises(CircuitOpen):
+        g.run(lambda: call_within_budget(
+            UnitBudget(10), 5, lambda t: "x", is_timeout=lambda e: False, circuit=circuit))
+    spent = UnitBudget(1)
+    spent.charge(1)
+    with pytest.raises(BudgetExhausted):
+        g.run(lambda: call_within_budget(spent, 5, lambda t: "x", is_timeout=lambda e: False))
+    assert g.limit == 1 and g._admitted == 1 and g.in_flight == 0
+
+
+def test_a_deadline_after_dispatch_advances_recovery():
+    g, c = _recovering_gate()
+    budget = UnitBudget(4, clock=c)
+
+    def call(timeout):
+        c.now += timeout
+        raise CallTimeout("timed out")
+
+    with pytest.raises(DeadlineExpired) as caught:
+        g.run(lambda: call_within_budget(
+            budget, 30, call, is_timeout=lambda e: isinstance(e, CallTimeout)))
+    assert not isinstance(caught.value, BudgetExhausted)
+    assert g.limit == 2 and g.in_flight == 0
+
+
+def test_gate_and_budget_compose_backpressure_uncharged():
+    g, c, _ = make(is_backpressure=is_busy, retry_after=None,
+                   not_admitted=refused_before_dispatch)
+    budget = UnitBudget(100, clock=c)
+    seen = []
+
+    def call(timeout):
+        seen.append(timeout)
+        c.now += 2
+        if len(seen) == 1:
+            raise Busy("503")
+        return "answer"
+
+    assert g.run(lambda: call_within_budget(
+        budget, 60, call, is_timeout=lambda e: False, uncharged=is_busy)) == "answer"
+    assert seen == [60, 60] and budget.spent == 2 and c.slept == [15.0]

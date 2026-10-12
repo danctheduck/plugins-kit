@@ -224,3 +224,29 @@ def test_a_corrupt_notes_file_reads_as_empty_and_reports(tmp_path: Path):
 
     assert notes.lookup("k") is None
     assert "deadline notes ignored" in notes.report
+
+
+def test_refusals_before_dispatch_are_marked_and_a_later_deadline_is_not():
+    from content_pipeline.execution.deadlines import BudgetExhausted, refused_before_dispatch
+
+    clock = Clock()
+    budget = UnitBudget(4, clock=clock)
+
+    def slow(timeout):
+        clock.advance(timeout)
+        raise CallTimeout("request timed out")
+
+    with pytest.raises(DeadlineExpired) as after:
+        call_within_budget(budget, 30, slow, is_timeout=is_timeout)
+    assert not refused_before_dispatch(after.value)
+
+    with pytest.raises(BudgetExhausted) as before:
+        call_within_budget(budget, 30, slow, is_timeout=is_timeout)
+    assert isinstance(before.value, DeadlineExpired)
+    assert refused_before_dispatch(before.value)
+
+    circuit = DeadlineCircuit(limit=1)
+    circuit.record_outcome(deadline_expired=True)
+    with pytest.raises(CircuitOpen) as refused:
+        call_within_budget(UnitBudget(10), 30, slow, is_timeout=is_timeout, circuit=circuit)
+    assert refused_before_dispatch(refused.value)
