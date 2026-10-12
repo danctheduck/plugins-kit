@@ -67,7 +67,6 @@ from .model_endpoints import (
     harness_entry_message,
     parse_billing_mode,
     parse_classification_fields,
-    parse_context_budget,
     parse_effort_style,
     parse_frontdoor,
     resolve_effort_style,
@@ -152,18 +151,9 @@ DEFAULT_MODEL_CONFIG = {
         # `model` is the Claude CLI ALIAS, never a dated id: `claude -p --model
         # opus` resolves to the current Opus, while a dated id such as
         # claude-opus-5 keeps serving that release after an upgrade.
-        # context_budget is a ROUTING budget, not Haiku 5.5's native window
-        # (1M). An Agent-tool subagent and a claude -p Haiku session both apply
-        # the user's autoCompactWindow: with it set to 100000, measured Haiku
-        # review lanes auto-compacted from about 86,000 context tokens, and
-        # lanes that kept reading failed with "Autocompact is thrashing". A
-        # compacted lane loses part of its input, so when you set
-        # autoCompactWindow for Haiku, keep this budget below the point where it
-        # compacts. Larger inputs route to the next entry.
         "haiku": {
             "harness": "claude", "model": "haiku",
             "tier": 1, "family": "anthropic",
-            "context_budget": 100000,
         },
         "sonnet": {
             "harness": "claude", "model": "sonnet",
@@ -269,7 +259,6 @@ def load_model_config(*, project_root: Optional[str] = None) -> dict:
     try:
         from bootstrap_lib.config_resolve import (
             ConfigError,
-            load_config_layer,
             resolve_config,
             standard_config_layers,
         )
@@ -307,7 +296,6 @@ def load_model_config(*, project_root: Optional[str] = None) -> dict:
         layers.insert(-1, Path(project_root) / ".local-data" / CONFIG_PLUGIN / CONFIG_FILE)
     try:
         file_cfg = resolve_config(layers)
-        null_budgets = _null_context_budget_endpoints(layers, load_config_layer)
     except ConfigError as e:
         print(
             f"llm-scripting-kit: cannot read layered config ({e}); using the shipped "
@@ -315,31 +303,7 @@ def load_model_config(*, project_root: Optional[str] = None) -> dict:
             file=sys.stderr,
         )
         return base
-    merged = deep_merge(base, file_cfg)
-    # deep_merge (and resolve_config) treat an explicit null as ABSENT, so a
-    # higher layer's `context_budget: null` would silently inherit the lower
-    # value. For this one key null means "no budget": re-apply it after the merge.
-    for ep_name in null_budgets:
-        merged["endpoints"][ep_name]["context_budget"] = None
-    return merged
-
-
-def _null_context_budget_endpoints(layers, load_layer) -> list[str]:
-    """Endpoints whose highest-precedence mention of ``context_budget`` is null.
-
-    ``layers`` is in increasing precedence; a later non-null value cancels an
-    earlier null. Only endpoints that survive the merge are returned.
-    """
-    state: dict[str, bool] = {}
-    for layer in layers:
-        data = load_layer(layer)
-        endpoints = data.get("endpoints") if data else None
-        if not isinstance(endpoints, dict):
-            continue
-        for name, ep in endpoints.items():
-            if isinstance(ep, dict) and "context_budget" in ep:
-                state[name] = ep["context_budget"] is None
-    return [n for n, is_null in state.items() if is_null]
+    return deep_merge(base, file_cfg)
 
 
 def _default_endpoint_value(config: Mapping[str, object]) -> object:
@@ -487,11 +451,6 @@ def _config_classification(
     )
 
 
-def _config_context_budget(ep_name: str, ep: Mapping[str, object]) -> Optional[int]:
-    """Validate the optional ``context_budget`` on a config endpoint."""
-    return parse_context_budget(ep, source="layered model config", entry_id=ep_name)
-
-
 def _config_conserve(
     ep_name: str, ep: Mapping[str, object]
 ) -> Optional["ConserveSpec"]:
@@ -575,7 +534,6 @@ def _config_model_entry(
             effort=_config_optional_str(ep_name, ep, kind=kind, key="effort"),
             tier=tier,
             family=family,
-            context_budget=_config_context_budget(ep_name, ep),
             conserve_usage=_config_conserve(ep_name, ep),
         )
 
@@ -598,7 +556,6 @@ def _config_model_entry(
         kind=kind,
         tier=tier,
         family=family,
-        context_budget=_config_context_budget(ep_name, ep),
         conserve_usage=_config_conserve(ep_name, ep),
         frontdoor=_config_frontdoor(ep_name, ep, notes),
         billing_mode=_config_billing_mode(ep_name, ep, notes),

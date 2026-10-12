@@ -11,10 +11,9 @@
 # drops any id those cannot run and reports the drop. audit_job runs through
 # job-kit and llm-scripting-kit, where every declared id can run.
 #
-# classify and remediate apply already-decided edits over small inputs, so they
-# take the cheapest Claude seat (haiku). detect, coverage and generate read whole
-# documents plus references or the ancestor chain and stay on sonnet. The
-# agent-only families run only Claude models (Workflow agent()), so they cannot
+# classify and remediate apply already-decided edits, so they take the cheapest
+# Claude seat (haiku). detect, coverage and generate stay on sonnet.
+# The agent-only families run only Claude models (Workflow agent()), so they cannot
 # carry a codex entry; only audit_job can.
 #
 # Resolver and grammar: skills_kit_lib/lane_models.py.

@@ -55,7 +55,6 @@ from bootstrap_lib.code_review.mechanical_repository import (
     scan_repository,
 )
 from bootstrap_lib.code_review._globs import _matches_one_glob, matches_claim
-from bootstrap_lib.code_review.token_estimate import annotate_chunks
 from bootstrap_lib.code_review.triviality import (
     mechanical_checks,
     mechanical_findings,
@@ -357,10 +356,6 @@ def assemble_bundle(
     runs. What being reviewed changes is who consumes the result, not whether
     it is computed. See bootstrap_lib.code_review.triviality.
 
-    Each diff_chunks entry carries "est_tokens": {lane name: estimated input
-    tokens}, for every reviewer lane name and "validator", used to route a lane
-    to a model whose context_budget fits (bootstrap_lib.code_review.token_estimate).
-
     Each diff_chunks entry also carries "mechanical_scan", shaped as
     {schema_version: 2, files: [{file, checks_run, findings, diagnostics?}]}.
     Each claimed_files entry carries the same object with its one-file record.
@@ -545,7 +540,6 @@ def assemble_bundle(
     unique: list[str] = []
     seen: set[str] = set()
     all_locals: list[str] = []
-    mds_by_ident: dict[str, list[str]] = {}
     for f in files:
         local = f.get("local")
         claude_mds: list[str] = []
@@ -558,7 +552,6 @@ def assemble_bundle(
                 if cm not in seen:
                     unique.append(cm)
                     seen.add(cm)
-        mds_by_ident[f["identifier"]] = claude_mds
         if f["identifier"] in claimed_idents:
             # Pass the entry through verbatim (identifier retained) so the
             # skill can resolve pre_image / status back to the subject file.
@@ -667,18 +660,6 @@ def assemble_bundle(
             "schema_version": 2,
             "files": [scans_by_ident[ident] for ident in entry["files"]],
         }
-
-    annotate_chunks(
-        diff_chunks,
-        {
-            f["identifier"]: {
-                "local": f.get("local"),
-                "claude_mds": mds_by_ident[f["identifier"]],
-            }
-            for f in files
-        },
-        workspace_root,
-    )
 
     submit_gates = collect_submit_gates(unique, all_locals, workspace_root)
 

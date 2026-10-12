@@ -30,8 +30,8 @@ from __future__ import annotations
 
 import argparse
 from copy import deepcopy
-from dataclasses import dataclass
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, Mapping, NoReturn, Sequence
 
@@ -46,7 +46,7 @@ DEFAULTS_PATH = _SCRIPT_DIR / "defaults" / CONFIG_NAME
 PathLike = str | Path
 Provenance = tuple[str, Path, str]
 
-TOP_LEVEL_FIELDS = frozenset({"profiles", "context_estimate"})
+TOP_LEVEL_FIELDS = frozenset({"profiles"})
 CONTEXT_ESTIMATE_FIELDS = frozenset({"bytes_per_token", "lane_base_tokens"})
 PROFILE_FIELDS = frozenset(
     {"id", "selection", "reviewers", "validator_models", "disabled"}
@@ -171,6 +171,14 @@ def load_layer(path: PathLike) -> dict[str, Any] | None:
         return {}
     if not isinstance(data, dict):
         _fail(source, "top level", f"must be a mapping, got {type(data).__name__}")
+    if "context_estimate" in data:
+        _validate_context_estimate(data["context_estimate"], source, complete=False)
+        warnings.warn(
+            f"{source}: context_estimate has no effect and is removed in bootstrap 0.151.0",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        data = {key: value for key, value in data.items() if key != "context_estimate"}
     return data
 
 
@@ -283,6 +291,25 @@ def _validate_entries(
         where = location if exc.index is None else f"{location}[{exc.index}]"
         _fail(source, where, str(exc))
     del parsed
+
+
+def _validate_context_estimate(value: Any, source: Path | str, *, complete: bool) -> None:
+    """Validate the removed context estimate shape during its shim window."""
+    if not isinstance(value, dict):
+        _fail(source, "context_estimate", f"must be a mapping, got {type(value).__name__}")
+    _validate_known_fields(value, CONTEXT_ESTIMATE_FIELDS, source, "context_estimate")
+    if complete:
+        for key in sorted(CONTEXT_ESTIMATE_FIELDS - value.keys()):
+            _fail(source, "context_estimate", f"required field missing: {key}")
+    for key, item in value.items():
+        if isinstance(item, bool) or not isinstance(item, (int, float)) or not item > 0:
+            _fail(
+                source,
+                f"context_estimate.{key}",
+                f"must be a positive number, got {item!r}",
+            )
+        if item != item or item == float("inf"):
+            _fail(source, f"context_estimate.{key}", f"must be finite, got {item!r}")
 
 
 def _no_effort(model_id: str) -> str:
@@ -505,25 +532,6 @@ def _validate_profile(
         )
 
 
-def _validate_context_estimate(value: Any, source: Path | str, *, complete: bool) -> None:
-    """Validate the ``context_estimate`` mapping: known keys, positive numbers."""
-    if not isinstance(value, dict):
-        _fail(source, "context_estimate", f"must be a mapping, got {type(value).__name__}")
-    _validate_known_fields(value, CONTEXT_ESTIMATE_FIELDS, source, "context_estimate")
-    if complete:
-        for key in sorted(CONTEXT_ESTIMATE_FIELDS - value.keys()):
-            _fail(source, "context_estimate", f"required field missing: {key}")
-    for key, item in value.items():
-        if isinstance(item, bool) or not isinstance(item, (int, float)) or not item > 0:
-            _fail(
-                source,
-                f"context_estimate.{key}",
-                f"must be a positive number, got {item!r}",
-            )
-        if item != item or item == float("inf"):
-            _fail(source, f"context_estimate.{key}", f"must be finite, got {item!r}")
-
-
 def _validate_layer(
     value: Mapping[str, Any],
     source: Path | str,
@@ -532,8 +540,6 @@ def _validate_layer(
 ) -> None:
     """Validate a sparse layer's structure before it participates in the merge."""
     _validate_known_fields(value, TOP_LEVEL_FIELDS, source, "top level")
-    if "context_estimate" in value:
-        _validate_context_estimate(value["context_estimate"], source, complete=False)
     if "profiles" not in value:
         return
     profiles = value["profiles"]
@@ -571,8 +577,6 @@ def _validate_resolved(
 ) -> None:
     """Validate the merged table, including the completeness of active records."""
     _validate_known_fields(value, TOP_LEVEL_FIELDS, source, "top level")
-    if "context_estimate" in value:
-        _validate_context_estimate(value["context_estimate"], source, complete=True)
     if "profiles" not in value:
         _fail(source, "top level", "required field missing: profiles")
     profiles = value["profiles"]
@@ -855,57 +859,6 @@ def canonical_projection(value: Mapping[str, Any]) -> dict[str, Any]:
     return {"profiles": profiles}
 
 
-@dataclass(frozen=True)
-class ContextEstimate:
-    """Resolved constants for the per-lane input-token estimate."""
-
-    bytes_per_token: float
-    lane_base_tokens: float
-
-
-def context_estimate_of(config: Mapping[str, Any]) -> ContextEstimate:
-    """Extract the validated ``context_estimate`` from a resolved config."""
-    raw = config.get("context_estimate")
-    if raw is None:
-        raise ConfigError(
-            "resolved review configuration has no context_estimate; "
-            "the shipped defaults must state it"
-        )
-    return ContextEstimate(
-        bytes_per_token=raw["bytes_per_token"],
-        lane_base_tokens=raw["lane_base_tokens"],
-    )
-
-
-def resolve_context_estimate(
-    project_root: PathLike | None,
-    *,
-    home: PathLike | None = None,
-) -> ContextEstimate:
-    """Resolve ``context_estimate`` through the layered review-profile config.
-
-    ``project_root`` of None resolves the shipped defaults alone, for callers
-    with no project to read a project layer from.
-    """
-    if project_root is None:
-        data = load_layer(DEFAULTS_PATH)
-        if data is None:
-            raise ConfigError(f"shipped review-profile defaults are missing: {DEFAULTS_PATH}")
-        _validate_context_estimate(data.get("context_estimate"), DEFAULTS_PATH, complete=True)
-        return context_estimate_of(data)
-    config, _ = resolve_config(project_root, home=home)
-    return context_estimate_of(config)
-
-
-def render_context_estimate(estimate: ContextEstimate) -> str:
-    """Render the resolved estimate constants as YAML."""
-    return (
-        "context_estimate:\n"
-        f"  bytes_per_token: {estimate.bytes_per_token}\n"
-        f"  lane_base_tokens: {estimate.lane_base_tokens}\n"
-    )
-
-
 def render_projection(value: Mapping[str, Any]) -> str:
     """Render the canonical executable table as YAML, including its newline."""
     yaml = _require_yaml()
@@ -934,8 +887,6 @@ def render_provenance(provenance: Sequence[Provenance]) -> str:
 def render(value: Mapping[str, Any], provenance: Sequence[Provenance] | None = None) -> str:
     """Render the YAML projection and, when supplied, its provenance."""
     table = render_projection(value).rstrip("\n")
-    if "context_estimate" in value:
-        table += "\n" + render_context_estimate(context_estimate_of(value)).rstrip("\n")
     if provenance is None:
         return table + "\n"
     return table + "\n---\n\n" + render_provenance(provenance) + "\n"

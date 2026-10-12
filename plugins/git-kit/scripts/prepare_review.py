@@ -61,7 +61,6 @@ Output schema:
       "diff_chunks": [
         {"index": 0, "path": "chunks/chunk-000.diff",
          "files": ["<repo-relative path>", ...], "bytes": <int>,
-         "est_tokens": {"<reviewer name>": <int>, ..., "validator": <int>}}
       ],
       "changed_files": [
         {"path": "<repo-relative path>", "local": "<absolute path>",

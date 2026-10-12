@@ -1005,9 +1005,6 @@ class TestBuildBundle:
         assert bundle["bundle_dir"] == str(bundle_dir)
         assert "auto_detected_reason" not in bundle
         assert len(bundle["diff_chunks"]) == 1
-        est = bundle["diff_chunks"][0]["est_tokens"]
-        assert "validator" in est and "reviewer_c_introduced_code" in est
-        assert all(isinstance(v, int) and v > 0 for v in est.values())
         diff = _concat_diff_from_chunks(bundle)
         assert "-x = 0" in diff
         assert "+x = 1" in diff

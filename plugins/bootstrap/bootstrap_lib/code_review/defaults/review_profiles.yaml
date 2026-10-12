@@ -1,17 +1,3 @@
-# Input-token estimate used to route a lane to a model whose context_budget fits.
-# est_tokens = ceil(input bytes / bytes_per_token) + lane_base_tokens.
-# bytes_per_token -- the lowest bytes per token measured for unified diff,
-#   CLAUDE.md prose and Python as a review lane ingests them through Read,
-#   line-number prefixes included (1.90, 2.16 and 1.93 for Haiku 5.5). The
-#   minimum is used so the estimate errs high.
-# lane_base_tokens -- tokens a review-lane subagent holds before its own input
-#   (system prompt, tools, user-level instruction files, listings). The
-#   auto-loaded project-root CLAUDE.md or AGENTS.md is counted separately from
-#   its bytes.
-#   Machine- and session-dependent; override in the user or project layer.
-context_estimate:
-  bytes_per_token: 1.9
-  lane_base_tokens: 35000
 profiles:
 - id: data_only
   selection:
@@ -23,7 +9,6 @@ profiles:
     - .tsv
     - .md
   reviewers:
-  # haiku runs a lane when its estimated input fits its context_budget, otherwise the next entry runs.
   - name: reviewer_a_claude_md_compliance
     model:
     - {id: haiku, effort: low}
@@ -41,7 +26,6 @@ profiles:
 - id: code
   selection: {}
   reviewers:
-  # haiku runs a lane when its estimated input fits its context_budget, otherwise the next entry runs.
   - name: reviewer_a_claude_md_compliance
     model:
     - {id: haiku, effort: low}

@@ -87,6 +87,33 @@ class TestShippedDefaultsPreserveAgentDispatch:
             ("code", "reviewer_c_introduced_code", "sol"),
         ]
 
+    def test_shipped_rosters_pin_haiku_first_for_standards_lanes(self, tmp_path: Path) -> None:
+        config, _ = rp.resolve_config(tmp_path / "project", home=tmp_path / "home")
+        config = rp.apply_model_priority(config)
+        by_profile = {p["id"]: p for p in config["profiles"]}
+
+        def ids(entries):
+            return [(e["id"], e["effort"]) for e in entries]
+
+        a = [("haiku", "low"), ("sonnet", "low"), ("luna", "high")]
+        for pid in ("data_only", "code"):
+            rev = {r["name"]: r["model"] for r in by_profile[pid]["reviewers"]}
+            assert ids(rev["reviewer_a_claude_md_compliance"]) == a
+            assert ids(by_profile[pid]["validator_models"]["claude_md"]) == [
+                ("haiku", "low"),
+                ("sonnet", "low"),
+            ]
+        do = {r["name"]: r["model"] for r in by_profile["data_only"]["reviewers"]}
+        assert ids(do["reviewer_b_diff_only_bugs"]) == a
+        assert ids(by_profile["data_only"]["validator_models"]["bug"]) == [
+            ("haiku", "low"),
+            ("sonnet", "low"),
+        ]
+        code = {r["name"]: r["model"] for r in by_profile["code"]["reviewers"]}
+        assert ids(code["reviewer_b_diff_only_bugs"]) == [("opus", "medium"), ("sol", "medium")]
+        assert ids(code["reviewer_c_introduced_code"]) == [("sol", "high"), ("opus", "high")]
+        assert ids(by_profile["code"]["validator_models"]["bug"]) == [("opus", "medium")]
+
 
 class TestParseIssueArray:
     def test_verifies_reviewer_a_citation_against_governing_chain(self, tmp_path: Path) -> None:

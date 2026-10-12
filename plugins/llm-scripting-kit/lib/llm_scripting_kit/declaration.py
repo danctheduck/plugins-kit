@@ -41,6 +41,7 @@ import os
 import subprocess
 import tempfile
 import time
+import warnings
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
@@ -86,7 +87,20 @@ DISPOSITION_UNROUTABLE = "unroutable"
 DISPOSITION_REQUIREMENTS_MISMATCH = "requirements-mismatch"
 DISPOSITION_EXCLUDED = "excluded"
 DISPOSITION_SHADOWED_CORE = "shadowed-core"
-DISPOSITION_OVER_CONTEXT_BUDGET = "over-context-budget"
+# Deprecated compatibility name; has no effect on routing and will be removed in 0.66.0.
+_DISPOSITION_OVER_CONTEXT_BUDGET = "over-context-budget"
+
+
+def __getattr__(name: str) -> Any:
+    if name == "DISPOSITION_OVER_CONTEXT_BUDGET":
+        warnings.warn(
+            "DISPOSITION_OVER_CONTEXT_BUDGET is deprecated, has no effect on routing, and will be removed in 0.66.0",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _DISPOSITION_OVER_CONTEXT_BUDGET
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 #: Dispositions that stay in the render. Everything else is hidden.
 _RENDERED = (DISPOSITION_USABLE, DISPOSITION_OUT_OF_QUOTA, DISPOSITION_UNREACHABLE)
@@ -555,6 +569,7 @@ def describe(
     reachability_cache: Optional[MutableMapping[str, Reachability]] = None,
     entries: Optional[Mapping[str, Any]] = None,
     dispatchable: Iterable[str] = (),
+    # Deprecated compatibility argument; has no effect on routing and will be removed in 0.66.0.
     context_tokens: Optional[int] = None,
 ) -> Ranking:
     """Classify, filter, pace-order and default a declaration.
@@ -580,11 +595,6 @@ def describe(
     that reaches transports through a runner of its own. Default: none, so a
     transport is unroutable for a session caller. A process caller already
     routes every resolvable kind, so the argument changes nothing there.
-    ``context_tokens`` is the caller's estimated input size: an entry whose
-    ``context_budget`` is below it is hidden (disposition
-    ``over-context-budget``), like any other unusable entry; entries without a
-    budget are unaffected, and None applies no filter.
-
     Raises :class:`NoUsableRoutingTarget` when nothing usable remains, and
     ``bootstrap_lib.model_declaration.DeclarationError`` for a structurally
     invalid declaration (empty, duplicate, non-string). Skipping is silent.
@@ -595,6 +605,12 @@ def describe(
         isinstance(context_tokens, bool) or not isinstance(context_tokens, int) or context_tokens < 0
     ):
         raise ValueError(f"context_tokens must be a non-negative integer, got {context_tokens!r}")
+    if context_tokens is not None:
+        warnings.warn(
+            "context_tokens is deprecated, has no effect on routing, and will be removed in 0.66.0",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     extra_kinds = set(dispatchable or ())
     unknown_kinds = sorted(extra_kinds - set(_DISPATCHABLE_KINDS))
     if unknown_kinds:
@@ -688,10 +704,6 @@ def describe(
             if record is None or not matcher(record, requirements):
                 settle(DISPOSITION_REQUIREMENTS_MISMATCH, f"adapter {adapter!r}")
                 continue
-        budget = getattr(merged, "context_budget", None)
-        if context_tokens is not None and budget is not None and budget < context_tokens:
-            settle(DISPOSITION_OVER_CONTEXT_BUDGET, f"over context budget ({budget} < {context_tokens})")
-            continue
         spec = getattr(merged, "conserve_usage", None)
         pinned = pinned_evaluate(name, spec, harness) if spec is not None else None
         candidate = {
