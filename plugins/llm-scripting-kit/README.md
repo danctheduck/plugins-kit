@@ -269,9 +269,12 @@ or transport), merged across layers like the other keys: the largest estimated
 input, in tokens, that the entry should be routed. `describe ... --context-tokens N`
 (Python: `describe(..., context_tokens=N)`) leaves out entries whose budget is
 below N; entries without a budget, and calls without the flag, are unaffected.
-The shipped `haiku` entry sets 100000 as a routing budget (its price tier and
-the user's auto-compaction point), not its native window; larger inputs route
-to the next entry.
+The shipped `haiku` entry sets 100000 as a routing budget (its price tier), not
+its native window; larger inputs route to the next entry. An Agent-tool
+subagent does not apply the user's `autoCompactWindow` (measured: 219,988
+context tokens, no compaction event), so for subagents this budget is the only
+bound; a `claude -p` Haiku session does apply it and compacts below the
+configured window.
 
 The default for `haiku` is 100000. Override it per preference: set a different
 integer under `endpoints.haiku.context_budget` to change it, or set it to `null`

@@ -2439,7 +2439,7 @@ when there are findings, and 2 when a layer is malformed or invalid.
 
 ```yaml
 context_estimate:
-  bytes_per_token: 2.5
+  bytes_per_token: 1.9
   lane_base_tokens: 35000
 profiles:
 - id: data_only
@@ -2717,7 +2717,7 @@ figure that decides which model entry fits a lane's `context_budget`:
 
 | Key | Meaning | Shipped |
 |---|---|---|
-| `bytes_per_token` | bytes of diff, CLAUDE.md and file text counted as one token | `2.5` |
+| `bytes_per_token` | bytes of diff, CLAUDE.md and file text counted as one token | `1.9` |
 | `lane_base_tokens` | tokens every lane spends before its own input (system prompt, tools, user-level instruction files, listings) | `35000` |
 
 `est_tokens = ceil(input bytes / bytes_per_token) + lane_base_tokens`. It layers like any other

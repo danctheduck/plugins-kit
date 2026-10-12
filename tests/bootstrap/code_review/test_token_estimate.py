@@ -24,12 +24,12 @@ def _prompt_bytes(lane: str) -> int:
 
 
 # Shipped defaults, stated independently of the module under test.
-SHIPPED = rp.ContextEstimate(bytes_per_token=2.5, lane_base_tokens=35000)
+SHIPPED = rp.ContextEstimate(bytes_per_token=1.9, lane_base_tokens=35000)
 BASE = 35000
 
 
 def _tokens(n_bytes: int) -> int:
-    return math.ceil(n_bytes / 2.5) + BASE
+    return math.ceil(n_bytes / 1.9) + BASE
 
 
 def test_lane_names_cover_every_reviewer_and_validator() -> None:
@@ -176,7 +176,7 @@ def test_user_layer_override_changes_one_key(tmp_path: Path) -> None:
         "context_estimate:\n  lane_base_tokens: 2000\n", encoding="ascii"
     )
     got = rp.resolve_context_estimate(tmp_path / "repo", home=home)
-    assert got == rp.ContextEstimate(bytes_per_token=2.5, lane_base_tokens=2000)
+    assert got == rp.ContextEstimate(bytes_per_token=1.9, lane_base_tokens=2000)
 
 
 @pytest.mark.parametrize(
@@ -203,4 +203,4 @@ def test_render_shows_resolved_estimate_below_profiles(tmp_path: Path) -> None:
     out = rp.render(rp.apply_model_priority(config), prov)
     table, _, _ = out.partition("\n---\n")
     assert table.rstrip().endswith("lane_base_tokens: 35000")
-    assert "bytes_per_token: 2.5" in table
+    assert "bytes_per_token: 1.9" in table

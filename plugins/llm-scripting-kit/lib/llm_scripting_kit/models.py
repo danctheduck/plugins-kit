@@ -153,9 +153,11 @@ DEFAULT_MODEL_CONFIG = {
         # opus` resolves to the current Opus, while a dated id such as
         # claude-opus-5 keeps serving that release after an upgrade.
         # context_budget is a ROUTING budget, not Haiku 5.5's native window
-        # (1M): it keeps Haiku at its under-100k price and below the point
-        # where a user's auto-compaction fires; larger inputs route to the
-        # next entry.
+        # (1M). An Agent-tool subagent does not apply the user's
+        # autoCompactWindow (measured: 219,988 context tokens, no compaction
+        # event), so for subagents this budget is the only bound; a
+        # `claude -p` Haiku session does apply it and compacts below the
+        # configured window. Larger inputs route to the next entry.
         "haiku": {
             "harness": "claude", "model": "haiku",
             "tier": 1, "family": "anthropic",
