@@ -32,7 +32,15 @@ OPENCODE_AGENT = "build"
 # `xhigh` is intentionally present even though some Codex help output omits
 # it. The accepted menu is a runtime contract, not a transcription of one
 # version's help text, so an undocumented but accepted level must survive.
-CODEX_EFFORT_MENU = frozenset(("low", "medium", "high", "xhigh", "max"))
+# The ordered tuple is the source; the set view is derived so the two cannot drift.
+CODEX_EFFORT_ORDER = ("low", "medium", "high", "xhigh", "max")
+CODEX_EFFORT_MENU = frozenset(CODEX_EFFORT_ORDER)
+
+# The claude CLI receives the effort as ``--effort <value>`` from
+# ClaudeCliBackend (completion/backends.py), and ``claude --help`` lists
+# ``--effort <level>  (low, medium, high, xhigh, max)``. Low to high.
+CLAUDE_HARNESS = "claude"
+CLAUDE_EFFORT_ORDER = ("low", "medium", "high", "xhigh", "max")
 
 # OpenCode resolves variants from each provider's user-owned configuration.
 # None is the explicit "no exhaustive local menu" signal; non-empty values
@@ -40,6 +48,31 @@ CODEX_EFFORT_MENU = frozenset(("low", "medium", "high", "xhigh", "max"))
 OPENCODE_EFFORT_MENU: EffortMenu = None
 
 KNOWN_HARNESSES = (CODEX_HARNESS, OPENCODE_HARNESS)
+
+# Ordered effort menus per harness name, low to high. Keyed by the registry's
+# harness name, which also covers ``claude`` (no adapter class here: the claude
+# CLI is driven by completion/backends.py). OpenCode's menu is provider-defined,
+# so it reports an empty ordered menu.
+_HARNESS_EFFORT_ORDERS: dict[str, tuple[str, ...]] = {
+    CLAUDE_HARNESS: CLAUDE_EFFORT_ORDER,
+    CODEX_HARNESS: CODEX_EFFORT_ORDER,
+    OPENCODE_HARNESS: (),
+}
+
+
+def harness_effort_order(harness: str) -> tuple[str, ...]:
+    """The accepted efforts for registry harness ``harness``, low to high.
+
+    Empty for a harness whose menu is provider-defined. Raises
+    ``HarnessAdapterError`` for a harness name this module does not know.
+    """
+    try:
+        return _HARNESS_EFFORT_ORDERS[harness]
+    except KeyError:
+        known = ", ".join(_HARNESS_EFFORT_ORDERS)
+        raise HarnessAdapterError(
+            f"unknown harness {harness!r} (known harnesses: {known})"
+        ) from None
 
 
 class HarnessAdapterError(ValueError):

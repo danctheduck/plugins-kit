@@ -498,7 +498,13 @@ style): `ninfer` gives `("none", "low", "medium", "xhigh")` and rejects `high`,
 endpoint that delivers no effort gives `()`. `lower_effort(endpoint, effort)`
 returns the next value below `effort` (remapping `high` to `xhigh` on ninfer
 first) and `None` at the bottom, for a value outside the menu, or for an empty
-menu. The retry rule: on a length stop (`EmptyCompletionError`, reasoning ate
+menu. Harness entries (`codex-cli`, `claude-cli`) resolve through
+`harness_effort_order(harness)`: codex and claude give the fixed menu
+`("low", "medium", "high", "xhigh", "max")`, and `opencode-cli` gives `()`
+because its effort values are provider-defined. The claude menu is not
+advertised as a validated capability: the claude adapter record still states
+that it validates no value menu, and the menu serves `lower_effort` only. The
+retry rule: on a length stop (`EmptyCompletionError`, reasoning ate
 the budget) retry once per level at `lower_effort`; stop at `None`. An unknown
 endpoint raises `EndpointRegistryError`.
 
@@ -513,7 +519,7 @@ design reasoning, not measurements.
 | JSON repair `max_edits` / `max_walks` | Seam: parameters of `repair_json_structure` (and `repair_and_evaluate_output`); defaults `MAX_REPAIR_EDITS=24`, `MAX_REPAIR_WALKS=1500`. `finalize_contract` and the CLI do not forward them: a caller that needs other bounds calls the library function. |
 | `_MAX_CLOSER_RUN=8`, `_MAX_REF_DEPTH=16`, `_MISQUOTED_KEY_LOOKBACK=2` | Razor verdict: no seam. Scenarios considered: a run of more than 8 stray closers, a schema `$ref` chain deeper than 16, a misquoted key more than 2 tokens behind the failure. Each is outside the one-slip repair the module promises (a run that long is a different document, and the repair applies only when exactly one fit exists), and a deeper `$ref` chain is a schema fault the caller fixes. Raising them widens the guess space and the ambiguity risk without helping a slip. |
 | Claude text-only flags (`_CLAUDE_TEXT_ONLY_ARGS`) and codex text-only config and catalog sets (`_CODEX_TEXT_ONLY_CONFIG`, `_CODEX_TEXT_ONLY_CATALOG_SET`, `_CODEX_TEXT_ONLY_CATALOG_DROP`) | Razor verdict: no seam. They ARE the guarantee the mode advertises (no filesystem write, shell or subagent); a user-editable set would let the advertisement and the argv disagree. Scenarios considered: a user wanting one tool kept (then they do not want text-only mode; use a mode that allows it), a new codex tool source (a plugin change, re-measured per "A guarantees requirement admits AND arms"). |
-| Effort `_MENUS` | Razor verdict: no seam. The tables mirror what each wire style accepts (ninfer rejects `high` with a 400). A user-set menu could only disagree with the server; a server with a different menu declares a different `effort_style` in the registry, which is the existing seam. |
+| Effort `_MENUS`, `CODEX_EFFORT_ORDER`, `CLAUDE_EFFORT_ORDER` | Razor verdict: no seam. The tables mirror what each wire style accepts (ninfer rejects `high` with a 400). A user-set menu could only disagree with the server; a server with a different menu declares a different `effort_style` in the registry, which is the existing seam. The harness orders mirror the values each CLI accepts (`codex exec -c model_reasoning_effort`, `claude --effort`); a user-set order could only disagree with the CLI, and a CLI that changes its menu is a plugin change. |
 
 **Home of the codex temp files.** `codex_out_*.txt`, `codex_schema_*.json` and
 `codex_catalog_*.json` (the text-only `model_catalog_json`) are created with

@@ -603,7 +603,9 @@ user's provider and plugin settings for that call.
 Both rows were checked live (2026-10-07). Claude Code 2.1.293: the model
 reported no callable tool. codex-cli 0.160.0 with gpt-6.1-sol: the model listed
 only `functions.request_user_input`, which asks the user a question, belongs to
-no guarantee subject, and is refused in `exec` mode. In text-only mode claude
+no guarantee subject, and is refused in `exec` mode. Both modes were re-checked
+live on 2026-10-13 with Claude Code 2.1.296 and codex-cli 0.162.0, with the same
+results. In text-only mode claude
 refuses a non-empty `allowed_tools`, and codex refuses `extras.sandbox` other
 than `read-only`, `extras.network: true`, and an empty model id, before anything
 runs.
@@ -766,7 +768,8 @@ file, over budget) raises `SkillContextError` with the library's message; the
 
 `llm_scripting_kit.effort.effort_menu(endpoint)` returns the efforts an endpoint
 accepts, low to high, and `lower_effort(endpoint, effort)` the next one down, for
-retrying a length stop. The menus and the retry rule are in
+retrying a length stop. Harness entries (codex-cli, claude-cli) have fixed
+menus; opencode-cli has none. The menus and the retry rule are in
 [CLAUDE.md](CLAUDE.md) ("`effort_menu` and `lower_effort`").
 
 ## Key handling

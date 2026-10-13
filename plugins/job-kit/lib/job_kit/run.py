@@ -614,8 +614,10 @@ def _require_floor_subjects(job: Job, run_floor: str) -> Job:
     admitted for a local transport, and the floor admitted only Claude.
 
     The subjects are derived FROM the floor rather than assumed, so a floor of
-    "Bash" asks for shell denial and nothing else -- and codex, which confines
-    writes but keeps a shell, is still correctly refused.
+    "Bash" asks for shell denial and nothing else. codex-cli is admitted for
+    that floor because its text-only mode advertises denial over shell-exec and
+    subagent-spawn as well as writes; run_job's arm_call arms that mode before
+    the call, so the denial is applied, not merely advertised.
     """
     subjects = subjects_for_disallowed_tools(run_floor)
     if not subjects:

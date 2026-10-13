@@ -243,21 +243,39 @@ def style_effort_menu(style: Optional[str]) -> "tuple[str, ...]":
     return _MENUS.get(style or "", ())
 
 
-def _endpoint_style(endpoint: str) -> Optional[str]:
-    # Lazy: model_endpoints imports this module, so a top-level import cycles.
-    from .model_endpoints import resolve_effort_style, resolve_registry_entry  # noqa: PLC0415
+def _endpoint_menu(endpoint: str) -> "tuple[tuple[str, ...], Optional[str]]":
+    """The ``(menu, style)`` pair for ``endpoint``, resolved through the registry.
 
-    return resolve_effort_style(resolve_registry_entry(endpoint)).style
+    A harness entry takes its menu from its harness name and has no style, so
+    nothing is remapped for it. A transport entry takes its menu from its style.
+    """
+    # Lazy: model_endpoints and harness_adapters import this module, so a
+    # top-level import cycles.
+    from .harness_adapters import harness_effort_order  # noqa: PLC0415
+    from .model_endpoints import (  # noqa: PLC0415
+        HARNESS_KIND,
+        resolve_effort_style,
+        resolve_registry_entry,
+    )
+
+    entry = resolve_registry_entry(endpoint)
+    if entry.kind == HARNESS_KIND:
+        return harness_effort_order(entry.harness), None
+    style = resolve_effort_style(entry).style
+    return style_effort_menu(style), style
 
 
 def effort_menu(endpoint: str) -> "tuple[str, ...]":
     """The efforts the registry endpoint ``endpoint`` accepts, low to high.
 
-    Resolved from the endpoint's effort style (see :func:`style_effort_menu`).
-    An endpoint that delivers no effort, or a harness entry, has an empty menu.
-    Raises ``EndpointRegistryError`` for an unknown endpoint.
+    A transport entry resolves its menu from its effort style (see
+    :func:`style_effort_menu`). A harness entry resolves it from its harness
+    name (``codex`` and ``claude`` have fixed menus; ``opencode`` is
+    provider-defined and empty). An endpoint that delivers no effort has an
+    empty menu. Raises ``EndpointRegistryError`` for an unknown endpoint.
     """
-    return style_effort_menu(_endpoint_style(endpoint))
+    menu, _style = _endpoint_menu(endpoint)
+    return menu
 
 
 def lower_effort(endpoint: str, effort: str) -> Optional[str]:
@@ -266,8 +284,7 @@ def lower_effort(endpoint: str, effort: str) -> Optional[str]:
     A value the style would remap (``high`` on ninfer) is remapped first. A
     value outside the menu, or an endpoint with an empty menu, gives None.
     """
-    style = _endpoint_style(endpoint)
-    menu = style_effort_menu(style)
+    menu, style = _endpoint_menu(endpoint)
     value = remap_effort(effort, style)
     if value not in menu:
         return None
