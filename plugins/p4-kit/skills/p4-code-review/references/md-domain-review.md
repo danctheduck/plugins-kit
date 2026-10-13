@@ -245,6 +245,17 @@ groups manually. If Agent is unavailable, every `run` entry fails for a file, or
 is missing or invalid, report `REVIEW INCOMPLETE: <file> - <invocation or validation failure>` for
 each affected file. Incomplete coverage cannot satisfy a submit gate.
 
+## Re-running an incomplete lane on another model
+
+When a detect lane leaves files `REVIEW INCOMPLETE` because its model ran out of context or
+otherwise could not finish, re-invoke that lane's Workflow for only those files. Pass the same
+args, except replace `laneModels.run` with a single explicitly chosen larger Claude model that
+keeps the entry's `effort` (for example `{run: [{id: "sonnet", effort: <the entry's effort>}], dropped: []}`
+in place of a Haiku entry). Do not start a new session. This is an explicit per-run
+substitution, not inheritance of the session model; no lane inherits the session model. State
+the model used and why in the step-9 route disclosure. A lasting change belongs in the
+`lane_models` config layer, not in repeated overrides.
+
 ## Building `files[]` from `bundle.claimed_files`
 
 Build `files[]` from the NON-TRIVIAL claimed files only (per the triviality gate above); trivial
