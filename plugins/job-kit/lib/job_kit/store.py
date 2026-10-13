@@ -2811,15 +2811,24 @@ class JobStore:
         return [str(row["id"]) for row in rows]
 
     def halted_endpoints(self, run_id: str) -> frozenset[str]:
-        """Return endpoints excluded for persistent halts or a confirmed outage."""
+        """Return endpoints excluded for persistent halts or a confirmed outage.
+
+        An attempt followed by a ``backpressure-wait`` event was waited out
+        and retried, so its halt excludes nothing.
+        """
         with self._connect() as conn:
             self._require_run(conn, run_id)
             persistent_placeholders = ", ".join("?" for _ in _PERSISTENT_HALT_KINDS)
             rows = conn.execute(
                 f"""
-                SELECT DISTINCT endpoint
-                FROM attempts
-                WHERE run_id = ? AND halt_kind IN ({persistent_placeholders})
+                SELECT DISTINCT a.endpoint
+                FROM attempts AS a
+                WHERE a.run_id = ? AND a.halt_kind IN ({persistent_placeholders})
+                  AND NOT EXISTS (
+                      SELECT 1 FROM events AS e
+                      WHERE e.run_id = a.run_id AND e.job_id = a.job_id
+                        AND e.attempt_no = a.attempt_no AND e.event = ?
+                  )
                 UNION
                 SELECT DISTINCT later.endpoint
                 FROM attempts AS earlier
@@ -2848,7 +2857,7 @@ class JobStore:
                         )
                   )
                 """,
-                (run_id, *_PERSISTENT_HALT_KINDS, run_id),
+                (run_id, *_PERSISTENT_HALT_KINDS, BACKPRESSURE_WAIT_EVENT, run_id),
             ).fetchall()
         return frozenset(str(row["endpoint"]) for row in rows)
 
