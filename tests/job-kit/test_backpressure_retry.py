@@ -14,7 +14,7 @@ import job_kit.run as run_module
 from job_kit.model import JobState
 from job_kit.run import BackpressurePolicy, run_jobs
 from job_kit.store import JobStore
-from llm_scripting_kit.completion import HALT_RATE_LIMIT, HaltError
+from llm_scripting_kit.completion import HALT_AUTH, HALT_QUOTA, HALT_RATE_LIMIT, HaltError
 
 from test_runner import (
     SequenceBackend,
@@ -117,6 +117,9 @@ def test_cap_exhaustion_falls_back_to_the_rate_limit_halt(
     assert len(backend.calls) == 2
     assert snapshot.jobs[0].state is JobState.HALTED
     assert [a.halt_kind for a in snapshot.attempts] == [HALT_RATE_LIMIT, HALT_RATE_LIMIT]
+    # The cap-exhausted attempt has no wait event after it: it excludes the endpoint.
+    store = JobStore(tmp_path / "bp.sqlite3")
+    assert store.halted_endpoints(snapshot.run.id) == frozenset({"fake-endpoint"})
 
 
 def test_waited_out_attempts_do_not_spend_max_attempts(
@@ -183,6 +186,54 @@ def test_credit_and_quota_halts_are_not_waited_out(tmp_path: Path, sleeps: _Wait
     assert len(backend.calls) == 1
     assert snapshot.jobs[0].state is JobState.HALTED
 
+
+def test_quota_halt_is_not_waited_out_and_the_job_halts(tmp_path: Path, sleeps: _Waits) -> None:
+    backend = SequenceBackend([HaltError(HALT_QUOTA, "pool spent")])
+    snapshot = _run(tmp_path, backend)
+    assert sleeps == []
+    assert len(backend.calls) == 1
+    assert snapshot.jobs[0].state is JobState.HALTED
+
+
+def test_auth_halt_is_not_waited_out_and_the_job_halts(tmp_path: Path, sleeps: _Waits) -> None:
+    backend = SequenceBackend([HaltError(HALT_AUTH, "401")])
+    snapshot = _run(tmp_path, backend)
+    assert sleeps == []
+    assert len(backend.calls) == 1
+    assert snapshot.jobs[0].state is JobState.HALTED
+
+
+def test_waited_out_backpressure_does_not_halt_the_endpoint_for_the_run(
+    tmp_path: Path, sleeps: _Waits
+) -> None:
+    backend = SequenceBackend([_pressure(2.0), _pressure(2.0), None])
+    snapshot = _run(tmp_path, backend)
+    assert snapshot.jobs[0].state is JobState.ACCEPTED
+    assert sleeps == [2.0, 2.0]
+    # The durable halt record and the in-process tracker that the drive loop
+    # reads (run._drive_job) both stay empty: a waited-out attempt is not a halt.
+    store = JobStore(tmp_path / "bp.sqlite3")
+    assert store.halted_endpoints(snapshot.run.id) == frozenset()
+    tracker = run_module._HaltedEndpoints(store, snapshot.run.id)
+    assert tracker.current() == frozenset()
+
+
+
+def test_later_job_still_dispatches_to_a_waited_out_endpoint(
+    tmp_path: Path, sleeps: _Waits
+) -> None:
+    backend = SequenceBackend([_pressure(2.0), _pressure(2.0), None, None])
+    snapshot = run_jobs(
+        [_job(tmp_path, "first"), _job(tmp_path, "second")],
+        tmp_path / "two.sqlite3",
+        capabilities_provider=_advertisement,
+        backend_factory=_factory_for(backend),
+    )
+    assert [job.state for job in snapshot.jobs] == [JobState.ACCEPTED, JobState.ACCEPTED]
+    assert sleeps == [2.0, 2.0]
+    assert len(backend.calls) == 4
+    second = [a for a in snapshot.attempts if a.job_id == "second"]
+    assert [(a.endpoint, a.halt_kind) for a in second] == [("fake-endpoint", None)]
 
 def test_classifier_reported_backpressure_is_waited_out(
     tmp_path: Path, sleeps: _Waits
