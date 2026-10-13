@@ -260,8 +260,6 @@ class TestShippedDefaults:
             "opus",
             "opus",
             "sol",
-            "luna",
-            "sonnet",
             "haiku",
             "luna",
             "haiku",

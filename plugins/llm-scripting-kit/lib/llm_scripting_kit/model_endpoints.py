@@ -58,11 +58,6 @@ the schema can grow additively)::
         effort: <effort>                    # optional harness setting
         name: <human label>                 # optional
         conserve_usage: <bool | mapping>    # optional; see usage_budget.py
-        context_budget: <int tokens>        # optional, either kind; the largest
-                                            #   estimated input to route here
-                                            #   (describe --context-tokens);
-                                            #   null = no budget (overrides a lower layer)
-
 Entry ids are the endpoint names: ``llm_scripting_kit.models.resolve_endpoint``
 injects each entry as a named endpoint, so ``resolve_endpoint("<entry id>")``
 resolves it. The DEFAULT entry has no magic endpoint name -- it is reached
@@ -85,6 +80,7 @@ an entry whose two declared styles disagree.
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Mapping, Optional
@@ -158,6 +154,7 @@ class EndpointEntry:
     effort: Optional[str] = None
     tier: Optional[int] = None
     family: Optional[str] = None
+    # Deprecated compatibility field; has no effect on routing and will be removed in 0.66.0.
     context_budget: Optional[int] = None
     conserve_usage: Optional[ConserveSpec] = None
     routing: Optional["RoutingConfig"] = None
@@ -322,11 +319,16 @@ def parse_classification_fields(
 def parse_context_budget(
     raw: Mapping[str, object], *, source: str, entry_id: str
 ) -> Optional[int]:
-    """Validate the optional ``context_budget`` (a positive integer of tokens).
+    """Validate the deprecated optional ``context_budget`` field.
 
-    An explicit null means "no budget" (a higher config layer's way to remove
-    a lower layer's value); any other non-positive-integer value raises.
+    This compatibility parser handles a deprecated field that has no effect on
+    routing and will be removed in 0.66.0. An explicit null means no budget.
     """
+    warnings.warn(
+        "parse_context_budget is deprecated, has no effect on routing, and will be removed in 0.66.0",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if "context_budget" not in raw:
         return None
     value = raw["context_budget"]
@@ -646,9 +648,6 @@ def load_endpoint_registry(
                     ),
                     tier=tier,
                     family=family,
-                    context_budget=parse_context_budget(
-                        raw, source=f"model-endpoints registry '{path}'", entry_id=key
-                    ),
                     conserve_usage=_conserve_spec(
                         raw, source=f"model-endpoints registry '{path}'", entry_id=key
                     ),
@@ -695,9 +694,6 @@ def load_endpoint_registry(
                 kind=TRANSPORT_KIND,
                 tier=tier,
                 family=family,
-                context_budget=parse_context_budget(
-                    raw, source=f"model-endpoints registry '{path}'", entry_id=key
-                ),
                 conserve_usage=_conserve_spec(
                     raw, source=f"model-endpoints registry '{path}'", entry_id=key
                 ),
@@ -801,6 +797,7 @@ __all__ = [
     "EndpointMetadataError",
     "RoutingConfig",
     "parse_classification_fields",
+    "parse_context_budget",
     "parse_routing",
     "parse_frontdoor",
     "parse_billing_mode",

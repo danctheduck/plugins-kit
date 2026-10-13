@@ -144,9 +144,7 @@ def test_validators_dispatch_to_the_effort_agent(vcs: str) -> None:
     action = _flat(validate["action"])
     kit = KIT[vcs]
     assert "an ordered list of one or more `{id, effort}` entries" in action
-    assert "Choose per issue the first Agent entry that `describe` leaves usable." in action
-    assert "--context-tokens <est_tokens.validator of the issue's chunk>" in action
-    assert "llm-scripting-kit 0.63.0 or later" in action
+    assert "Dispatch the first Agent entry." in action
     assert f"`subagent_type: {kit}:review-lane-<entry effort>` and `model: <id>`" in action
 
 

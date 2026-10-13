@@ -51,8 +51,7 @@ technique_skill:
             table as YAML -- profile ids, reviewer rosters, each reviewer's `model` list of
             `{id, effort}` entries, and `validator_models` with an ordered list of one or more
             `{id, effort}` entries per reason -- followed by a `---` separator and layer provenance; parse only the
-            YAML above the separator. Keep the resolved `profiles` list for steps 6 and 7. The `context_estimate`
-            mapping printed below the profiles states the constants prepare_review used for `est_tokens`; it needs no action.
+            YAML above the separator. Keep the resolved `profiles` list for steps 6 and 7.
             See references/configuration.md for the full layer/merge/override contract.
           tool: Bash running "${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" "${CLAUDE_PLUGIN_ROOT}/scripts/render_review_profiles.py"
           on_failure: |
@@ -183,15 +182,12 @@ technique_skill:
               any entry states no effort, so every entry you route has one.
             - A one-entry declaration has no menu and no announcement: dispatch its entry by
               the entry-harness rule below.
-            - For each (reviewer, chunk) pair whose reviewer declaration has two or more
-              entries, run
+            - For each declaration with two or more entries, run
               `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <entry>... --caller session`
               (Windows: ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
               (the venv path works from every shell; a bare name resolves only inside a Claude Code
               Bash session) with each entry's `id` in
-              declared order, plus `--context-tokens <bundle.diff_chunks[i].est_tokens[<reviewer
-              name>]>` (that chunk's estimated input tokens for this reviewer; describe leaves
-              out every entry whose `context_budget` is smaller), plus `--project-root <bundle.project_root>` when the bundle
+              declared order, plus `--project-root <bundle.project_root>` when the bundle
               has one, plus `--dispatchable transport` when the reviewer is not
               `reviewer_a_claude_md_compliance` or `reviewer_c_introduced_code` (the lane
               runner runs a transport entry for every other reviewer, so describe keeps
@@ -201,28 +197,21 @@ technique_skill:
               the menu, its `[default]` mark, and its `Rule:` and `Re-select:` lines (and
               `Independence:` when present). Choose one usable entry as that printed rule
               says, and announce the choice in the form that rule gives, with
-              `<reviewer name> chunk <i>` as the unit. The choice serves that chunk only;
-              different chunks of one reviewer may run on different entries. The menu shows only entries that are real on this machine; a
+              the reviewer name as the unit. The same entry serves every chunk of that
+              reviewer. The menu shows only entries that are real on this machine; a
               declared entry it leaves out is skipped, and you say nothing about it.
             - When describe exits 1, its stderr is a JSON `error` itemising every declared
               entry and its disposition: no entry is usable for that chunk. That
               (reviewer, chunk) lane does not run; report it in step 9 under
               `## Lane failures` with that itemised list, and mark its coverage missing. Any other non-zero describe exit is reported the same
               way, with its stderr.
-            - When describe rejects `--context-tokens` (its argument parser reports an
-              unrecognized argument: an installed llm-scripting-kit older than the llm-scripting-kit
-              release that adds --context-tokens), or a chunk carries no `est_tokens` for the
-              reviewer (a bootstrap older than the one that emits it), the lane FAILS: report it in
-              step 9 under `## Lane failures`, naming the minimum llm-scripting-kit version
-              (llm-scripting-kit 0.63.0 or later) and mark its coverage
-              missing. Never drop the flag and route without it.
             - When `llm-scripting-kit` is not on PATH, or its argument parser rejects
               `describe` as an invalid choice (a release older than 0.46.0), route without a
               menu: take the declaration's `sonnet`, `opus`, `haiku` and `fable` entries in
               declared order, dispatch the first, and skip every other entry without
               comment. A declaration with none of those four does not run; report it in
               step 9 under `## Lane failures`, naming each declared entry, and mark its
-              coverage missing. The no-menu route has no context-budget check.
+              coverage missing.
             Entry-harness rule (per lane, mechanical): an entry whose describe line reads
             `claude/agent` -- or, on a one-entry declaration or the no-menu route, whose id is
             one of `sonnet`, `opus`, `haiku`, `fable` -- launches an Agent subagent with
@@ -252,8 +241,7 @@ technique_skill:
             Do not re-select past it, and do not re-run the entry at another effort.
             For any other failure the launch-correction rule does not explain, follow the
             `Re-select:` line describe
-            printed: run describe again with the same arguments (including that chunk's
-            `--context-tokens`) plus one `--exclude <entry>`
+            printed: run describe again with the same arguments plus one `--exclude <entry>`
             per entry this lane has already failed on, print its stdout verbatim, choose,
             and announce as its rule says, with `<reviewer name> chunk <i>` as the unit and
             the prior entry and its failure kind as the reason. Dispatch the chosen entry by
@@ -413,15 +401,7 @@ technique_skill:
             The selected profile's `validator_models[reason]` (from the RESOLVED table fetched in
             step 0) is an ordered list of one or more `{id, effort}` entries, chosen per issue by
             its reason. Read it in declared order.
-            - Choose per issue the first Agent entry that `describe` leaves usable. For each
-              issue, run `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <entry id>... --caller session --context-tokens <est_tokens.validator of the issue's chunk>`
-              (Windows: ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
-              over the validator list for the issue's reason, in declared order, in one message
-              for all issues; entries describe leaves out are skipped without comment. When describe
-              rejects `--context-tokens` or the chunk carries no `est_tokens.validator`, the
-              lane FAILS: report the issue under `## Lane failures` naming the minimum
-              llm-scripting-kit version (llm-scripting-kit 0.63.0 or later)
-              and never drop the flag. An Agent entry's `id` is one of `sonnet`, `opus`,
+            - Dispatch the first Agent entry. An Agent entry's `id` is one of `sonnet`, `opus`,
               `haiku`, `fable`: launch an Agent with `subagent_type: git-kit:review-lane-<entry effort>`
               and `model: <id>`, using that entry's own stated effort, and give it the `validator`
               subagent definition below with the issue.

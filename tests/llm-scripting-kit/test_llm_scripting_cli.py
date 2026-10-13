@@ -1,10 +1,14 @@
 import dataclasses
 import io
 import json
+import warnings
+from types import SimpleNamespace
 
 import pytest
 
 from llm_scripting_kit import cli
+from llm_scripting_kit import declaration
+from llm_scripting_kit.model_endpoints import HARNESS_KIND, EndpointEntry
 from llm_scripting_kit.completion.factory import BackendSelection
 from llm_scripting_kit.completion.types import LLMResponse
 from llm_scripting_kit.reachability import (
@@ -58,11 +62,11 @@ def test_complete_reads_utf8_files(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "create_backend", lambda *_, **__: _selection(backend))
     system = tmp_path / "system.txt"
     prompt = tmp_path / "prompt.txt"
-    system.write_text("指示", encoding="utf-8")
-    prompt.write_text("質問", encoding="utf-8")
+    system.write_text("\u6307\u793a", encoding="utf-8")
+    prompt.write_text("\u8cea\u554f", encoding="utf-8")
 
     assert cli.main(["complete", "--system-file", str(system), "--prompt-file", str(prompt)]) == 0
-    assert backend.call[:2] == ("指示", "質問")
+    assert backend.call[:2] == ("\u6307\u793a", "\u8cea\u554f")
     json.loads(capsys.readouterr().out)
 
 
@@ -183,6 +187,51 @@ def test_resolve_emits_selection(monkeypatch, capsys):
             "deliverable": True, "emits": "--effort", "style": None, "source": "adapter",
         },
     }
+
+
+def test_context_tokens_compatibility_shims_are_ignored(monkeypatch, capsys):
+    entries = {
+        name: EndpointEntry(
+            id=name, base_url=None, model=name, kind=HARNESS_KIND, harness="claude"
+        )
+        for name in ("haiku", "sonnet")
+    }
+    cache = {
+        name: Reachability(status=STATUS_REACHABLE, checked="test", detail="ok")
+        for name in entries
+    }
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        ranking = declaration.describe(
+            list(entries), caller="process", entries=entries,
+            reachability_cache=cache, context_tokens=1,
+        )
+    assert [entry.id for entry in ranking.rendered_entries] == ["haiku", "sonnet"]
+    assert len(caught) == 1
+    assert caught[0].category is DeprecationWarning
+    assert "no effect" in str(caught[0].message)
+
+    monkeypatch.setattr(cli, "describe", lambda *args, **kwargs: SimpleNamespace(
+        render=lambda: "haiku\nsonnet"
+    ))
+    assert cli.main(["describe", "haiku", "sonnet", "--context-tokens", "1"]) == cli.EXIT_OK
+    assert capsys.readouterr().out.splitlines() == ["haiku", "sonnet"]
+
+
+@pytest.mark.parametrize("value", [-1, True, 1.5, "1"])
+def test_context_tokens_invalid_values_keep_value_error(value):
+    with pytest.raises(ValueError, match="context_tokens must be a non-negative integer"):
+        declaration.describe([], caller="process", context_tokens=value)
+
+
+def test_removed_disposition_constant_warns_and_keeps_old_value():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        from llm_scripting_kit.declaration import DISPOSITION_OVER_CONTEXT_BUDGET
+
+    assert DISPOSITION_OVER_CONTEXT_BUDGET == "over-context-budget"
+    assert len(caught) == 1
+    assert caught[0].category is DeprecationWarning
 
 
 # ---------------------------------------------------------------------------

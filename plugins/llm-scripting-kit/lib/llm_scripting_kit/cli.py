@@ -212,23 +212,10 @@ def _add_describe_args(parser: argparse.ArgumentParser) -> None:
         "--context-tokens",
         type=_non_negative_int,
         default=None,
-        help=(
-            "Estimated input size in tokens: an entry whose context_budget is "
-            "below it is left out of the menu."
-        ),
+        help=argparse.SUPPRESS,  # Deprecated no-op shim; has no effect on routing and will be removed in 0.66.0.
     )
     parser.add_argument("--json", action="store_true", help="Emit the ranking as JSON.")
     _add_project_arg(parser)
-
-
-def _non_negative_int(text: str) -> int:
-    try:
-        value = int(text)
-    except ValueError:
-        value = -1
-    if value < 0:
-        raise argparse.ArgumentTypeError(f"expected a non-negative integer, got {text!r}")
-    return value
 
 
 def _split_ids(values: Optional[list[str]]) -> list[str]:

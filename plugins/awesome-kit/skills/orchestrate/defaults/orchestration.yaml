@@ -159,16 +159,6 @@ lexicon:
   render: glossed
   test: Would you skim and discard most of the output?
   gloss: emits much more than you need to keep
-- id: large-context
-  kind: skill
-  render: glossed
-  test: >-
-    Must the unit hold more than about 100k tokens of context at once -- whole-repository
-    reads, long documents, large diffs?
-  gloss: >-
-    the unit must hold more than about 100k tokens of context at once -- whole-repository
-    reads, long documents, large diffs -- so it is never routed to a seat priced or compacted
-    for small contexts
 - id: cross-check
   kind: skill
   render: glossed
@@ -353,10 +343,8 @@ shape:
 # ---------------------------------------------------------------------------
 # Routing
 # ---------------------------------------------------------------------------
-# Model order treats Haiku 5.5 as the cheapest paid seat at its under-100k-token price
-# ($0.10 input / $0.50 output per MTok, vs Sonnet 5.5 $2/$10 and Opus 5.5 $4/$20, per
-# Anthropic's published prices). The higher above-100k rate is deliberately not modelled:
-# units that need that much context route through [large-context] instead.
+# Model order treats Haiku 5.5 as the cheapest paid seat ($0.10/$0.50 per MTok,
+# Anthropic's published prices).
 routing:
 - shape: [cross-check]
   models: [sol, opus]
@@ -369,10 +357,6 @@ routing:
   - opus draws on the orchestrating session's usage pool; a pool does not degrade gracefully when spent, it stops.
   - Never choose a cheaper model for a unit that meets this row's bar to harvest the discount.
   - fable is not routed by default. A layer that wants it names it in this row's `models`.
-- shape: [large-context]
-  models: [luna, sonnet]
-  guards:
-  - Haiku is ordered as the cheapest paid seat on the rows below at its under-100k price; a unit that must hold more context than that belongs here, because a context overflow mid-run is not a launch error and no row fall-through rescues it.
 - shape: [parallel-leaf, unverifiable]
   models: [haiku, luna]
 - shape: [parallel-leaf, mutating]
