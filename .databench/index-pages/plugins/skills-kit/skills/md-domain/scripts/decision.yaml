@@ -3,7 +3,7 @@
   "directory": "plugins/skills-kit/skills/md-domain/scripts",
   "decision": "page",
   "source_sha": "1a8f73cb6d1e15c846dd9a49f9e3df920965b82c",
-  "generation_spec_sha256": "9ff6d95c6dfa06e27a9196a26596c8b98ddf698bf2a82b9885b93c69cfaaa1e2",
+  "generation_spec_sha256": "d40323919c23e31cc9c5afe305627667e78bca3c257330f0fc0b3a9b1c826ade",
   "input_sha256": "2c84a4ec624fd880077c539f6b96794b42f43300aa8728d5531c2610df38d57b",
   "input_shape_sha256": "daf901248ee6d7add66c619f53d41da135e5b188485e459c8f91d8bb094ff354",
   "dirty": false,
