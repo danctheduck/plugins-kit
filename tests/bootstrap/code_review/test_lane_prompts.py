@@ -84,7 +84,7 @@ class TestShippedDefaultsPreserveAgentDispatch:
             ("data_only", "reviewer_b_diff_only_bugs", "luna"),
             ("code", "reviewer_a_claude_md_compliance", "luna"),
             ("code", "reviewer_b_diff_only_bugs", "sol"),
-            ("code", "reviewer_c_introduced_code", "sol"),
+            ("code", "reviewer_c_introduced_code", "luna"),
         ]
 
     def test_shipped_rosters_pin_haiku_first_for_standards_lanes(self, tmp_path: Path) -> None:
@@ -95,23 +95,30 @@ class TestShippedDefaultsPreserveAgentDispatch:
         def ids(entries):
             return [(e["id"], e["effort"]) for e in entries]
 
-        a = [("haiku", "low"), ("sonnet", "low"), ("luna", "high")]
-        for pid in ("data_only", "code"):
-            rev = {r["name"]: r["model"] for r in by_profile[pid]["reviewers"]}
-            assert ids(rev["reviewer_a_claude_md_compliance"]) == a
-            assert ids(by_profile[pid]["validator_models"]["claude_md"]) == [
-                ("haiku", "low"),
-                ("sonnet", "low"),
-            ]
+        a = [("haiku", "low"), ("sonnet", "low"), ("luna", "medium")]
         do = {r["name"]: r["model"] for r in by_profile["data_only"]["reviewers"]}
+        assert ids(do["reviewer_a_claude_md_compliance"]) == a
         assert ids(do["reviewer_b_diff_only_bugs"]) == a
+        assert ids(by_profile["data_only"]["validator_models"]["claude_md"]) == [
+            ("haiku", "low"),
+            ("sonnet", "low"),
+        ]
         assert ids(by_profile["data_only"]["validator_models"]["bug"]) == [
             ("haiku", "low"),
             ("sonnet", "low"),
         ]
         code = {r["name"]: r["model"] for r in by_profile["code"]["reviewers"]}
+        assert ids(code["reviewer_a_claude_md_compliance"]) == [
+            ("haiku", "medium"),
+            ("sonnet", "low"),
+            ("luna", "high"),
+        ]
+        assert ids(by_profile["code"]["validator_models"]["claude_md"]) == [
+            ("haiku", "medium"),
+            ("sonnet", "low"),
+        ]
         assert ids(code["reviewer_b_diff_only_bugs"]) == [("opus", "medium"), ("sol", "medium")]
-        assert ids(code["reviewer_c_introduced_code"]) == [("sol", "high"), ("opus", "high")]
+        assert ids(code["reviewer_c_introduced_code"]) == [("sonnet", "high"), ("luna", "xhigh")]
         assert ids(by_profile["code"]["validator_models"]["bug"]) == [("opus", "medium")]
 
 

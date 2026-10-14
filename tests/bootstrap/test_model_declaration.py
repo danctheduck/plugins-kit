@@ -178,3 +178,45 @@ class TestCoreIds:
     @pytest.mark.parametrize("value", ["sol", "Opus", "sonnett", "agent:opus", ""])
     def test_is_core_id_rejects_everything_else(self, value: str) -> None:
         assert not md.is_core_id(value)
+
+
+class TestParseEntries:
+    def test_strings_become_entries_without_effort(self) -> None:
+        assert md.parse_entries(["haiku", "luna"]) == [md.Entry("haiku"), md.Entry("luna")]
+
+    def test_mappings_carry_their_effort(self) -> None:
+        assert md.parse_entries([{"id": "sol", "effort": "high"}, "opus"]) == [
+            md.Entry("sol", "high"),
+            md.Entry("opus"),
+        ]
+
+    def test_a_single_mapping_is_a_one_element_declaration(self) -> None:
+        assert md.parse_entries({"id": "haiku", "effort": "low"}) == [md.Entry("haiku", "low")]
+
+    def test_a_mapping_without_effort_is_allowed(self) -> None:
+        assert md.parse_entries([{"id": "sonnet"}]) == [md.Entry("sonnet")]
+
+    @pytest.mark.parametrize(
+        "value,fragment",
+        [
+            ([{"id": "opus", "effort": "huge"}], "unknown effort"),
+            ([{"effort": "low"}], "must state an id"),
+            ([{"id": "opus", "tier": 1}], "unknown entry field"),
+            ([{"id": "opus"}, "opus"], "duplicate id"),
+            ([], "empty list"),
+        ],
+    )
+    def test_faults_are_refused(self, value: Any, fragment: str) -> None:
+        with pytest.raises(md.DeclarationError, match=fragment):
+            md.parse_entries(value)
+
+    def test_parse_still_refuses_a_mapping(self) -> None:
+        # A site that cannot deliver effort keeps calling parse(); an effort it
+        # would drop must fail loudly there, not be silently ignored.
+        with pytest.raises(md.DeclarationError):
+            md.parse([{"id": "opus", "effort": "low"}])
+
+    def test_effort_levels_match_review_profiles(self) -> None:
+        from bootstrap_lib.code_review.review_profiles import EFFORT_LEVELS
+
+        assert md.EFFORT_LEVELS == EFFORT_LEVELS
