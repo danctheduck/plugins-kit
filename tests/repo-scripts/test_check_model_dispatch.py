@@ -226,3 +226,41 @@ def test_backend_model_placeholder_is_not_collected(tmp_path, monkeypatch):
 
     backend_models = [probe for probe in probes if not probe.is_routing]
     assert [probe.value for probe in backend_models] == ["pinned-id"]
+
+
+def test_effort_entries_are_read_and_the_row_effort_wins(tmp_path):
+    policy = {
+        "routing": [
+            {"shape": [], "models": [{"id": "sonnet", "effort": "high"}, {"id": "sol", "effort": "low"}]},
+        ],
+        "backends": [],
+    }
+    probes = _CHECKER.collect_probes(
+        policy,
+        tmp_path / "orchestration.yaml",
+        model_entries={"sol": {"harness": "codex", "model": "gpt-5.6-sol", "effort": "high"}},
+    )
+    routing = [probe for probe in probes if probe.is_routing]
+    assert [(probe.kind, probe.value, probe.effort) for probe in routing] == [
+        ("claude-model", "sonnet", "high"),
+        ("codex-model", "gpt-5.6-sol", "low"),
+    ]
+
+
+def test_the_shipped_policy_resolves_every_routing_entry():
+    policy_path = (
+        Path(__file__).resolve().parents[2]
+        / "plugins/awesome-kit/skills/orchestrate/defaults/orchestration.yaml"
+    )
+    policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+    registry = (
+        Path(__file__).resolve().parents[2]
+        / "plugins/llm-scripting-kit/lib/llm_scripting_kit/default_config.yaml"
+    )
+    entries = yaml.safe_load(registry.read_text(encoding="utf-8"))["endpoints"]
+    probes = _CHECKER.collect_probes(policy, policy_path, model_entries=entries)
+    unresolved = [
+        (probe.where, probe.extra) for probe in probes
+        if probe.is_routing and probe.kind == "unresolved-model"
+    ]
+    assert unresolved == []
