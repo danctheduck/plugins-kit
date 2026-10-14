@@ -118,9 +118,11 @@ def _agent_call(agent, phase_id, scope: Scope, phase_titles: dict, where: str) -
         opts.append(f"schema: schema_{agent.schema}")
     if phase_id:
         opts.append(f"phase: {json.dumps(phase_titles[phase_id])}")
-    model = agent_model(agent.model, where)  # silent skip; the floor raises
-    if model:
-        opts.append(f"model: {json.dumps(model)}")
+    entry = agent_model(agent.model, where)  # silent skip; the floor raises
+    if entry:
+        opts.append(f"model: {json.dumps(entry.id)}")
+        if entry.effort:
+            opts.append(f"effort: {json.dumps(entry.effort)}")
     if agent.agentType:
         opts.append(f"agentType: {json.dumps(agent.agentType)}")
     if agent.isolation:

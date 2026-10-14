@@ -42,7 +42,7 @@ from typing import Any, Optional, Union
 
 from .contracts import analyze as analyze_contracts
 from .contracts import parse_artifact_spec
-from .declarations import parse_declaration
+from .declarations import parse_agent_declaration, parse_declaration
 from .errors import WorkflowError
 
 VALID_ISOLATION = {"worktree"}
@@ -157,7 +157,8 @@ class PhaseSpec:
 class AgentSpec:
     prompt: str
     schema: Optional[str] = None  # name of a block in WorkflowDoc.schemas
-    # A model declaration (ids in declared order); the compiler routes it.
+    # A model declaration (model_declaration.Entry values, in declared order:
+    # an id and an optional effort); the compiler routes it.
     model: Optional[tuple] = None
     agentType: Optional[str] = None
     isolation: Optional[str] = None
@@ -172,7 +173,7 @@ class AgentSpec:
         return cls(
             prompt=_str(_req(d, "prompt", where), "prompt", where),
             schema=_opt_str(d, "schema", where),
-            model=parse_declaration(d.get("model"), "model", where),
+            model=parse_agent_declaration(d.get("model"), "model", where),
             agentType=_opt_str(d, "agentType", where),
             isolation=_enum(
                 _opt_str(d, "isolation", where), VALID_ISOLATION, "isolation", where

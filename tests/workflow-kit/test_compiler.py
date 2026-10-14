@@ -357,6 +357,59 @@ def test_executor_model_is_a_one_entry_declaration_carried_as_a_scalar():
     assert re.findall(r"\bmodel:\s*'([^']+)'", preamble) == [only]
 
 
+def test_executor_effort_is_low_in_the_agent_file_and_the_preamble():
+    """The node executor states its effort: the agent definition's frontmatter
+    and the preamble's agent() options both write EXECUTOR_EFFORT, low."""
+    import re
+
+    from wk_testlib import PLUGIN_ROOT
+
+    from workflow_kit_lib.declarations import EXECUTOR_EFFORT
+
+    assert EXECUTOR_EFFORT == "low"
+    agent_md = (PLUGIN_ROOT / "agents" / "workflow-kit-agent.md").read_text(encoding="utf-8")
+    frontmatter = agent_md.split("---")[1]
+    assert re.findall(r"(?m)^effort:\s*(\S+)\s*$", frontmatter) == ["low"]
+    preamble = (
+        PLUGIN_ROOT / "skills" / "workflow-kit" / "references" / "preamble.js"
+    ).read_text(encoding="utf-8")
+    assert re.findall(r"\beffort:\s*'([^']+)'", preamble) == ["low"]
+
+
+# --------------------------------------------------------------------------- #
+# Effort: an agent step's model entry may be {id, effort}; the effort of the
+# entry the step compiles to is delivered to agent() as opts.effort.
+# --------------------------------------------------------------------------- #
+def test_an_effort_entry_compiles_to_agent_effort(write_workflow):
+    js = _compile_text(_agent_wf("{id: opus, effort: high}"), write_workflow)
+    assert 'agent(`hi`, { model: "opus", effort: "high" })' in js
+
+
+def test_the_chosen_entrys_effort_is_emitted_not_a_skipped_ones(write_workflow):
+    js = _compile_text(
+        _agent_wf("[{id: sol, effort: max}, {id: sonnet, effort: low}, opus]"),
+        write_workflow,
+    )
+    assert 'agent(`hi`, { model: "sonnet", effort: "low" })' in js
+    assert '"max"' not in js
+
+
+def test_a_bare_id_emits_no_effort(write_workflow):
+    js = _compile_text(_agent_wf("[{id: sol, effort: max}, haiku]"), write_workflow)
+    assert 'agent(`hi`, { model: "haiku" })' in js
+    assert "effort" not in js
+
+
+def test_pipeline_stage_effort_entry_compiles_the_same_way(write_workflow):
+    js = _compile_text(
+        "name: p\ndescription: x\nsteps:\n  - id: s\n    pipeline:\n"
+        "      over: [1]\n      as: n\n      stages:\n        - id: one\n          agent:\n"
+        "            prompt: hi\n            model: [{id: haiku, effort: medium}]\n",
+        write_workflow,
+    )
+    assert 'model: "haiku", effort: "medium"' in js
+
+
 # --------------------------------------------------------------------------- #
 # typed node contracts: emission (provides / requires / {{ artifacts.X }})
 # --------------------------------------------------------------------------- #
@@ -380,7 +433,9 @@ def lsk_path(monkeypatch):
 # document, captured at commit 2082c7fa, before typed contracts existed. A
 # document that declares no provides/requires must still compile to exactly
 # those bytes. The compiled scripts themselves are generated artifacts and are
-# not checked in; only their digests are.
+# not checked in; only their digests are. node-strategies inlines preamble.js,
+# so it was re-captured at workflow-kit 0.11.0, whose only change to that
+# output is the executor's `effort: 'low'` option and its comment.
 _GOLDEN_DIGESTS = {
     # plugins/workflow-kit/examples/review-changes.workflow.yaml @ 2082c7fa
     "review-changes": (
@@ -390,7 +445,7 @@ _GOLDEN_DIGESTS = {
     # plugins/workflow-kit/examples/node-strategies.workflow.yaml @ 2082c7fa
     "node-strategies": (
         EXAMPLES / "node-strategies.workflow.yaml",
-        "70b8f48d1ab4f4d1a1ff5e72521159218095c93e7b65846717f2a14c6fe8f56d",
+        "d3c98b90acd3d16b3b5c0bddc4437ba65769f73b482674ac5bfa0c232ed3add5",
     ),
     # tests/workflow-kit/fixtures/good/flat.workflow.yaml @ 2082c7fa
     "flat": (
