@@ -43,11 +43,14 @@ class TestRequiresBootstrap:
         # bootstrap_lib.execution_event.Emitter / JsonlSink
         # (EXECUTION_EVENT_BOOTSTRAP), and every compiled provider node calls
         # Emitter(..., schema=<v3>) for its contract event
-        # (CONTRACT_EVENT_BOOTSTRAP). The floor is the newest of the three.
+        # (CONTRACT_EVENT_BOOTSTRAP), and an agent step's model: calls
+        # model_declaration.parse_entries (MODEL_ENTRIES_BOOTSTRAP). The floor
+        # is the highest version of the four.
         from workflow_kit_lib.declarations import (
             CONTRACT_EVENT_BOOTSTRAP,
             EXECUTION_EVENT_BOOTSTRAP,
             MODEL_DECLARATION_BOOTSTRAP,
+            MODEL_ENTRIES_BOOTSTRAP,
         )
 
         manifest = json.loads((PLUGIN_ROOT / "bootstrap.json").read_text(encoding="utf-8"))
@@ -55,6 +58,7 @@ class TestRequiresBootstrap:
             MODEL_DECLARATION_BOOTSTRAP,
             EXECUTION_EVENT_BOOTSTRAP,
             CONTRACT_EVENT_BOOTSTRAP,
+            MODEL_ENTRIES_BOOTSTRAP,
             key=_version,
         )
         assert manifest.get("requires_bootstrap") == floor
@@ -69,7 +73,17 @@ class TestRequiresBootstrap:
 
         manifest = json.loads((PLUGIN_ROOT / "bootstrap.json").read_text(encoding="utf-8"))
         assert CONTRACT_EVENT_BOOTSTRAP == "0.137.0"
-        assert manifest["requires_bootstrap"] == "0.137.0"
+        assert _version(manifest["requires_bootstrap"]) >= _version("0.137.0")
+
+    def test_model_entries_floor_is_0_150_0(self):
+        # A literal, independent of the constants: bootstrap 0.150.0 shipped
+        # model_declaration.parse_entries, which an agent step's model: calls.
+        from workflow_kit_lib.declarations import MODEL_ENTRIES_BOOTSTRAP
+
+        manifest = json.loads((PLUGIN_ROOT / "bootstrap.json").read_text(encoding="utf-8"))
+        assert MODEL_ENTRIES_BOOTSTRAP == "0.150.0"
+        assert manifest["requires_bootstrap"] == "0.150.0"
+        assert "parse_entries" in manifest["$comment"]
 
     def test_bootstrap_comment_names_contract_event_call(self):
         manifest = json.loads((PLUGIN_ROOT / "bootstrap.json").read_text(encoding="utf-8"))

@@ -242,7 +242,10 @@ class TestShippedDefaults:
         for row in data["routing"]:
             assert set(row["shape"]) <= skills
             assert row["models"]
-            assert all(isinstance(model, str) for model in row["models"])
+            assert all(
+                isinstance(model, dict) and set(model) == {"id", "effort"}
+                for model in row["models"]
+            )
 
         shapes = [row["shape"] for row in data["routing"]]
         assert shapes.index(["parallel-leaf", "unverifiable"]) < shapes.index(
@@ -254,7 +257,7 @@ class TestShippedDefaults:
 
     def test_shipped_routing_names_model_ids_without_prefixes(self):
         data = shipped()
-        models = [model for row in data["routing"] for model in row["models"]]
+        models = [model["id"] for row in data["routing"] for model in row["models"]]
         assert models == [
             "sol",
             "opus",
@@ -272,6 +275,21 @@ class TestShippedDefaults:
             "luna",
         ]
         assert all(":" not in model for model in models)
+
+    def test_shipped_routing_entries_carry_the_approved_efforts(self):
+        rows = {
+            tuple(row["shape"]): [(m["id"], m["effort"]) for m in row["models"]]
+            for row in shipped()["routing"]
+        }
+        assert rows == {
+            ("cross-check",): [("sol", "high"), ("opus", "high")],
+            ("novel", "load-bearing"): [("opus", "xhigh"), ("sol", "xhigh")],
+            ("parallel-leaf", "unverifiable"): [("haiku", "high"), ("luna", "high")],
+            ("parallel-leaf", "mutating"): [("haiku", "medium"), ("luna", "medium")],
+            ("parallel-leaf", "known", "rule-applying"): [("haiku", "low"), ("luna", "low")],
+            ("fan-out",): [("haiku", "medium"), ("luna", "medium")],
+            (): [("sonnet", "high"), ("luna", "high")],
+        }
 
     def test_shipped_defaults_render_with_the_expected_sections(
         self, capsys, monkeypatch, tmp_path
@@ -1585,7 +1603,7 @@ class TestNoBareCodenames:
 
     def test_shipped_routing_uses_entry_ids_not_provider_slugs(self):
         data = shipped()
-        models = [model for row in data["routing"] for model in row["models"]]
+        models = [model["id"] for row in data["routing"] for model in row["models"]]
         assert "sol" in models and "luna" in models
         assert all("gpt-5.6-" not in model for model in models)
 
@@ -2693,3 +2711,107 @@ def test_shipped_defaults_never_route_to_fable():
         example.get("requires_model") != "fable"
         for example in data["announce"]["examples"]
     )
+
+
+# --------------------------------------------------------------------------
+# Per-entry effort: rendered on every model line, delivered by agent type
+# --------------------------------------------------------------------------
+
+
+_AGENTS_DIR = Path(og.__file__).resolve().parents[3] / "agents"
+
+
+def _frontmatter(path):
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("---\n"), path
+    return yaml.safe_load(text.split("---\n", 2)[1])
+
+
+class TestRoutingEffort:
+    def test_reduced_menu_lines_state_each_entrys_effort(self, layered, monkeypatch):
+        monkeypatch.setitem(sys.modules, "llm_scripting_kit", None)
+        layered("shipped", cfg(routing=[
+            {"shape": ["novel"], "models": [
+                {"id": "fable", "effort": "xhigh"}, {"id": "sonnet", "effort": "low"},
+            ]},
+            {"shape": [], "models": ["sonnet"]},
+        ], backends=[_AGENT_RECORD]))
+        config, provenance = og.resolve_config(layered.project_root)
+        text = og.render(config, provenance)
+        assert _menu_ids(text, 1) == ["fable", "sonnet"]
+        assert _entry_line(text, 1, "fable").endswith("effort: xhigh")
+        assert _entry_line(text, 1, "sonnet").endswith("effort: low")
+        # A bare id states no effort, so its line carries none.
+        assert "effort:" not in _entry_line(text, 2, "sonnet")
+
+    def test_describe_menu_lines_state_each_entrys_effort(self, declared):
+        text = declared([{"shape": ["novel"], "models": [
+            {"id": "fable", "effort": "max"}, {"id": "sol", "effort": "medium"},
+        ]}])
+        assert _menu_ids(text, 1) == ["fable", "sol"]
+        assert _entry_line(text, 1, "fable").endswith("effort: max")
+        assert _entry_line(text, 1, "sol").endswith("effort: medium")
+
+    def test_an_unknown_effort_skips_the_row(self, layered, monkeypatch):
+        monkeypatch.setitem(sys.modules, "llm_scripting_kit", None)
+        layered("shipped", cfg(routing=[
+            {"shape": ["novel"], "models": [{"id": "fable", "effort": "extreme"}]},
+            {"shape": [], "models": ["sonnet"]},
+        ], backends=[_AGENT_RECORD]))
+        config, provenance = og.resolve_config(layered.project_root)
+        routes, notes = og.resolve_routing_models(config, {}, {})
+        assert [route["shape"] for route in routes] == [[]]
+        assert any("unknown effort" in note for note in notes)
+
+    def test_a_bootstrap_without_parse_entries_is_diagnosed_as_too_old(self, monkeypatch):
+        import bootstrap_lib
+
+        stale = ModuleType("bootstrap_lib.model_declaration")
+        stale.parse = lambda value: list(value)
+        stale.CORE_IDS = frozenset({"opus"})
+        monkeypatch.setitem(sys.modules, "bootstrap_lib.model_declaration", stale)
+        monkeypatch.setattr(bootstrap_lib, "model_declaration", stale, raising=False)
+        with pytest.raises(og.RoutingUnavailable) as too_old:
+            og.load_model_declaration()
+
+        predates = ModuleType("bootstrap_lib.model_declaration")
+        monkeypatch.setitem(sys.modules, "bootstrap_lib.model_declaration", predates)
+        monkeypatch.setattr(bootstrap_lib, "model_declaration", predates)
+        with pytest.raises(og.RoutingUnavailable) as no_module:
+            og.load_model_declaration()
+
+        assert og.PARSE_ENTRIES_BOOTSTRAP == "0.150.0"
+        assert "parse_entries" in str(too_old.value)
+        assert "0.150.0" in str(too_old.value)
+        assert "claude plugin update bootstrap@plugins-kit" in str(too_old.value)
+        assert str(too_old.value) != str(no_module.value)
+
+    def test_the_bootstrap_floor_matches_parse_entries(self):
+        manifest = json.loads(
+            (_AGENTS_DIR.parent / "bootstrap.json").read_text(encoding="utf-8")
+        )
+        assert manifest["requires_bootstrap"] == og.PARSE_ENTRIES_BOOTSTRAP
+
+
+class TestOrchestrateLaneAgents:
+    def test_every_effort_level_has_an_agent_binding_it(self):
+        from bootstrap_lib.model_declaration import EFFORT_LEVELS
+
+        found = {path.stem for path in _AGENTS_DIR.glob("orchestrate-lane-*.md")}
+        assert found == {f"orchestrate-lane-{level}" for level in EFFORT_LEVELS}
+        for level in EFFORT_LEVELS:
+            meta = _frontmatter(_AGENTS_DIR / f"orchestrate-lane-{level}.md")
+            assert meta["name"] == f"orchestrate-lane-{level}"
+            assert meta["effort"] == level
+            assert "orchestrate routing" in " ".join(meta["description"].split())
+            assert "model" not in meta
+
+    def test_the_rendered_policy_names_the_agent_type_and_codex_flag(self):
+        block = shipped()["effort"]
+        text = " ".join(block["note"].split())
+        assert "subagent_type: awesome-kit:orchestrate-lane-<effort>" in text
+        assert "model: <id>" in text
+        assert "--effort <effort>" in text
+        assert "NOT dialable" not in block["note"]
+        assert "no per-call effort" not in " ".join(block["up_effort_note"].split())
+

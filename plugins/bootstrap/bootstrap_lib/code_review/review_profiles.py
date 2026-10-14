@@ -76,7 +76,8 @@ _REMOVED_LANE_EFFORT = "effort"
 # frontmatter. git-kit and p4-kit each ship the agents as
 # `<kit>:review-lane-<level>`. Any other entry passes its effort to the lane
 # tool. The generator and its tests import this constant by name.
-EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+# The menu itself is owned by model_declaration; this name is kept for importers.
+EFFORT_LEVELS = model_declaration.EFFORT_LEVELS
 
 
 class ConfigError(ValueError):

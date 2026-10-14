@@ -563,12 +563,14 @@ HARNESS_NAMES = frozenset(("codex", "opencode"))
 CLAUDE_HARNESS = "claude"
 
 # The llm-scripting-kit release that shipped `describe` with the keywords
-# passed below, and the bootstrap release that shipped model_declaration.
+# passed below, the bootstrap release that shipped model_declaration, and the
+# bootstrap release that shipped its `parse_entries` ({id, effort} entries).
 # awesome-kit's manifest has no install edge to llm-scripting-kit (the
 # renderer DEGRADES, dispatch.py REFUSES), so this floor is enforced by the
 # probes that read these constants, not by bootstrap.
 DECLARATION_FLOOR = "0.46.0"
 MODEL_DECLARATION_BOOTSTRAP = "0.129.0"
+PARSE_ENTRIES_BOOTSTRAP = "0.150.0"
 _DESCRIBE_KEYWORDS = ("caller", "self_ref", "backend_factory", "reachability_cache", "entries")
 
 
@@ -746,7 +748,9 @@ def load_model_declaration() -> Any:
     ``bootstrap_lib`` (its bootstrap.json ``shared_lib_imports``) and sets
     ``requires_bootstrap`` to the release that shipped the module, so on a
     provisioned venv this cannot fail. Absent and too-old are still diagnosed
-    apart, because a shared-lib link pins no version (plugins/CLAUDE.md).
+    apart, because a shared-lib link pins no version (plugins/CLAUDE.md). The
+    probe targets ``parse_entries`` and ``EFFORT_LEVELS``, which first shipped in
+    bootstrap ``PARSE_ENTRIES_BOOTSTRAP``.
     """
     try:
         import bootstrap_lib  # noqa: F401, PLC0415
@@ -769,6 +773,15 @@ def load_model_declaration() -> Any:
             "routing rows not rendered: the linked bootstrap_lib predates "
             f"model_declaration (first shipped in bootstrap {MODEL_DECLARATION_BOOTSTRAP}); "
             "update with `claude plugin update bootstrap@plugins-kit` and start a new session"
+        )
+    if not callable(getattr(model_declaration, "parse_entries", None)) or not isinstance(
+        getattr(model_declaration, "EFFORT_LEVELS", None), tuple
+    ):
+        raise RoutingUnavailable(
+            "routing rows not rendered: the linked bootstrap_lib.model_declaration "
+            "predates parse_entries, which reads {id, effort} routing entries "
+            f"(first shipped in bootstrap {PARSE_ENTRIES_BOOTSTRAP}); update with "
+            "`claude plugin update bootstrap@plugins-kit` and start a new session"
         )
     return model_declaration
 
@@ -965,12 +978,23 @@ def _drivable_harnesses(config: Dict[str, Any], routable_ids: set) -> set:
     return drivable
 
 
+def _with_effort(line: str, effort: Optional[str]) -> str:
+    """Append an entry's declared effort to its rendered menu line."""
+    return f"{line}   effort: {effort}" if effort else line
+
+
 def _describe_row(
     api: SimpleNamespace,
     ids: List[str],
     context: Mapping[str, Any],
+    efforts: Optional[Mapping[str, Optional[str]]] = None,
 ) -> Dict[str, Any]:
-    """One row's menu from ``describe``: rendered entries, header, rule, or floor."""
+    """One row's menu from ``describe``: rendered entries, header, rule, or floor.
+
+    ``describe`` receives ids only; each entry's declared effort is appended to
+    its rendered line by id, so pace ordering cannot detach it.
+    """
+    efforts = efforts or {}
     _seed_reachability(
         api, ids, context["entries"], context["harness_status"], context["cache"]
     )
@@ -995,15 +1019,23 @@ def _describe_row(
             "harness": entry.harness,
             "usable": bool(entry.usable),
             "default": bool(entry.default),
-            "line": line,
+            "effort": efforts.get(entry.id),
+            "line": _with_effort(line, efforts.get(entry.id)),
         }
         for entry, line in zip(entries, lines[1 : 1 + len(entries)])
     ]
     return {"models": models, "header": lines[0], "rule": ranking.rule, "floor": None}
 
 
-def _reduced_row(ids: List[str], core_ids: frozenset, self_ref: Optional[str], reason: str) -> Dict[str, Any]:
+def _reduced_row(
+    ids: List[str],
+    core_ids: frozenset,
+    self_ref: Optional[str],
+    reason: str,
+    efforts: Optional[Mapping[str, Optional[str]]] = None,
+) -> Dict[str, Any]:
     """One row's menu without llm-scripting-kit: its core ids, in declared order."""
+    efforts = efforts or {}
     kept = [entry_id for entry_id in ids if entry_id in core_ids]
     if not kept:
         itemised = "\n".join(f"  {entry_id}: unroutable ({reason})" for entry_id in ids)
@@ -1030,7 +1062,8 @@ def _reduced_row(ids: List[str], core_ids: frozenset, self_ref: Optional[str], r
                 "harness": CLAUDE_HARNESS,
                 "usable": True,
                 "default": index == 0,
-                "line": line,
+                "effort": efforts.get(entry_id),
+                "line": _with_effort(line, efforts.get(entry_id)),
             }
         )
     return {
@@ -1134,15 +1167,17 @@ def resolve_routing_models(
             continue
 
         try:
-            ids = declaration.parse(raw_row.get("models"))
+            declared = declaration.parse_entries(raw_row.get("models"))
         except declaration.DeclarationError as exc:
             notes.append(f"routing row {row_number} skipped: models: {exc}")
             continue
+        ids = [entry.id for entry in declared]
+        efforts = {entry.id: entry.effort for entry in declared}
 
         row: Optional[Dict[str, Any]] = None
         if context is not None:
             try:
-                row = _describe_row(api, ids, context)
+                row = _describe_row(api, ids, context, efforts)
             except Exception as exc:  # noqa: BLE001 -- a version-skewed library degrades
                 note = (
                     "llm_scripting_kit describe() failed "
@@ -1158,7 +1193,7 @@ def resolve_routing_models(
                 if api is None
                 else "llm_scripting_kit describe() failed here"
             )
-            row = _reduced_row(ids, core_ids, self_ref, reason)
+            row = _reduced_row(ids, core_ids, self_ref, reason, efforts)
 
         routes.append(
             {

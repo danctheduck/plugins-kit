@@ -248,7 +248,11 @@ def test_orchestrate_routing_rows_name_ids_without_the_agent_prefix():
     import yaml
 
     policy = yaml.safe_load((_ORCHESTRATE / "defaults" / "orchestration.yaml").read_text(encoding="utf-8"))
-    models = [model for row in policy["routing"] for model in row["models"]]
+    models = [
+        model["id"] if isinstance(model, dict) else model
+        for row in policy["routing"]
+        for model in row["models"]
+    ]
     assert models and not any(model.startswith("agent:") for model in models)
 
 

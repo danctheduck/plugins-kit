@@ -2429,51 +2429,7 @@ when there are findings, and 2 when a layer is malformed or invalid.
 ## Shipped defaults
 
 ```yaml
-profiles:
-- id: data_only
-  selection:
-    data_only_extensions:
-    - .csv
-    - .yaml
-    - .yml
-    - .json
-    - .tsv
-    - .md
-  reviewers:
-  - name: reviewer_a_claude_md_compliance
-    model:
-    - {id: haiku, effort: low}
-    - {id: sonnet, effort: low}
-    - {id: luna, effort: high}
-  - name: reviewer_b_diff_only_bugs
-    model:
-    - {id: haiku, effort: low}
-    - {id: sonnet, effort: low}
-    - {id: luna, effort: high}
-  # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
-  validator_models:
-    bug: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
-    claude_md: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
-- id: code
-  selection: {}
-  reviewers:
-  - name: reviewer_a_claude_md_compliance
-    model:
-    - {id: haiku, effort: low}
-    - {id: sonnet, effort: low}
-    - {id: luna, effort: high}
-  - name: reviewer_b_diff_only_bugs
-    model:
-    - {id: opus, effort: medium}
-    - {id: sol, effort: medium}
-  - name: reviewer_c_introduced_code
-    model:
-    - {id: sol, effort: high}
-    - {id: opus, effort: high}
-  # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
-  validator_models:
-    bug: [{id: opus, effort: medium}]
-    claude_md: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
+@SHIPPED_DEFAULTS@
 ```
 
 ## What an `effort` value may name
@@ -2729,8 +2685,17 @@ CONFIGURATION_FRAGMENTS = {
 }
 
 
+# The shipped review-profile defaults, read from the file the resolver loads, so
+# the rendered configuration reference cannot drift from what a review runs.
+SHIPPED_REVIEW_PROFILES = (
+    REPO_ROOT / "plugins/bootstrap/bootstrap_lib/code_review/defaults/review_profiles.yaml"
+)
+
+
 def render_configuration(vcs: str) -> str:
-    out = CONFIGURATION_TEMPLATE
+    # read_text() already folds CRLF line endings (universal newlines).
+    defaults = SHIPPED_REVIEW_PROFILES.read_text(encoding="utf-8").rstrip(chr(10))
+    out = CONFIGURATION_TEMPLATE.replace("@SHIPPED_DEFAULTS@", defaults)
     for token, value in CONFIGURATION_FRAGMENTS[vcs].items():
         out = out.replace(f"@{token}@", value)
     return out

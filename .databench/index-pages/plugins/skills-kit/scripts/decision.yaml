@@ -3,7 +3,7 @@
   "directory": "plugins/skills-kit/scripts",
   "decision": "page",
   "source_sha": "bce913a291b2c16dd005e8d32674fbd70027813f",
-  "generation_spec_sha256": "9ff6d95c6dfa06e27a9196a26596c8b98ddf698bf2a82b9885b93c69cfaaa1e2",
+  "generation_spec_sha256": "d40323919c23e31cc9c5afe305627667e78bca3c257330f0fc0b3a9b1c826ade",
   "input_sha256": "403c3c06325db0ae865a7cf1d7a67ff1f44e268d3635a46acfbb33072ade77f5",
   "input_shape_sha256": "231d42f6094c0d66153241dae96ed75b112ae576d38e633205e1d5484bf5ac1f",
   "dirty": false,

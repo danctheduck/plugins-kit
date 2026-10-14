@@ -2,6 +2,7 @@
 name: workflow-kit-agent
 description: Executor for workflow-kit nodes. Runs one shell command that writes its output to a file and returns only metadata. Invoked by agentType from workflow-kit workflows; not auto-selected.
 model: haiku
+effort: low
 tools: Bash
 ---
 

@@ -98,6 +98,10 @@ A **step** is exactly one of: an agent step, a pipeline step, a `script` node, o
   agent step runs on the harness, so it compiles to the FIRST Claude core id in
   the list (`fable`, `opus`, `sonnet`, `haiku`) and skips every other id without
   comment. A list with no core id is a compile error that names each declared id.
+  Any entry may be an `{id, effort}` mapping in place of a bare id (same
+  reference), e.g. `model: [{id: opus, effort: high}, sonnet]`. When the entry
+  the step compiles to states an effort, it is passed to `agent()` as
+  `effort`; a bare id passes none, leaving the harness default.
 - **pipeline step** -- `pipeline: { over, as, stages: [...] }`. Each stage is an
   agent step; a stage may add `fan_out: { over, as, mode }` to fan out within the
   stage. Stages run with no barrier (item A reaches stage 2 while item B is still
@@ -111,7 +115,8 @@ A **step** is exactly one of: an agent step, a pipeline step, a `script` node, o
   status?, label? }`. One non-Claude model call whose reply lands in `$OUT`.
   `prompt_file` is a path (an input, or an upstream node's `{{ steps.ID.path }}`).
   `model` is a model declaration of llm-scripting-kit transport entry ids
-  (e.g. `or-qwen`, or `[or-qwen, or-gpt-mini]`). Omit it to use the configured
+  (e.g. `or-qwen`, or `[or-qwen, or-gpt-mini]`); ids only -- an `{id, effort}`
+  entry is refused, because the node runner's `--model` carrier has no effort. Omit it to use the configured
   default declaration (set `cheap: true` for that entry's `defaultCheap`). A
   model alias or raw slug is not an entry id and is not accepted. Every
   compiled openrouter node also records its execution events at

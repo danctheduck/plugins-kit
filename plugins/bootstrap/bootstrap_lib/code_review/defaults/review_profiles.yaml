@@ -13,12 +13,12 @@ profiles:
     model:
     - {id: haiku, effort: low}
     - {id: sonnet, effort: low}
-    - {id: luna, effort: high}
+    - {id: luna, effort: medium}
   - name: reviewer_b_diff_only_bugs
     model:
     - {id: haiku, effort: low}
     - {id: sonnet, effort: low}
-    - {id: luna, effort: high}
+    - {id: luna, effort: medium}
   # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
   validator_models:
     bug: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
@@ -28,7 +28,7 @@ profiles:
   reviewers:
   - name: reviewer_a_claude_md_compliance
     model:
-    - {id: haiku, effort: low}
+    - {id: haiku, effort: medium}
     - {id: sonnet, effort: low}
     - {id: luna, effort: high}
   - name: reviewer_b_diff_only_bugs
@@ -37,9 +37,9 @@ profiles:
     - {id: sol, effort: medium}
   - name: reviewer_c_introduced_code
     model:
-    - {id: sol, effort: high}
-    - {id: opus, effort: high}
+    - {id: sonnet, effort: high}
+    - {id: luna, effort: xhigh}
   # Validators are Claude-only by mechanism: a validator runs on an Agent entry only.
   validator_models:
     bug: [{id: opus, effort: medium}]
-    claude_md: [{id: haiku, effort: low}, {id: sonnet, effort: low}]
+    claude_md: [{id: haiku, effort: medium}, {id: sonnet, effort: low}]

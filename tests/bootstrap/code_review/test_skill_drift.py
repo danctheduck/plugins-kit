@@ -926,3 +926,22 @@ class TestSilencedErrorCriterionRendered:
         prompt = _flat(LANE_PROMPTS["reviewer_c_introduced_code"].system)
         for phrase in self.PROMPT_PHRASES:
             assert phrase in prompt, f"endpoint reviewer_c prompt lost {phrase!r}"
+
+
+def test_configuration_reference_shows_the_shipped_defaults_file():
+    """The rendered configuration reference quotes the real defaults file.
+
+    Pins the property, not a spelling: an edit to review_profiles.yaml that is
+    not regenerated into both kits' configuration.md goes red here.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3]
+    defaults = (
+        root / "plugins/bootstrap/bootstrap_lib/code_review/defaults/review_profiles.yaml"
+    ).read_text(encoding="utf-8").rstrip("\n")
+    for kit, skill in (("git-kit", "git-code-review"), ("p4-kit", "p4-code-review")):
+        rendered = (
+            root / f"plugins/{kit}/skills/{skill}/references/configuration.md"
+        ).read_text(encoding="utf-8")
+        assert "```yaml\n" + defaults + "\n```" in rendered, kit

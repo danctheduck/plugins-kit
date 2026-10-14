@@ -5,7 +5,8 @@ A *node strategy* lets a native Workflow script run a deterministic shell comman
 node. The native Workflow tool can't do this directly: its orchestrator body is
 sandboxed (no filesystem, no shell, no network) and `agent()` spawns a Claude
 subagent only. workflow-kit closes that gap with one convention -- the **node
-contract** -- executed by the `workflow-kit-agent` executor on a haiku model.
+contract** -- executed by the `workflow-kit-agent` executor on a haiku model
+at low effort.
 
 This is the closest you get to a deterministic node while staying native. It is
 NOT a deterministic runtime: a haiku agent still runs the command. The contract

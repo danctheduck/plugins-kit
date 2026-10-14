@@ -276,7 +276,59 @@ def _agent_model(model_yaml, write_workflow):
 )
 def test_agent_model_accepts_any_structurally_valid_declaration(model_yaml, expected, write_workflow):
     doc = _agent_model(model_yaml, write_workflow)
-    assert doc.steps[0].agent.model == expected
+    assert tuple(entry.id for entry in doc.steps[0].agent.model) == expected
+    assert all(entry.effort is None for entry in doc.steps[0].agent.model)
+
+
+@pytest.mark.parametrize(
+    "model_yaml, expected",
+    [
+        ("{id: opus, effort: high}", (("opus", "high"),)),
+        ("[sol, {id: haiku, effort: low}]", (("sol", None), ("haiku", "low"))),
+        ("[{id: sonnet}]", (("sonnet", None),)),
+    ],
+)
+def test_agent_model_accepts_effort_entries(model_yaml, expected, write_workflow):
+    doc = _agent_model(model_yaml, write_workflow)
+    assert tuple((e.id, e.effort) for e in doc.steps[0].agent.model) == expected
+
+
+@pytest.mark.parametrize(
+    "model_yaml, match",
+    [
+        ("{id: opus, effort: extreme}", "unknown effort"),
+        ("{id: opus, speed: fast}", "unknown entry field"),
+        ("{effort: low}", "must state an id"),
+    ],
+)
+def test_agent_model_rejects_an_invalid_effort_entry(model_yaml, match, write_workflow):
+    with pytest.raises(WorkflowError, match=match):
+        _agent_model(model_yaml, write_workflow)
+
+
+def test_agent_model_too_old_bootstrap_names_0_150_0(write_workflow, monkeypatch):
+    """A bootstrap_lib with parse/CORE_IDS but no parse_entries is diagnosed as
+    too old, naming the release that shipped it, not as absent."""
+    from bootstrap_lib import model_declaration
+
+    monkeypatch.delattr(model_declaration, "parse_entries")
+    with pytest.raises(WorkflowError) as caught:
+        _agent_model("opus", write_workflow)
+    message = str(caught.value)
+    assert "predates model_declaration.parse_entries" in message
+    assert "bootstrap >= 0.150.0" in message
+    assert "not linked" not in message
+
+
+def test_openrouter_model_refuses_an_effort_entry(write_workflow):
+    """The openrouter comma carrier holds ids only, so an {id, effort} entry is
+    refused rather than accepted with its effort dropped."""
+    with pytest.raises(WorkflowError, match="not a valid model declaration"):
+        _load_text(
+            "name: o\ndescription: x\nsteps:\n  - id: c\n    openrouter:\n"
+            "      prompt_file: p.txt\n      model: [{id: or-qwen, effort: low}]\n",
+            write_workflow,
+        )
 
 
 @pytest.mark.parametrize(

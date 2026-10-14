@@ -3,7 +3,7 @@
   "directory": "plugins/unreal-kit/skills/fix-up-redirectors/scripts",
   "decision": "page",
   "source_sha": "8e2e5af362779f987927784da790bef06f768d0c",
-  "generation_spec_sha256": "9ff6d95c6dfa06e27a9196a26596c8b98ddf698bf2a82b9885b93c69cfaaa1e2",
+  "generation_spec_sha256": "d40323919c23e31cc9c5afe305627667e78bca3c257330f0fc0b3a9b1c826ade",
   "dirty": false,
   "identity": "Unreal ObjectRedirector fix-up scripts that discover, classify, filter, and apply safe cleanup",
   "instructions": "",

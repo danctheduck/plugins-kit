@@ -27,6 +27,20 @@ models: [qwen3.8-5090, opus, astra, qwen3.8-m5pro]     # several providers
 - **Order is preference order.** The first entry is the declared first choice.
 - **Any id may appear**, including several ids served by one provider.
 
+An entry may instead be an `{id, effort}` mapping, at a site that delivers
+effort per entry:
+
+```yaml
+models: [{id: sol, effort: high}, {id: opus, effort: high}]
+models: [{id: haiku, effort: low}, luna]                # effort is optional per entry
+```
+
+`effort` is one of `low`, `medium`, `high`, `xhigh`, `max`
+(`bootstrap_lib.model_declaration.EFFORT_LEVELS`). Only a site that reads
+entries with `parse_entries` accepts the mapping form; a site that reads with
+`parse` refuses it, so an effort the site cannot deliver fails loudly instead
+of being dropped. Each site's own documentation says which form it takes.
+
 The carrier does not change the format. A YAML list, a JSON list, a JavaScript
 array literal, and a repeated command-line flag all carry the same list.
 
@@ -74,6 +88,7 @@ stdlib-only, reads no file, and never imports llm-scripting-kit.
 | `parse(value)` | the declaration as a normalized `list[str]` |
 | `validate(value)` | a `Declaration` whose `ids` is that list as a tuple |
 | `is_core_id(value)` | whether `value` is a core id |
+| `parse_entries(value)` | the declaration as a `list[Entry]` (`id`, `effort` or `None`), accepting `{id, effort}` mappings |
 
 Both `parse` and `validate` raise `DeclarationError` for:
 
@@ -81,6 +96,10 @@ Both `parse` and `validate` raise `DeclarationError` for:
 - a literally-empty list;
 - an entry that is not a string, or is blank;
 - the same id twice. Surrounding whitespace is stripped before the comparison.
+
+`parse_entries` raises it for the same faults, and also for an entry mapping
+with a field other than `id` and `effort`, without an `id`, or with an effort
+outside `EFFORT_LEVELS`.
 
 `DeclarationError.index` gives the position of the offending entry, or `None`
 when the fault is in the whole value. A calling site re-raises it in its own

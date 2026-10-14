@@ -79,7 +79,7 @@ routing:
   guards:
   - Keep the high-cost route for work that meets its bar.
 - shape: [fan-out]
-  models: [luna, sonnet]
+  models: [{id: luna, effort: medium}, {id: sonnet, effort: medium}]
 - shape: []
   models: [sonnet]
 ```
@@ -95,6 +95,13 @@ entries exposed by `llm-scripting-kit`. The harness belongs to the resolved entr
 id: a registry entry named `sol` whose harness is Codex is announced as `codex/sol`. The
 former `agent:<id>` prefix is not accepted -- an `agent:<id>` entry is an ordinary unknown
 id and resolves to nothing, like any other unrecognized prefix.
+
+An entry may be a bare id or an `{id, effort}` mapping. `effort` is one of `low`, `medium`,
+`high`, `xhigh`, `max`, and each rendered model line states it. The effort is delivered at
+dispatch: a Claude entry is launched with `subagent_type: awesome-kit:orchestrate-lane-<effort>`
+and `model: <id>`, and a Codex entry passes `--effort <effort>` to `dispatch.py`. A bare id
+states no effort, so the dispatcher's own default applies. Parsing `{id, effort}` entries needs
+bootstrap 0.150.0 or later.
 
 ### How a row's menu is rendered
 

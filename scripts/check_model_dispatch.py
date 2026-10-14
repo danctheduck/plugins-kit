@@ -197,13 +197,26 @@ def _resolution_reason(
     return f"no harness model entry named `{name}` resolves"
 
 
+def _entry_id(raw_model: Any) -> Any:
+    """The id of a routing entry: the string itself, or a mapping's `id`."""
+    return raw_model.get("id") if isinstance(raw_model, dict) else raw_model
+
+
 def _routing_probe(
     raw_model: Any,
     where: str,
     model_entries: Mapping[str, Any],
     model_notes: Sequence[str],
 ) -> Probe:
-    """Classify one routing name and preserve every resolution failure."""
+    """Classify one routing name and preserve every resolution failure.
+
+    A routing entry is an id or an `{id, effort}` mapping; the row's effort,
+    when stated, is the one dispatched and wins over the registry entry's.
+    """
+    row_effort = None
+    if isinstance(raw_model, dict):
+        row_effort = raw_model.get("effort")
+        raw_model = raw_model.get("id")
     shown = str(raw_model)
     if not isinstance(raw_model, str) or not raw_model:
         return Probe(
@@ -215,11 +228,15 @@ def _routing_probe(
         )
 
     if raw_model in CORE_IDS:
+        details = f"entry={raw_model}"
+        if row_effort:
+            details += f", effort={row_effort}"
         return Probe(
             "claude-model",
             raw_model,
             where,
-            f"entry={raw_model}",
+            details,
+            effort=row_effort,
             is_routing=True,
         )
 
@@ -248,7 +265,7 @@ def _routing_probe(
         reason = f"harness entry `{raw_model}` has no model id"
         return Probe("unresolved-model", raw_model, where, reason, is_routing=True)
 
-    effort = _record_value(entry, "effort")
+    effort = row_effort or _record_value(entry, "effort")
     effort_text = effort if isinstance(effort, str) and effort else None
     details = [f"entry={raw_model}"]
     if effort_text:
@@ -281,7 +298,7 @@ def collect_probes(
                 isinstance(row, dict)
                 and isinstance(row.get("models"), list)
                 and any(
-                    isinstance(model, str) and model not in CORE_IDS
+                    _entry_id(model) not in CORE_IDS
                     for model in row["models"]
                 )
                 for row in routing_rows

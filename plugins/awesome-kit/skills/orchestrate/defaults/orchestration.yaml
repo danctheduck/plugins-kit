@@ -28,8 +28,9 @@
 #
 # The DECISION half (resolution, lexicon, shape, routing, agent_types, effort,
 # announce, review_overlap) is hand-written configuration. `routing` is the ordered policy;
-# each row's `models` is a model declaration: a list of model ids in preference
-# order (bootstrap plugin-dev references/model-declaration.md). The core ids
+# each row's `models` is a model declaration: a list of model ids, or
+# {id, effort} entries, in preference order (bootstrap plugin-dev
+# references/model-declaration.md). The core ids
 # fable, opus, sonnet and haiku are the Claude harness's own; every other id
 # resolves against llm-scripting-kit.
 #
@@ -347,9 +348,9 @@ shape:
 # Anthropic's published prices).
 routing:
 - shape: [cross-check]
-  models: [sol, opus]
+  models: [{id: sol, effort: high}, {id: opus, effort: high}]
 - shape: [novel, load-bearing]
-  models: [opus, sol]
+  models: [{id: opus, effort: xhigh}, {id: sol, effort: xhigh}]
   gate: >-
     write "qualifies on <criteria>; <why the broader route is the wrong seat>". If it cannot be
     written, the unit does not qualify.
@@ -358,18 +359,18 @@ routing:
   - Never choose a cheaper model for a unit that meets this row's bar to harvest the discount.
   - fable is not routed by default. A layer that wants it names it in this row's `models`.
 - shape: [parallel-leaf, unverifiable]
-  models: [haiku, luna]
+  models: [{id: haiku, effort: high}, {id: luna, effort: high}]
 - shape: [parallel-leaf, mutating]
-  models: [haiku, luna]
+  models: [{id: haiku, effort: medium}, {id: luna, effort: medium}]
 - shape: [parallel-leaf, known, rule-applying]
-  models: [haiku, luna]
+  models: [{id: haiku, effort: low}, {id: luna, effort: low}]
   guards:
   - This row routes one admitted leaf, never the whole batch. Dispatch every runnable leaf on
     the current frontier separately at low or medium effort.
 - shape: [fan-out]
-  models: [haiku, luna]
+  models: [{id: haiku, effort: medium}, {id: luna, effort: medium}]
 - shape: []
-  models: [sonnet, luna]
+  models: [{id: sonnet, effort: high}, {id: luna, effort: high}]
 
 # ---------------------------------------------------------------------------
 # Agent type
@@ -421,19 +422,20 @@ effort:
       dispatch's first cut was a {known} {sufficient} brief and took 45 minutes on luna at
       `max`; comparable {known} units on sonnet finished in 2-4 minutes.
   note: >-
-    Claude-side, effort is NOT dialable per call: the Agent tool has no effort parameter,
-    agents inherit from their type or the session, and it is settable per call only through
-    Workflow's `agent()` `opts.effort`. So a Claude-side effort decision is an input to routing,
-    not a knob to turn afterwards. Where it IS settable for a {novel} + {load-bearing} unit, set `xhigh` -- work that reaches
-    that row is dangerous in more than one way, and deliberation is the
-    main quality control left.
+    Each routing entry states its effort; dispatch the chosen entry at that effort. A Claude
+    entry is launched with the Agent tool's `subagent_type: awesome-kit:orchestrate-lane-<effort>`
+    and `model: <id>` -- each orchestrate-lane agent type binds one effort level, and the call
+    supplies the model. An orchestrate-lane agent has every tool, so it stands in for
+    `general-purpose`; a unit whose agent type is `Explore` or `Plan` keeps that type and runs
+    at the effort it inherits. A codex entry passes `--effort <effort>` to dispatch.py. The defaults
+    by shape above are guidance for raising or lowering an entry's stated effort for a
+    particular unit. A {novel} + {load-bearing} unit takes `xhigh` -- work that reaches that
+    row is dangerous in more than one way, and deliberation is the main quality control left.
   up_effort_note: >-
     Raise effort one step before switching model, and climb haiku up to `high`, then sonnet up
     to `high`, then opus: a unit that needs more than sonnet at `high` goes to opus.
-    That ladder applies WHERE effort is dialable
-    (a CLI backend's effort setting, Workflow `agent()`). Via the Agent tool there is no
-    per-call effort control for an Agent-tool opus dispatch: it inherits the session's effort
-    and does not count as the higher-effort attempt. A unit already at the {novel} +
+    Effort is dialable per dispatch on the Agent tool (an orchestrate-lane agent type) and on
+    codex (`--effort` on dispatch.py). A unit already at the {novel} +
     {load-bearing} bar goes to opus directly, at `xhigh`.
   raise_when:
   - ambiguous, or several plausible approaches where picking wrong is expensive
@@ -488,7 +490,10 @@ backends:
       always: true
     capabilities:
       isolation: 'The Agent tool accepts an `isolation: "worktree"` parameter.'
-      effort: Only dialable via Workflow's `agent()` `opts.effort`; else inherited.
+      effort: >-
+        Per call via `subagent_type: awesome-kit:orchestrate-lane-<low|medium|high|xhigh|max>`,
+        with the model in `model`; Workflow's `agent()` takes `opts.effort`. Without either,
+        the agent inherits its type's or the session's effort.
       network: "yes"
       returns: >-
         Delivered into the orchestrating context, not fetched; no per-call

@@ -40,10 +40,12 @@ function wkNode(cmd, out, opts) {
     (opts.status ? 'STATUS=' + opts.status + '\n' : '') +
     'COMMAND:\n' + cmd + '\n'
   // The executor's model is the one-entry declaration [haiku], written as its
-  // scalar carrier (workflow_kit_lib.declarations.EXECUTOR_MODELS).
+  // scalar carrier (workflow_kit_lib.declarations.EXECUTOR_MODELS), at low
+  // effort (EXECUTOR_EFFORT).
   const agentOpts = {
     agentType: 'workflow-kit:workflow-kit-agent',
     model: 'haiku',
+    effort: 'low',
     schema: WORKFLOW_KIT_NODE_SCHEMA,
   }
   if (opts.label) agentOpts.label = opts.label

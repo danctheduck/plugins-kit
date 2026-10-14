@@ -6,6 +6,11 @@ plugin-dev skill, ``references/model-declaration.md``). The loader validates
 its SHAPE with ``bootstrap_lib.model_declaration``; which id can route is
 decided here, at compile time, per node kind.
 
+An agent step's declaration may also give an entry as an ``{id, effort}``
+mapping (``model_declaration.parse_entries``). The effort of the entry the step
+compiles to is delivered to ``agent()`` as its ``effort`` option; an entry
+without one leaves the harness default.
+
 An agent step routes through the Workflow tool's ``agent()``, which the
 harness drives, so only the Claude core ids (``fable``, ``opus``, ``sonnet``,
 ``haiku``) are routable for it. The first core id in declaration order is
@@ -16,6 +21,8 @@ llm-scripting-kit here, because Claude routing belongs to the harness.
 
 An openrouter node passes its declaration to the node runner unchanged, as
 the comma carrier; llm-scripting-kit decides there (``scripts/openrouter_run.py``).
+The comma carrier holds ids only, so an openrouter declaration is parsed with
+``parse`` and refuses an ``{id, effort}`` mapping rather than drop its effort.
 
 ``bootstrap_lib`` is a REQUIRED shared lib of workflow-kit: its bootstrap.json
 links it, and bootstrap is a declared dependency of every plugin. An absent
@@ -31,6 +38,11 @@ from .errors import WorkflowError
 
 #: The bootstrap release that shipped ``bootstrap_lib.model_declaration``.
 MODEL_DECLARATION_BOOTSTRAP = "0.129.0"
+
+#: The bootstrap release that shipped ``model_declaration.parse_entries`` and
+#: ``EFFORT_LEVELS``: the ``{id, effort}`` entries an agent step's ``model:``
+#: accepts.
+MODEL_ENTRIES_BOOTSTRAP = "0.150.0"
 
 #: The bootstrap release that shipped ``bootstrap_lib.execution_event`` (the
 #: ``Emitter`` and ``JsonlSink`` an openrouter node run with ``--events`` uses).
@@ -54,6 +66,12 @@ OUTPUT_CONTRACT_LSK = "0.56.0"
 #: only a scalar, so each writes this declaration's single id; a test pins
 #: that both agree with it.
 EXECUTOR_MODELS = ("haiku",)
+
+#: The node executor's effort. It runs one shell command and reports metadata,
+#: so it needs no deliberation; the agent definition's ``effort:`` frontmatter
+#: and the preamble's ``agent()`` options both write this level, and a test
+#: pins that both agree with it.
+EXECUTOR_EFFORT = "low"
 
 
 def _model_declaration() -> Any:
@@ -85,8 +103,27 @@ def _model_declaration() -> Any:
     return model_declaration
 
 
+def _entry_declaration() -> Any:
+    """Return ``bootstrap_lib.model_declaration``, probed for ``parse_entries`` too."""
+    module = _model_declaration()
+    if not callable(getattr(module, "parse_entries", None)) or not isinstance(
+        getattr(module, "EFFORT_LEVELS", None), tuple
+    ):
+        raise WorkflowError(
+            "the linked bootstrap_lib predates model_declaration.parse_entries/"
+            "EFFORT_LEVELS, which an agent step's model: needs for {id, effort} "
+            f"entries; workflow-kit needs bootstrap >= {MODEL_ENTRIES_BOOTSTRAP}. Run "
+            "`claude plugin update bootstrap@plugins-kit` and start a new session."
+        )
+    return module
+
+
 def parse_declaration(value: Any, key: str, where: str) -> Optional[tuple]:
-    """Structurally validate an optional ``model:`` value; None when absent."""
+    """Structurally validate an optional id-only ``model:`` value; None when absent.
+
+    For a field whose carrier holds ids only (an openrouter node): an
+    ``{id, effort}`` mapping is refused, never accepted and dropped.
+    """
     if value is None:
         return None
     module = _model_declaration()
@@ -96,33 +133,52 @@ def parse_declaration(value: Any, key: str, where: str) -> Optional[tuple]:
         raise WorkflowError(f"{where}: {key!r} is not a valid model declaration: {exc}") from exc
 
 
-def agent_model(declared: Optional[tuple], where: str) -> Optional[str]:
-    """The id an agent step compiles to, or None when the step declares none.
+def parse_agent_declaration(value: Any, key: str, where: str) -> Optional[tuple]:
+    """Structurally validate an agent step's optional ``model:``; None when absent.
 
-    Skipping is silent; a declaration with no routable id raises the floor.
+    Returns a tuple of ``model_declaration.Entry`` (``id`` and ``effort``).
+    """
+    if value is None:
+        return None
+    module = _entry_declaration()
+    try:
+        return tuple(module.parse_entries(value))
+    except module.DeclarationError as exc:
+        raise WorkflowError(f"{where}: {key!r} is not a valid model declaration: {exc}") from exc
+
+
+def agent_model(declared: Optional[tuple], where: str) -> Optional[Any]:
+    """The entry an agent step compiles to, or None when the step declares none.
+
+    ``declared`` is what ``parse_agent_declaration`` returned. Skipping is
+    silent; a declaration with no routable id raises the floor.
     """
     if declared is None:
         return None
     core = _model_declaration().CORE_IDS
     for entry in declared:
-        if entry in core:
+        if entry.id in core:
             return entry
+    ids = [entry.id for entry in declared]
     items = "\n".join(
-        f"  {entry}: unroutable here (an agent step routes only the Claude core ids "
+        f"  {entry_id}: unroutable here (an agent step routes only the Claude core ids "
         f"{', '.join(sorted(core))}; not a core id, or not a registry id at all)"
-        for entry in declared
+        for entry_id in ids
     )
     raise WorkflowError(
-        f"{where}: no usable routing target in [{', '.join(declared)}] for an agent step:\n{items}"
+        f"{where}: no usable routing target in [{', '.join(ids)}] for an agent step:\n{items}"
     )
 
 
 __all__ = [
     "CONTRACT_EVENT_BOOTSTRAP",
     "EXECUTION_EVENT_BOOTSTRAP",
+    "EXECUTOR_EFFORT",
     "EXECUTOR_MODELS",
     "MODEL_DECLARATION_BOOTSTRAP",
+    "MODEL_ENTRIES_BOOTSTRAP",
     "OUTPUT_CONTRACT_LSK",
     "agent_model",
+    "parse_agent_declaration",
     "parse_declaration",
 ]
