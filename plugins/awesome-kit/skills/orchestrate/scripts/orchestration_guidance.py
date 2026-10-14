@@ -749,8 +749,8 @@ def load_model_declaration() -> Any:
     ``requires_bootstrap`` to the release that shipped the module, so on a
     provisioned venv this cannot fail. Absent and too-old are still diagnosed
     apart, because a shared-lib link pins no version (plugins/CLAUDE.md). The
-    probe targets ``parse_entries``, the newest symbol used (bootstrap
-    ``PARSE_ENTRIES_BOOTSTRAP``).
+    probe targets ``parse_entries`` and ``EFFORT_LEVELS``, which first shipped in
+    bootstrap ``PARSE_ENTRIES_BOOTSTRAP``.
     """
     try:
         import bootstrap_lib  # noqa: F401, PLC0415

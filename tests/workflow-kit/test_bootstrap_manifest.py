@@ -45,7 +45,7 @@ class TestRequiresBootstrap:
         # Emitter(..., schema=<v3>) for its contract event
         # (CONTRACT_EVENT_BOOTSTRAP), and an agent step's model: calls
         # model_declaration.parse_entries (MODEL_ENTRIES_BOOTSTRAP). The floor
-        # is the newest of the four.
+        # is the highest version of the four.
         from workflow_kit_lib.declarations import (
             CONTRACT_EVENT_BOOTSTRAP,
             EXECUTION_EVENT_BOOTSTRAP,
