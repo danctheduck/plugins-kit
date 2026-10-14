@@ -162,9 +162,23 @@ def install(ctx) -> None:
     # created a second time by someone reaching for the obvious-looking fix.)
     # So settings.json is the only place this can go -- which is exactly why
     # the command written there must be machine-independent (module docstring).
-    candidate_paths.append(Path.home() / ".claude" / "settings.json")
+    user_settings_path = Path.home() / ".claude" / "settings.json"
+    candidate_paths.append(user_settings_path)
 
     existing = _find_existing_statusline(candidate_paths)
+
+    if (existing is not None and existing[0] != user_settings_path
+            and not _is_ours(existing[1])):
+        # A project owns its statusLine. That is a legitimate override, not a
+        # conflict: project scope beats user scope, and we only ever install
+        # into the user-level file, so the two never collide. Leave the project
+        # alone and fall through to install/verify the user-level slot, where
+        # a foreign statusLine is a real conflict (it is the slot we write to).
+        ctx.log_ok(
+            f"statusline: project {_posix(existing[0])} sets its own "
+            f"statusLine; leaving it"
+        )
+        existing = _find_existing_statusline([user_settings_path])
 
     if existing is None:
         # Edge case, decided explicitly: no statusLine exists at all, but a

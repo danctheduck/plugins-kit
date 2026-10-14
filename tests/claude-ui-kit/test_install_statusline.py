@@ -152,6 +152,80 @@ class TestConflict:
         assert not (Path(ctx.data_dir) / install_statusline.DECLINED_RECORD_RELPATH).exists()
 
 
+class TestProjectScopedStatusline:
+    """A project that owns its statusLine overrides the user one by design;
+    install() only ever writes the user-level file, so that is not a conflict."""
+
+    FOREIGN = {"statusLine": {"type": "command", "command": "node ./gsd-statusline.js"}}
+
+    @pytest.mark.parametrize("name", ["settings.json", "settings.local.json"])
+    def test_project_foreign_statusline_is_not_a_conflict(self, ctx, fake_home, name):
+        project_file = Path(ctx.project_dir) / ".claude" / name
+        project_file.parent.mkdir(parents=True)
+        project_file.write_text(json.dumps(self.FOREIGN))
+        _user_settings(fake_home).write_text(json.dumps({"model": "opus"}))
+
+        install_statusline.install(ctx)
+
+        assert ctx.failures == []
+        assert any("sets its own statusLine" in m for m in ctx.ok_logs)
+        assert json.loads(project_file.read_text()) == self.FOREIGN  # untouched
+        data = json.loads(_user_settings(fake_home).read_text())
+        assert data["statusLine"] == {"type": "command", "command": _expected_command(ctx)}
+        assert data["model"] == "opus"
+
+    def test_project_foreign_with_user_slot_already_ours_is_noop(self, ctx, fake_home):
+        project_file = Path(ctx.project_dir) / ".claude" / "settings.json"
+        project_file.parent.mkdir(parents=True)
+        project_file.write_text(json.dumps(self.FOREIGN))
+        ours = {"statusLine": {"type": "command", "command": _expected_command(ctx)}}
+        _user_settings(fake_home).write_text(json.dumps(ours))
+
+        install_statusline.install(ctx)
+
+        assert ctx.failures == []
+        assert any("sets its own statusLine" in m for m in ctx.ok_logs)
+        assert any("no-op" in m for m in ctx.ok_logs)
+        assert json.loads(_user_settings(fake_home).read_text()) == ours
+
+    def test_foreign_in_user_settings_still_conflicts_despite_project_foreign(
+        self, ctx, fake_home
+    ):
+        project_file = Path(ctx.project_dir) / ".claude" / "settings.json"
+        project_file.parent.mkdir(parents=True)
+        project_file.write_text(json.dumps(self.FOREIGN))
+        custom = {"statusLine": {"type": "command", "command": "/usr/local/bin/my-statusline"}}
+        _user_settings(fake_home).write_text(json.dumps(custom))
+
+        install_statusline.install(ctx)
+
+        assert len(ctx.failures) == 1
+        assert ctx.failures[0]["type"] == "statusline_conflict"
+        assert ctx.failures[0]["settings_path"] == install_statusline._posix(
+            _user_settings(fake_home)
+        )
+        assert json.loads(_user_settings(fake_home).read_text()) == custom  # untouched
+
+    def test_project_foreign_with_user_declined_record_stays_silent(self, ctx, fake_home):
+        project_file = Path(ctx.project_dir) / ".claude" / "settings.json"
+        project_file.parent.mkdir(parents=True)
+        project_file.write_text(json.dumps(self.FOREIGN))
+        custom = {"statusLine": {"type": "command", "command": "/usr/local/bin/my-statusline"}}
+        _user_settings(fake_home).write_text(json.dumps(custom))
+        (Path(ctx.data_dir) / install_statusline.DECLINED_RECORD_RELPATH).write_text(
+            json.dumps({
+                "schema_version": install_statusline.DECLINED_RECORD_SCHEMA_VERSION,
+                "declined_command": "/usr/local/bin/my-statusline",
+                "declined_date": "2026-01-01",
+            })
+        )
+
+        install_statusline.install(ctx)
+
+        assert ctx.failures == []
+        assert any("declined" in m.lower() for m in ctx.ok_logs)
+
+
 class TestDeclinedRecord:
     def test_declined_record_present_stays_silent(self, ctx, fake_home):
         """A declined record from an earlier session suppresses the conflict
