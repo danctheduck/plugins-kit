@@ -1574,6 +1574,7 @@ def _main_pass():
         display_content=display_content, bootstrap_label=bootstrap_label,
         data_dir=data_dir, args=args, recorder=recorder,
         profile_state=profile_state, plugin_root=plugin_root,
+        pass_started_at=start_time.timestamp(),
     )
 
     # Clean up stale persistent alert file when no persistent failures remain.
@@ -2981,10 +2982,58 @@ def _report_profile_state(profile_state, action_entries, ok_entries,
     return failures
 
 
+def _retire_superseded_pending(data_dir, pass_started_at):
+    """Delete pending display verdicts written before this clean pass started.
+
+    A pending file waits until some session's next prompt relays it. When a
+    later full pass finds nothing wrong, an older verdict still on disk would
+    be relayed as if it were current -- users were prompted about problems
+    they had already fixed. A clean pass writes nothing on its own, so it must
+    remove what it supersedes.
+
+    Only files older than this pass's start are removed: a verdict written
+    while this pass ran came from a concurrent pass and is left alone. The file
+    is claimed by rename before its mtime is read, so a producer replacing the
+    pending path in between keeps its fresh file (the same claim pattern as
+    display_relay.py). The bootstrap data dir is machine-wide, so a clean pass
+    in one project can retire another project's failure; that failure cleared
+    its own project's cooldown, so the next session there re-runs and reports
+    it again.
+    """
+    from .display_relay import PENDING_NAMES
+    retired = []
+    for name in PENDING_NAMES:
+        pending = os.path.join(data_dir, name)
+        claimed = os.path.join(data_dir, f".{name}.retire.{os.getpid()}")
+        try:
+            os.replace(pending, claimed)
+        except FileNotFoundError:
+            continue
+        written_at = os.path.getmtime(claimed)
+        if written_at < pass_started_at:
+            os.remove(claimed)
+            retired.append(
+                f"display: retired superseded {name} written "
+                f"{datetime.fromtimestamp(written_at, timezone.utc):%Y-%m-%dT%H:%M:%SZ}"
+                " -- this pass found nothing to report")
+        elif os.path.exists(pending):
+            # A newer producer wrote again after the claim; its file wins.
+            os.remove(claimed)
+        else:
+            os.replace(claimed, pending)
+    if retired:
+        from .log import write_log_block
+        write_log_block(data_dir, "bootstrap", retired)
+
+
 def _emit_pass_results(*, all_failures, current_os, display_content,
                        bootstrap_label, data_dir, args, recorder,
-                       profile_state, plugin_root):
+                       profile_state, plugin_root, pass_started_at=None):
     """Step 8: emit this pass's result, threading the profile prompt through.
+
+    A clean background pass also retires any unconsumed pending verdict an
+    EARLIER pass wrote (see ``_retire_superseded_pending``), so a problem that
+    has since been fixed is not reported on the next prompt.
 
     Computes the profile-prompt directive once (see
     ``_profile_prompt_directive``) so every branch below -- failure, success,
@@ -3021,6 +3070,8 @@ def _emit_pass_results(*, all_failures, current_os, display_content,
         # rather than waiting out the throttle window.
         _clear_project_cooldown(data_dir, args.project_dir)
     else:
+        if output_file and pass_started_at is not None:
+            _retire_superseded_pending(data_dir, pass_started_at)
         if display_content:
             emit_success_response(
                 display_content, label=bootstrap_label, output_file=output_file,
