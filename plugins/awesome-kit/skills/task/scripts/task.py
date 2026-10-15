@@ -140,7 +140,6 @@ try:
     from task_system import state_ops  # noqa: E402
     from task_system.discovery import (  # noqa: E402
         DiscoveryError,
-        configured_project_directories,
         read_task_block,
     )
     from task_system.init import InitError, init_task  # noqa: E402
@@ -320,11 +319,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
 def _cmd_review(args: argparse.Namespace) -> int:
     root = (args.root if args.root is not None else Path.cwd()).resolve()
     if args.scope is None:
-        try:
-            args.scope = "all" if configured_project_directories() else "project"
-        except DiscoveryError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 1
+        args.scope = "all"
     listing = _collect_listing(args, root)
     if listing is None:
         return 1
@@ -785,7 +780,7 @@ def main(argv: list[str] | None = None) -> int:
         "--scope",
         choices=["all", "user", "project", "skill", "file"],
         default=None,
-        help="Discovery scope (default: all when project directories are configured, otherwise project).",
+        help="Discovery scope (default: all).",
     )
     p_review.add_argument(
         "--target",
