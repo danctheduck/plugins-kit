@@ -360,8 +360,9 @@ The four boundaries:
 
 Before generating a NEW skill, apply the two-step **skill_packaging_razor** from
 `../cohesion-principles.md`: step 1, does the content EXECUTE a process or pull
-dynamic information, or is it static reference text (static text is never a
-skill)? Step 2, fold into an existing domain if BOTH the vocabulary-reachability
+dynamic information, or is it static knowledge routed by trigger shape (a
+location home goes in that directory's CLAUDE.md; opinions and world knowledge
+with no location home that apply across tasks stay a skill)? Step 2, fold into an existing domain if BOTH the vocabulary-reachability
 test and the CCP cadence test pass. Do not default a technique to standalone.
 
 Expected: a confirmed artifact type -- or a handoff to the lane that owns the
@@ -534,9 +535,12 @@ Expected: 0 FAILs on the target, or a stated reason a JUDGMENT row is accepted.
 - **Hoisting on repetition alone.** Two children out of twenty is repetition; it is
   not a licence. If the fact cannot be worded so it holds of everything below its
   new home, it stays where it is.
-- **Creating a skill for static reference text.** Step 1 of the packaging razor
-  rules it out: if the content does not execute a process or fetch dynamic
-  information, it is a reference doc inside an existing home, not a skill.
+- **Creating a skill for static reference text that has a location home.** Step 1
+  of the packaging razor rules it out: if the content does not execute a process
+  or fetch dynamic information and is needed only under one directory, it is a
+  reference doc in that directory's CLAUDE.md, not a skill. Static opinions or
+  world knowledge with no location home that apply across tasks (a narrative
+  style guide, lore) stay a skill.
 - **Generating against remembered standards.** The standards doc is the SSOT and
   it is one read away. Writing from memory reintroduces the hand-maintained
   second copy the fold removed.

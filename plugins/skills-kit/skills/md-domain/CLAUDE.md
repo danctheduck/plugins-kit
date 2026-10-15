@@ -35,8 +35,9 @@ claude_md:
         reached with no artifact classification at all.
 
         The fold applies cohesion-principles' skill_packaging_razor: step 1, the
-        standards docs and the placement spine are static reference text, so they
-        are never skills; step 2, the remaining doers share one vocabulary and one
+        standards docs and the placement spine are static reference text that a
+        hosting domain already triggers on, so they are reference docs of that
+        domain, not skills; step 2, the remaining doers share one vocabulary and one
         change cadence, so they fold into one domain rather than staying separate.
         What survives is the matrix as DATA: one dispatch table (verb x artifact
         -> lane record), one audit procedure parameterized by artifact, one

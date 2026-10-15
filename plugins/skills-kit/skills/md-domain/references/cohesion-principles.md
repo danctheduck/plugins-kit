@@ -603,9 +603,22 @@ content_allocation:
     step_1:
       question: Does invoking it EXECUTE a structured process now, or pull dynamic information?
       if_no: |
-        It is a reference document, homed with its primary citer. Static text that reads the
-        same whenever it is loaded is never a skill -- a skill spends session-wide context
-        budget on its trigger description, and static content earns none of that back.
+        It is static knowledge that runs nothing. Route it by trigger shape
+        (placement_follows_trigger_shape), not by the fact that it is static:
+        - Location home (needed only when working with files under one directory): it is a
+          reference document in that directory's CLAUDE.md, with large on-demand blocks
+          moved to reference docs that CLAUDE.md points to. A skill would spend
+          session-wide context budget on a trigger description for knowledge whose exact
+          trigger (touching files beneath the directory) already loads it free.
+        - No location home, applies across tasks (opinions, world or domain knowledge such
+          as lore): it stays a skill, proceeding to step_2 for packaging. Its trigger is the
+          broad activity the knowledge informs, even though the skill itself does not
+          perform that activity. Example: a narrative-style skill holding house voice and
+          lore is invoked when Claude is about to write player-facing text, wherever in the
+          tree, though the skill never writes the text. No single directory is the
+          only place that need arises, so no directory CLAUDE.md is its home.
+        - Static knowledge that a domain skill already triggers on the same activity is a
+          reference document of that domain (skill-standards.md 4.2), not a second skill.
       if_yes: proceed to step_2.
     step_2:
       question: Fold the technique into a domain skill, or keep a separate skill?
