@@ -280,10 +280,15 @@ index. The domain-skill contract explicitly prohibits it.
 
 **Standard.** Static reference text is not a skill when a domain exists to
 host it. A skill earns its packaging by EXECUTING something -- running a
-process, pulling dynamic information, dispatching a procedure. Content
-whose whole job is to be read is a reference document of the domain that
-consumes it, declared as an `index.references[]` entry, and it is packaged
-that way rather than as a standalone `reference-skill` directory.
+process, pulling dynamic information, dispatching a procedure -- or, for
+opinions and world knowledge with no location home that apply across tasks,
+by being invoked when the session does the broad activity they inform (a
+narrative-style skill is invoked when Claude is about to write player text,
+though the skill itself writes nothing). Content whose whole job is to be
+read, and that has a home (a consuming domain, or a directory CLAUDE.md when it
+is needed only under one directory), is a reference document of that home. For
+a domain it is declared as an `index.references[]` entry and packaged that way
+rather than as a standalone `reference-skill` directory.
 
 Consequences:
 
@@ -292,8 +297,9 @@ Consequences:
   standalone reference-skill for it.
 - The `reference_skill` type is NOT removed from the schema registry. It
   remains the correct contract for the *content shape* wherever that shape
-  is legitimately standalone -- most importantly when no domain hosts it,
-  and in the shared-reference case of 4.4 (a reference cited by 2+ sibling
+  is legitimately standalone -- most importantly when no domain hosts it and
+  it has no location home (cross-task opinions, lore), and in the
+  shared-reference case of 4.4 (a reference cited by 2+ sibling
   domains, which cannot fold into either without orphaning the other).
 - The fold-in is a packaging move only. The content, its rules, and its
   citations are preserved; only the directory and its frontmatter go away.

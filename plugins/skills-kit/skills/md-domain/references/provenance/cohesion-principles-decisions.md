@@ -34,7 +34,7 @@ claude_md:
       added: "2026-06-10"
     - id: skill_packaging_razor_added
       keywords: [packaging razor, two-step razor, fold vs separate, vocabulary test, cadence test, execute-or-fetch, md-domain restructure, razor provenance]
-      summary: "The skill_packaging_razor record (Index fact + framework block, beside placement_follows_trigger_shape) documents the two-step packaging razor settled with the user 2026-07-28: step 1 execute-or-fetch (static text is never a skill), step 2 fold-into-domain iff vocabulary + cadence tests both pass. Documented ahead of the md-domain restructure that implements it, so the restructure executes a written rule rather than taste."
+      summary: "The skill_packaging_razor record (Index fact + framework block, beside placement_follows_trigger_shape) documents the two-step packaging razor settled with the user 2026-07-28: step 1 execute-or-fetch (refined 2026-10-15: static knowledge routes by trigger shape, becoming a skill only when it has no location home and applies across tasks), step 2 fold-into-domain iff vocabulary + cadence tests both pass. Documented ahead of the md-domain restructure that implements it, so the restructure executes a written rule rather than taste."
       detail: |
         Two razor forms were considered and retracted during the 2026-07-28
         discussion before this one was settled (rationale in
@@ -45,6 +45,14 @@ claude_md:
         documentation contract; mechanical checking of those fields is
         part of the planned md-domain restructure, not shipped with the
         razor text.
+
+        Step 1 was refined by user ruling 2026-10-15: static text is not
+        "never a skill". Static knowledge routes by trigger shape -- a
+        location home goes in the directory CLAUDE.md (large on-demand blocks
+        in reference docs it points to); knowledge with no location home that
+        applies across tasks (opinions, lore) stays a skill, invoked by the
+        broad activity it informs (a narrative-style skill by writing player
+        text).
       origin: |
         User-settled decision 1 + 4 of the skills-kit improvement discussion
         (2026-07-28), following the two-agent accuracy audit of skills-kit

@@ -79,8 +79,11 @@ one applies, the document is not a maturation candidate, and PD-2 returns PASS:
 - **Static reference text.** Content that reads the same whenever it is loaded
   is not a maturation candidate. Examples are a platform fact table, a format
   specification, and a lookup. It stays a project doc and never becomes a
-  skill. Provenance: `cohesion-principles.md`, the `skill_packaging_razor`
-  step_1 `if_no` clause.
+  skill. This exclusion does not cover opinions or world knowledge (a style
+  guide, lore) that have no location home and apply across tasks: those are
+  invoked by the broad activity they inform, so they are task-shaped and route
+  through branch 1 below. Provenance: `cohesion-principles.md`, the
+  `skill_packaging_razor` step_1 `if_no` clause.
 - **Maintainer-only material at a published-plugin boundary.** Everything under
   a published plugin directory is copied into a consumer's plugin cache. Ask,
   "Who reads this on a machine that is not ours?" If the answer is nobody, keep
@@ -99,8 +102,11 @@ TRIGGER SHAPE (not "always a skill"):
    running an evaluator, classifying a CL), needed wherever in the tree the
    activity happens, and the content fits a skill type (procedure -> technique;
    rule+counter -> discipline; lookup table -> reference; tool/API wrapper ->
-   capability). A skill is loaded by matching the session-wide skill list -- the
-   right home for activity-triggered knowledge.
+   capability), or it is opinion / world knowledge with no location home that
+   applies across tasks (a narrative style guide is invoked when writing player
+   text, though the skill itself writes nothing). A skill is loaded by matching
+   the session-wide skill list -- the right home for activity-triggered
+   knowledge.
 2. **Fold into / reference from a directory CLAUDE.md** (taxonomy
    C_fold_into_claude_md) -- the **preferred** home for **location-shaped**
    knowledge (scoped to a directory: a config subtree, source dirs, a package)
