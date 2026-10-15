@@ -91,6 +91,11 @@ SCOPES = ("all", "project", "user", "skill", "file")
 LOCAL_SCOPES = ("project", "user", "skill", "file")
 DEFAULT_USER_ROOT = Path.home() / ".claude"
 TASK_CONFIG_PATH = DEFAULT_USER_ROOT / "task.local.yaml"
+NO_PROJECT_DIRECTORIES_MESSAGE = (
+    "scope 'all' needs project directories: set the DEVROOT environment variable "
+    "or declare project_directories in ~/.claude/task.local.yaml "
+    "(or pass --scope project)"
+)
 _ENV_REFERENCE_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|%([A-Za-z_][A-Za-z0-9_]*)%")
 
 _TASK_LIST_KEY_RE = re.compile(r"^task_list\s*:", re.MULTILINE)
@@ -447,17 +452,37 @@ def _discover_local(
     return records
 
 
+def _devroot_parents() -> tuple[Path, ...]:
+    """Return the DEVROOT environment directory as the single parent, or ()."""
+    value = os.environ.get("DEVROOT")
+    if not value:
+        return ()
+    candidate = Path(value).expanduser()
+    if not candidate.is_absolute() or not candidate.is_dir():
+        raise DiscoveryError(f"DEVROOT is not an existing absolute directory: {candidate}")
+    return (candidate.resolve(),)
+
+
 def configured_project_directories(config_path: Path | None = None) -> tuple[Path, ...]:
-    """Read user-configured parents for multi-project discovery."""
+    """Read parents for multi-project discovery.
+
+    The config file's ``project_directories`` wins; when the file is absent or
+    declares none, the ``DEVROOT`` environment variable is the single parent.
+    Returns ``()`` when neither is available.
+    """
     path = config_path if config_path is not None else TASK_CONFIG_PATH
     if not path.exists():
-        return ()
+        return _devroot_parents()
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
         raise DiscoveryError(f"cannot read task config {path}: {exc}") from exc
+    if data is None or (isinstance(data, dict) and "project_directories" not in data):
+        return _devroot_parents()
     if not isinstance(data, dict) or not isinstance(data.get("project_directories"), list):
         raise DiscoveryError(f"{path}: project_directories must be a list of paths")
+    if not data["project_directories"]:
+        return _devroot_parents()
 
     def expand_reference(match: re.Match[str]) -> str:
         name = match.group(1) or match.group(2)
@@ -553,7 +578,7 @@ def discover(
     output_notes = notes if notes is not None else []
     parents = (devroot,) if devroot is not None else configured_project_directories()
     if not parents:
-        raise DiscoveryError(f"scope 'all' requires project_directories in {TASK_CONFIG_PATH}")
+        raise DiscoveryError(NO_PROJECT_DIRECTORIES_MESSAGE)
     for project in discover_project_roots(parents):
         project_notes: list[str] = []
         collected.extend(

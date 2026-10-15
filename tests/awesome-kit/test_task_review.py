@@ -469,14 +469,17 @@ class TestTaskListingAndReview:
         assert rendered_order == expected_order
 
 
-    def test_review_without_config_uses_current_project_and_all_explains_requirement(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def _no_config(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         home = tmp_path / "home"
         home.mkdir()
         monkeypatch.setenv("HOME", str(home))
         monkeypatch.setenv("USERPROFILE", str(home))
         monkeypatch.setattr(discovery, "TASK_CONFIG_PATH", home / ".claude" / "task.local.yaml")
+
+    def test_review_without_config_falls_back_to_devroot(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._no_config(tmp_path, monkeypatch)
         devroot = tmp_path / "devroot"
         project = devroot / "current"
         make_task(project, "tmp/current", title="Current project task", summary="Current.")
@@ -489,12 +492,50 @@ class TestTaskListingAndReview:
         assert result.returncode == 0, result.stderr
         html = output.read_text(encoding="utf-8")
         assert "Current project task" in html
+        assert "Other project task" in html
+        assert discovery.configured_project_directories() == (devroot.resolve(),)
+
+        explicit_project = run_cli([*args, "--scope", "project"], project)
+        assert explicit_project.returncode == 0, explicit_project.stderr
+        html = output.read_text(encoding="utf-8")
+        assert "Current project task" in html
         assert "Other project task" not in html
 
-        explicit_all = run_cli([*args, "--scope", "all"], project)
-        assert explicit_all.returncode != 0
-        assert "project_directories" in explicit_all.stderr
-        assert "task.local.yaml" in explicit_all.stderr
+    def test_config_overrides_devroot(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        devroot = tmp_path / "devroot"
+        configured = tmp_path / "configured"
+        devroot.mkdir()
+        configured.mkdir()
+        monkeypatch.setenv("DEVROOT", str(devroot))
+        _configure_project_directories(tmp_path, monkeypatch, [str(configured)])
+        assert discovery.configured_project_directories() == (configured.resolve(),)
+
+    def test_empty_config_falls_back_to_devroot(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        devroot = tmp_path / "devroot"
+        devroot.mkdir()
+        monkeypatch.setenv("DEVROOT", str(devroot))
+        _configure_project_directories(tmp_path, monkeypatch, [])
+        assert discovery.configured_project_directories() == (devroot.resolve(),)
+
+    def test_review_and_all_scope_fail_loudly_without_config_or_devroot(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._no_config(tmp_path, monkeypatch)
+        monkeypatch.delenv("DEVROOT", raising=False)
+        project = tmp_path / "devroot" / "current"
+        make_task(project, "tmp/current", title="Current project task", summary="Current.")
+        output = tmp_path / "review.html"
+        args = ["review", "--no-generate-missing-summaries", "--no-open", "--output", str(output), "--root", str(project)]
+
+        for extra in ([], ["--scope", "all"]):
+            result = run_cli([*args, *extra], project)
+            assert result.returncode != 0
+            assert "DEVROOT" in result.stderr
+            assert "task.local.yaml" in result.stderr
+        assert not output.exists()
+        listed = run_cli(["list", "--scope", "all", "--root", str(project)], project)
+        assert listed.returncode != 0
+        assert "DEVROOT" in listed.stderr
 
 
     def test_config_supports_literal_and_environment_parent_directories(
