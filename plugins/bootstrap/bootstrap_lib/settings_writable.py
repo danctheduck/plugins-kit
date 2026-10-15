@@ -146,6 +146,34 @@ def _p4(args, cwd: Optional[str], input: Optional[str] = None):
         return None
 
 
+def _client_and_user(cwd: str) -> Tuple[str, str]:
+    """This workspace's client and user names from `p4 info`, or empty strings."""
+    info = _p4(["info"], cwd)
+    if info is None or info.returncode != 0:
+        return "", ""
+    fields = {}
+    for line in (info.stdout or "").splitlines():
+        if ":" in line:
+            key, _, value = line.partition(":")
+            fields[key.strip()] = value.strip()
+    return fields.get("Client name", ""), fields.get("User name", "")
+
+
+def _marker_changelist(cwd: str, client: str, user: str) -> Optional[str]:
+    """Return this client's pending bootstrap CL (matched by _CL_MARKER), if any."""
+    listed = _p4(["changes", "-s", "pending", "-l", "-c", client, "-u", user], cwd)
+    if listed is None or listed.returncode != 0:
+        return None
+    current = None
+    for line in (listed.stdout or "").splitlines():
+        match = _CHANGE_LINE_RE.match(line)
+        if match:
+            current = match.group(1)
+        elif current and _CL_MARKER in line:
+            return current
+    return None
+
+
 def _find_or_make_changelist(cwd: str) -> Optional[str]:
     """Return a pending CL number to park bootstrap's settings edits in.
 
@@ -160,27 +188,13 @@ def _find_or_make_changelist(cwd: str) -> Optional[str]:
     # `p4 changes -s pending` lists every client's and user's pending changes,
     # so a marker CL parked by another workspace would be reused and
     # `p4 edit -c <that CL>` then fails ("belongs to client ...").
-    info = _p4(["info"], cwd)
-    if info is None or info.returncode != 0:
-        return None
-    fields = {}
-    for line in (info.stdout or "").splitlines():
-        if ":" in line:
-            key, _, value = line.partition(":")
-            fields[key.strip()] = value.strip()
-    client, user = fields.get("Client name", ""), fields.get("User name", "")
+    client, user = _client_and_user(cwd)
     if not client or not user:
         return None
 
-    listed = _p4(["changes", "-s", "pending", "-l", "-c", client, "-u", user], cwd)
-    if listed is not None and listed.returncode == 0:
-        current = None
-        for line in (listed.stdout or "").splitlines():
-            match = _CHANGE_LINE_RE.match(line)
-            if match:
-                current = match.group(1)
-            elif current and _CL_MARKER in line:
-                return current
+    existing = _marker_changelist(cwd, client, user)
+    if existing:
+        return existing
 
     # Deliberately NO Files: section -- including one would sweep every file
     # currently open in the default changelist into this new CL.
@@ -262,6 +276,37 @@ def ensure_writable(path: Optional[str]) -> WritableResult:
     if _is_read_only(path):
         return WritableResult(False, "failed", "read-only bit survived chmod")
     return WritableResult(True, "chmod", "cleared read-only bit (not tracked by Perforce)")
+
+
+def release_if_unchanged(path: Optional[str]) -> None:
+    """After a write, undo bootstrap's `p4 edit` of `path` if the content is unchanged.
+
+    ensure_writable opens the file before the write without knowing whether the
+    write will change anything; a no-op write (the entry was already there, the
+    CLI rewrote identical content) otherwise leaves the user an open file with
+    an empty diff in a CL that asks them to submit it. `p4 revert -a` reverts
+    only files whose content matches the depot, so a real change stays open.
+    Scoped to bootstrap's own marker CL so a file the user opened themselves is
+    never touched, and that CL is deleted once it holds nothing -- p4 refuses
+    to delete a CL with open or shelved files, so that step cannot lose work.
+    Never raises; a p4 failure leaves the open in place, as before.
+    """
+    if not path or not os.path.isfile(path):
+        return
+    if not _in_p4_workspace(path) or shutil.which("p4") is None:
+        return
+    path = os.path.abspath(path)
+    cwd = os.path.dirname(path)
+    client, user = _client_and_user(cwd)
+    if not client or not user:
+        return
+    changelist = _marker_changelist(cwd, client, user)
+    if not changelist:
+        return
+    reverted = _p4(["revert", "-a", "-c", changelist, path], cwd)
+    if reverted is None or reverted.returncode != 0 or "reverted" not in (reverted.stdout or ""):
+        return
+    _p4(["change", "-d", changelist], cwd)
 
 
 def _dominant_eol(data: bytes) -> Optional[bytes]:

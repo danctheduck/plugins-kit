@@ -152,7 +152,9 @@ def merge_json_entries(
     # Write target. A Perforce-controlled target is read-only on disk unless it
     # is open for edit, which makes this open() raise PermissionError -- clear
     # that first (preferring `p4 edit`, so the change stays tracked).
-    from .settings_writable import ensure_writable, preserve_line_endings
+    from .settings_writable import (
+        ensure_writable, preserve_line_endings, release_if_unchanged,
+    )
 
     target = Path(target_path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -174,6 +176,8 @@ def merge_json_entries(
         return JsonCheckResult(
             passed=False, target=target_path, message=f"write failed: {exc}",
         )
+    finally:
+        release_if_unchanged(str(target))
 
     return JsonCheckResult(
         passed=True, target=target_path,
