@@ -796,15 +796,19 @@ def _run_claude_scoped(args, scope: str, project_dir: Optional[str]):
     See settings_writable for why `p4 edit` is preferred over a bare chmod.
     """
     from .settings_writable import (
-        ensure_writable, preserve_line_endings, settings_path_for_scope,
+        ensure_writable, preserve_line_endings, release_if_unchanged,
+        settings_path_for_scope,
     )
 
     settings_path = settings_path_for_scope(scope, project_dir)
     prep = ensure_writable(settings_path)
-    with preserve_line_endings(settings_path):
-        # Run IN project_dir so the CLI writes the same settings file we just
-        # made writable -- see _run_claude on why cwd is load-bearing here.
-        ok, stdout, stderr = _run_claude(args, cwd=project_dir)
+    try:
+        with preserve_line_endings(settings_path):
+            # Run IN project_dir so the CLI writes the same settings file we just
+            # made writable -- see _run_claude on why cwd is load-bearing here.
+            ok, stdout, stderr = _run_claude(args, cwd=project_dir)
+    finally:
+        release_if_unchanged(settings_path)
     if not ok and not prep.ok:
         stderr = f"{stderr.strip()} (settings file not writable: {prep.detail})"
     return ok, stdout, stderr
@@ -1240,7 +1244,8 @@ def enable_plugin_at_scope(
     surfaces as an issue to fix rather than passing as a no-op.
     """
     from .settings_writable import (
-        ensure_writable, preserve_line_endings, settings_path_for_scope,
+        ensure_writable, preserve_line_endings, release_if_unchanged,
+        settings_path_for_scope,
     )
 
     cli_ref = _to_cli_ref(plugin_ref)
@@ -1296,6 +1301,8 @@ def enable_plugin_at_scope(
         return LifecycleResult(
             passed=False, ref=plugin_ref, message=f"could not enable at {scope} scope: {exc}",
         )
+    finally:
+        release_if_unchanged(settings_path)
 
     return LifecycleResult(
         passed=True, ref=plugin_ref, message=f"enabled at {scope} scope",
@@ -1316,7 +1323,8 @@ def disable_plugin_at_scope(
 ) -> LifecycleResult:
     """Disable a plugin by writing the enabled state at the requested scope."""
     from .settings_writable import (
-        ensure_writable, preserve_line_endings, settings_path_for_scope,
+        ensure_writable, preserve_line_endings, release_if_unchanged,
+        settings_path_for_scope,
     )
 
     settings_path = settings_path_for_scope(scope, project_dir)
@@ -1343,6 +1351,8 @@ def disable_plugin_at_scope(
                 f.write("\n")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return LifecycleResult(False, plugin_ref, f"could not disable at {scope} scope: {exc}")
+    finally:
+        release_if_unchanged(settings_path)
     return LifecycleResult(True, plugin_ref, f"disabled at {scope} scope")
 
 

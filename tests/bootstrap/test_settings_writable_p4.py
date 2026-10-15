@@ -22,6 +22,7 @@ class FakeP4:
         self.unscoped_out = ""              # when it is not
         self.edit_fail_cl = edit_fail_cl
         self.edit_always_fail = edit_always_fail
+        self.revert_out = ""             # stdout of `p4 revert -a`
         self.calls = []
 
     def __call__(self, argv, **kw):
@@ -33,7 +34,7 @@ class FakeP4:
             return ok("Client name: c1\nUser name: u1\n")
         if args[0] == "changes":
             return ok(self.changes_out if "-c" in args else self.unscoped_out)
-        if args[0] == "change":
+        if args[0] == "change" and args[1] == "-i":
             return ok("Change 77 created.")
         if args[0] == "edit":
             if self.edit_always_fail:
@@ -42,6 +43,12 @@ class FakeP4:
                 return bad(f"Change {self.edit_fail_cl} belongs to client other.")
             os.chmod(self.target, stat.S_IWRITE | stat.S_IREAD)
             return ok("opened for edit")
+        if args[0] == "revert":
+            if self.revert_out:
+                os.chmod(self.target, stat.S_IREAD)
+            return ok(self.revert_out)
+        if args[0] == "change" and args[1] == "-d":
+            return ok(f"Change {args[2]} deleted.")
         raise AssertionError(f"unexpected p4 call: {args}")
 
 
@@ -101,3 +108,48 @@ def test_failure_message_surfaces_p4_stderr(tmp_path, monkeypatch):
 
     assert not result.ok
     assert "Client 'c1' unknown" in result.detail
+
+
+def _in_workspace(monkeypatch):
+    monkeypatch.setattr(settings_writable, "_in_p4_workspace", lambda p: True)
+    monkeypatch.setattr(settings_writable.shutil, "which", lambda name: "p4")
+
+
+MARKER_CL_55 = f"Change 55 on 2026/01/01 by u1@c1 *pending*\n\n\t{MARKER}\n"
+
+
+def test_release_reverts_unchanged_file_and_deletes_empty_marker_cl(tmp_path, monkeypatch):
+    target = _target(tmp_path)
+    fake = FakeP4(str(target), changes_out=MARKER_CL_55)
+    fake.revert_out = "//depot/.claude/settings.json#50 - was edit, reverted"
+    _patch(monkeypatch, fake)
+    _in_workspace(monkeypatch)
+
+    settings_writable.release_if_unchanged(str(target))
+
+    args = [a for a, _ in fake.calls]
+    assert ["revert", "-a", "-c", "55", str(target)] in args
+    assert ["change", "-d", "55"] in args
+
+
+def test_release_keeps_changed_file_and_its_cl(tmp_path, monkeypatch):
+    target = _target(tmp_path)
+    fake = FakeP4(str(target), changes_out=MARKER_CL_55)
+    fake.revert_out = ""  # revert -a leaves a modified file open and prints nothing
+    _patch(monkeypatch, fake)
+    _in_workspace(monkeypatch)
+
+    settings_writable.release_if_unchanged(str(target))
+
+    assert not any(a[:2] == ["change", "-d"] for a, _ in fake.calls)
+
+
+def test_release_ignores_files_outside_the_marker_cl(tmp_path, monkeypatch):
+    target = _target(tmp_path)
+    fake = FakeP4(str(target), changes_out="")
+    _patch(monkeypatch, fake)
+    _in_workspace(monkeypatch)
+
+    settings_writable.release_if_unchanged(str(target))
+
+    assert not any(a[0] in ("revert", "change") for a, _ in fake.calls)
