@@ -101,7 +101,9 @@ The reference-skill criteria are `ref-example-block`, `ref-gotcha-block`,
 `ref-prohibited-discipline` and `ref-prohibited-checklist`; the pattern-skill
 criteria are `pattern-recognition-block`, `pattern-counter-example`,
 `pattern-prohibited-bundle`, `pattern-prohibited-checklist` and
-`pattern-prohibited-rule-counter`. Each switches off with `rules: {<id>: off}`.
+`pattern-prohibited-rule-counter`; the technique-skill criteria are
+`technique-ordered-steps`, `step-tracking` and
+`technique-prohibited-pressure-test`. Each switches off with `rules: {<id>: off}`.
 
 ### 2.2 Schemas are floors, not ceilings
 
@@ -179,7 +181,9 @@ Worked instances of the grammar:
   authoritative -- and a parallel markdown checklist creates
   two-source-of-truth drift and is not required. Shape hierarchy: YAML
   `steps:` for contract skills; markdown `- [ ]` for legacy / non-contract
-  skills; mixed shapes promote to YAML and drop the markdown.
+  skills; mixed shapes promote to YAML and drop the markdown. A non-contract
+  technique-skill is checked by the shipped criterion `step-tracking`
+  (`skills_kit_lib/defaults/standards/SKILL-legacy-standards.md`).
 - **Sub-agent binding rule** is required when a paired sub-agent exists.
   Criterion: a matching `<skill-name>-a` agent definition exists.
 - **Vocabulary block** is required when reference files use canonical terms

@@ -52,8 +52,10 @@ ROWS_BY_TYPE = {
     "pattern-skill": ["pattern-recognition-block", "pattern-counter-example",
                       "pattern-prohibited-bundle", "pattern-prohibited-checklist",
                       "pattern-prohibited-rule-counter"],
+    "technique-skill": ["technique-ordered-steps", "step-tracking",
+                        "technique-prohibited-pressure-test"],
 }
-MIGRATED_TYPES = ("reference-skill", "pattern-skill")
+MIGRATED_TYPES = ("reference-skill", "pattern-skill", "technique-skill")
 LEGACY_IDS = [rid for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]]
 TYPE_OF = {rid: t for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]}
 
@@ -64,10 +66,16 @@ SEVERITY = {
     "pattern-recognition-block": "judgment", "pattern-counter-example": "judgment",
     "pattern-prohibited-bundle": "fail", "pattern-prohibited-checklist": "fail",
     "pattern-prohibited-rule-counter": "fail",
+    "technique-ordered-steps": "fail", "step-tracking": "fail",
+    "technique-prohibited-pressure-test": "fail",
 }
 
 H1 = "# Subject skill\n\n"
 BLANK = H1 + "Prose only.\n"
+STEPS_2 = "1. one\n2. two\n"
+STEPS_3 = STEPS_2 + "3. three\n"
+STEPS_4 = STEPS_3 + "4. four\n"
+STEP_TRACKING = "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation"
 
 # (id, scenario, body, directories to create, expected (label, verdict, note)).
 CASES = [
@@ -123,6 +131,26 @@ CASES = [
      ("prohibited: rule + counter pairs", FAIL, "rationalization/excuse->reality detected")),
     ("pattern-prohibited-rule-counter", "hit-record", H1 + "excuse: too slow\nreality: costs more\n", (),
      ("prohibited: rule + counter pairs", FAIL, "rationalization/excuse->reality detected")),
+    ("technique-ordered-steps", "miss", BLANK, (),
+     ("ordered-step body", FAIL, "0 ordered-step entries detected")),
+    ("technique-ordered-steps", "hit", H1 + STEPS_2, (),
+     ("ordered-step body", PASS, "2 ordered-step entries detected")),
+    ("step-tracking", "na-no-steps", BLANK, (),
+     (STEP_TRACKING, NA, "only 0 steps")),
+    ("step-tracking", "na-three-steps", H1 + STEPS_3, (),
+     (STEP_TRACKING, NA, "only 3 steps")),
+    ("step-tracking", "fail-neither", H1 + STEPS_4, (),
+     (STEP_TRACKING, FAIL, "4 steps; neither tickbox checklist nor step-tracker invocation present")),
+    ("step-tracking", "pass-checklist", H1 + STEPS_4 + "- [ ] a tick\n", (),
+     (STEP_TRACKING, PASS, "4 steps; satisfied via tickbox checklist")),
+    ("step-tracking", "pass-tracker", H1 + STEPS_4 + "Use TaskCreate first.\n", (),
+     (STEP_TRACKING, PASS, "4 steps; satisfied via step-tracker invocation")),
+    ("step-tracking", "pass-both-reports-checklist", H1 + STEPS_4 + "- [ ] a tick\nUse TaskCreate.\n", (),
+     (STEP_TRACKING, PASS, "4 steps; satisfied via tickbox checklist")),
+    ("technique-prohibited-pressure-test", "miss", BLANK, (),
+     ("prohibited: adversarial pressure testing", PASS, "")),
+    ("technique-prohibited-pressure-test", "hit", H1 + "Apply RED -> GREEN -> REFACTOR.\n", (),
+     ("prohibited: adversarial pressure testing", FAIL, "RED/GREEN/REFACTOR markers present")),
 ]
 
 # A marker that appears ONLY inside a fenced block must not count: the id, the
@@ -138,11 +166,15 @@ FENCED = [
     ("pattern-prohibited-checklist", H1 + "```markdown\n- [ ] item\n```\n", PASS),
     ("pattern-prohibited-rule-counter",
      H1 + "```markdown\n| excuse | reality |\n|---|---|\n| a | b |\n```\n", PASS),
+    ("technique-ordered-steps", H1 + "```text\n1. a\n2. b\n```\n", FAIL),
+    ("step-tracking", H1 + STEPS_2 + "```text\n3. c\n4. d\n5. e\n```\n", NA),
+    ("technique-prohibited-pressure-test", H1 + "```markdown\nRED -> GREEN -> REFACTOR\n```\n", PASS),
 ]
 
 CONTRACT_BLOCK = {
     "reference-skill": "```yaml\nreference_skill:\n  _schema_version: \"1\"\n```\n",
     "pattern-skill": "```yaml\npattern_skill:\n  _schema_version: \"1\"\n```\n",
+    "technique-skill": "```yaml\ntechnique_skill:\n  _schema_version: \"1\"\n```\n",
 }
 
 
@@ -371,7 +403,7 @@ def test_the_severity_in_the_file_decides_what_a_miss_reports(tmp_path, monkeypa
                 c["severity"] = flipped
 
     monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", _write_shipped(tmp_path, flip))
-    miss = next(c for c in CASES if c[0] == rid and c[4][1] != PASS)
+    miss = next(c for c in CASES if c[0] == rid and c[4][1] in (FAIL, JUDGMENT))
     row = _legacy_rows(audit(_skill(tmp_path, TYPE_OF[rid], miss[2], miss[3])))[rid]
     assert row["verdict"] == (JUDGMENT if flipped == "info" else FAIL)
 

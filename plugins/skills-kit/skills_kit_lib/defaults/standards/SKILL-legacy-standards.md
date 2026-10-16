@@ -88,4 +88,19 @@ standards_set:
       severity: fail
       keywords: [pattern-skill, prohibited rule and counter, excuse and reality, legacy heuristics]
       enforcement: mechanical
+    - id: technique-ordered-steps
+      statement: A technique-skill body has an ordered-step sequence.
+      severity: fail
+      keywords: [technique-skill, ordered steps, numbered list, legacy heuristics]
+      enforcement: mechanical
+    - id: step-tracking
+      statement: A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation.
+      severity: fail
+      keywords: [technique-skill, step tracking, tickbox checklist, step tracker, legacy heuristics]
+      enforcement: mechanical
+    - id: technique-prohibited-pressure-test
+      statement: A technique-skill body omits adversarial RED/GREEN/REFACTOR pressure testing.
+      severity: fail
+      keywords: [technique-skill, prohibited pressure testing, red green refactor, legacy heuristics]
+      enforcement: mechanical
 ```

@@ -52,6 +52,9 @@ claude_md:
         ordered-step row reports n/a for user-only skills". False as shipped --
         check_technique_skill accepted an `fm` parameter but never read it; the
         ordered-step row is FAIL, not n/a, for a user-only technique with no steps.
+        The function is gone: the row is the technique-ordered-steps criterion of
+        defaults/standards/SKILL-legacy-standards.md, whose evaluator reads no
+        frontmatter field either.
         tests/skills-kit/test_schemas.py (Dec-2, TestTechniqueSkill::
         test_user_only_still_requires_steps) already pinned the opposite at the
         schema layer: user-only does NOT exempt from steps ("trigger_model is
@@ -66,12 +69,9 @@ claude_md:
         rule and its header comment). The original entry's "steps OR output_template"
         wording was wrong too and is retracted here.
 
-        `fm` stays in check_technique_skill's signature (now `fm=None`, documented
-        unused) only because it is a public positional parameter external callers
-        pass; the dead `is_user_only` import into audit.py and the dead
-        TYPE_RUNNERS["technique-skill"] dict entry (unreachable -- technique-skill
-        is special-cased before TYPE_RUNNERS is ever indexed for that key) were
-        removed.
+        The dead `is_user_only` import into audit.py and the dead
+        TYPE_RUNNERS["technique-skill"] dict entry were removed; the technique
+        rows no longer pass through TYPE_RUNNERS at all.
       origin: Phase 4.2 audit lessons-learned F-4-2-2 / F-4-2-3; corrected 2026-09-06 by the plugin architecture audit after the claim was found false against shipped behavior and Dec-2.
       added: "2026-04-28"
       updated: "2026-09-06"

@@ -477,8 +477,34 @@ def _eval_pattern_bundle(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bo
     return "prohibited: utility bundle", not present, "scripts/ or bin/ present" if present else ""
 
 
+def _eval_ordered_steps(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    # User-only technique-skills (disable-model-invocation: true) are NOT
+    # exempt: the technique-skill schema requires steps regardless of
+    # trigger_model (Dec-2), and this legacy path mirrors it.
+    step_count = count_ordered_steps(ctx.body.text)
+    return "ordered-step body", step_count >= 1, f"{step_count} ordered-step entries detected"
+
+
+def _eval_step_tracking(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool | None, str]:
+    label = "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation"
+    step_count = count_ordered_steps(ctx.body.text)
+    if step_count <= 3:
+        return label, None, f"only {step_count} steps"
+    has_checklist = has_tickbox_list(ctx.body.text)
+    has_tracker = has_step_tracker_invocation(ctx.body.text)
+    if has_checklist or has_tracker:
+        via = "tickbox checklist" if has_checklist else "step-tracker invocation"
+        return label, True, f"{step_count} steps; satisfied via {via}"
+    return (
+        label,
+        False,
+        f"{step_count} steps; neither tickbox checklist nor step-tracker invocation present",
+    )
+
+
 _REFERENCE_SKILL_APPLIES = _legacy_applies("reference-skill")
 _PATTERN_SKILL_APPLIES = _legacy_applies("pattern-skill")
+_TECHNIQUE_SKILL_APPLIES = _legacy_applies("technique-skill")
 
 
 def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
@@ -675,6 +701,27 @@ MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
         ),
         section="type_specific", bare_severity="fail",
     ),
+    "technique-ordered-steps": MechanicalEvaluator(
+        "skill_md", None,
+        "ordered-step body (deferred)", _TECHNIQUE_SKILL_APPLIES, _eval_ordered_steps,
+        section="type_specific", bare_severity="fail",
+    ),
+    "step-tracking": MechanicalEvaluator(
+        "skill_md", None,
+        "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation (deferred)",
+        _TECHNIQUE_SKILL_APPLIES, _eval_step_tracking,
+        section="type_specific", bare_severity="fail",
+    ),
+    "technique-prohibited-pressure-test": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: adversarial pressure testing (deferred)", _TECHNIQUE_SKILL_APPLIES,
+        _marker_absent(
+            "prohibited: adversarial pressure testing",
+            has_red_green_refactor,
+            "RED/GREEN/REFACTOR markers present",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
     "claude-md-import-size": MechanicalEvaluator(
         "claude_md", "import_max_lines",
         "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
@@ -826,55 +873,6 @@ def check_universal(
     return out
 
 
-def check_technique_skill(body: Body, skill_dir: Path, fm: Frontmatter | None = None) -> list[CheckResult]:
-    """`fm` is accepted for positional-call compatibility (public signature;
-    external callers pass it, e.g. tests/skills-kit/test_step_tracker_or_
-    checklist.py) but is never read: user-only technique-skills
-    (disable-model-invocation: true) do NOT exempt the ordered-step row --
-    the technique-skill schema requires steps regardless of trigger_model
-    (Dec-2), and this legacy-fallback path mirrors that. See I7 / the
-    corrected `user_only_via_disable_model_invocation` insight in
-    skills_kit_lib/CLAUDE.md."""
-    out: list[CheckResult] = []
-    step_count = count_ordered_steps(body.text)
-    out.append(CheckResult(
-        "ordered-step body",
-        PASS if step_count >= 1 else FAIL,
-        f"{step_count} ordered-step entries detected",
-        rule="technique-ordered-steps",
-    ))
-    if step_count > 3:
-        has_checklist = has_tickbox_list(body.text)
-        has_tracker = has_step_tracker_invocation(body.text)
-        signal_present = has_checklist or has_tracker
-        if signal_present:
-            via = "tickbox checklist" if has_checklist else "step-tracker invocation"
-            note = f"{step_count} steps; satisfied via {via}"
-        else:
-            note = (f"{step_count} steps; neither tickbox checklist nor "
-                    f"step-tracker invocation present")
-        out.append(CheckResult(
-            "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation",
-            PASS if signal_present else FAIL,
-            note,
-            rule="step-tracking",
-        ))
-    else:
-        out.append(CheckResult(
-            "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation",
-            NA,
-            f"only {step_count} steps",
-            rule="step-tracking",
-        ))
-    out.append(CheckResult(
-        "prohibited: adversarial pressure testing",
-        FAIL if has_red_green_refactor(body.text) else PASS,
-        "RED/GREEN/REFACTOR markers present" if has_red_green_refactor(body.text) else "",
-        rule="technique-prohibited-pressure-test",
-    ))
-    return out
-
-
 def check_discipline_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
     out: list[CheckResult] = []
     out.append(CheckResult(
@@ -967,11 +965,6 @@ def mixed_type_signal(body_text: str, threshold: int | None = None) -> tuple[int
     return len(active), [f"{t}={scores[t]}" for t in active]
 
 
-# "technique-skill" is deliberately absent: check_technique_skill takes a
-# third `fm` argument the others don't, so it is special-cased at the call
-# site below rather than stored here (I7 -- storing it made the entry dead,
-# since the special case always intercepted it before this dict was ever
-# indexed for that key).
 TYPE_RUNNERS = {
     "discipline-skill": check_discipline_skill,
     "domain-skill": check_domain_skill,
@@ -1712,13 +1705,8 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
     type_specific: list[CheckResult] = [
         row for _section, row in _criterion_rows(type_ctx, skill_criteria, th, section="type_specific")
     ]
-    if not contract_staged and (
-        declared_type in TYPE_RUNNERS or declared_type == "technique-skill"
-    ):
-        if declared_type == "technique-skill":
-            type_specific = check_technique_skill(narrative_body, skill_dir, fm)
-        else:
-            type_specific = TYPE_RUNNERS[declared_type](narrative_body, skill_dir)
+    if not contract_staged and declared_type in TYPE_RUNNERS:
+        type_specific = TYPE_RUNNERS[declared_type](narrative_body, skill_dir)
 
     if not contract_staged:
         # threshold=th["mixed_min_score"] gates each TYPE's score (I5, the

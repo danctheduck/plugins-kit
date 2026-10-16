@@ -1,8 +1,8 @@
-"""I7: check_technique_skill does NOT thread frontmatter into an ordered-step
-exemption for user-only skills (disable-model-invocation: true). The
+"""I7: the technique ordered-step row does NOT exempt user-only skills
+(disable-model-invocation: true). The
 skills_kit_lib/CLAUDE.md insight `user_only_via_disable_model_invocation`
-claimed audit.check_technique_skill reports n/a for user-only skills; that
-is false -- fm is accepted but never read, and Dec-2
+claimed the technique check reports n/a for user-only skills; that
+is false -- the frontmatter flag is never read, and Dec-2
 (tests/skills-kit/test_schemas.py) pins the opposite at the schema layer.
 This test pins the same fact at the legacy-fallback audit layer: a
 user-only technique skill with no YAML contract and no ordered steps FAILs
@@ -11,8 +11,7 @@ technique-ordered-steps, it does not get n/a.
 
 from pathlib import Path
 
-from skills_kit_lib.audit import audit, check_technique_skill
-from skills_kit_lib.markdown_heuristics import parse_body, parse_frontmatter
+from skills_kit_lib.audit import audit
 
 
 def _write(tmp_path: Path, body: str) -> Path:
@@ -42,15 +41,17 @@ class TestUserOnlyDoesNotExemptOrderedSteps:
         row = _row(report["type_specific"], "ordered-step body")
         assert row["verdict"] == "fail", row
 
-    def test_check_technique_skill_ignores_fm_directly(self, tmp_path):
-        content = (
-            "---\nname: s\ndisable-model-invocation: true\n---\n"
-            "# S\n\nNo ordered steps.\n"
+    def test_the_trigger_model_flag_does_not_change_any_technique_row(self, tmp_path):
+        body = "# S\n\nNo ordered steps.\n"
+        user_only = audit(_write(tmp_path, body))
+        plain_dir = tmp_path / "plain"
+        plain_dir.mkdir()
+        plain = plain_dir / "SKILL.md"
+        plain.write_text(
+            "---\nname: s\ndescription: Use when X. Do NOT use for Y.\n"
+            "skill-type: technique-skill\n---\n" + body,
+            encoding="utf-8",
         )
-        fm = parse_frontmatter(content, mode="full")
-        body = parse_body(content)
-        results_with_fm = check_technique_skill(body, tmp_path, fm)
-        results_without_fm = check_technique_skill(body, tmp_path, None)
-        # fm is accepted (arity preserved for positional callers) but must
-        # not change the outcome -- it is documented as unused.
-        assert [r.verdict for r in results_with_fm] == [r.verdict for r in results_without_fm]
+        # The disable-model-invocation flag is metadata: it must not change the
+        # outcome of any technique row.
+        assert user_only["type_specific"] == audit(plain)["type_specific"]
