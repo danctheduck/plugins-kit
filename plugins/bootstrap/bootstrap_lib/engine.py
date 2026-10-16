@@ -2142,8 +2142,17 @@ def _bootstrap_single_plugin(
     # RECORD it under the data dir (Step 4b3, _maintain_env_records) so a
     # gate-skipped session gets the name too, with the prelude's existence
     # check standing in for this pass's verification.
-    from .env_var_check import export_env_var, plugin_root_env_var_name
-    export_env_var(plugin_root_env_var_name(plugin_info.name), plugin_info.install_path)
+    from .env_var_check import (
+        export_env_var, plugin_root_env_var_name, refuse_cache_root,
+    )
+    from .session_env import forget as _forget_session_env
+    root_name = plugin_root_env_var_name(plugin_info.name)
+    if refuse_cache_root(root_name, plugin_info.install_path):
+        # claudx: never export a cache path, and drop a line an earlier writer
+        # (a previous pass, the SessionStart prelude) already left in the env file.
+        _forget_session_env(root_name)
+    else:
+        export_env_var(root_name, plugin_info.install_path)
 
     # Per-plugin data dir and cache -- keyed by the plugin's OWN marketplace so a
     # fork installed alongside upstream doesn't collide on same-named plugins.
@@ -4721,7 +4730,7 @@ def _maintain_env_records(data_dir, plugins, ok_entries, quiet_entries):
     """
     from .env_var_check import (
         plugin_root_env_var_name, plugin_roots_record_path, read_env_record,
-        write_env_record,
+        refuse_cache_root, write_env_record,
     )
 
     roots = OrderedDict()
@@ -4732,7 +4741,10 @@ def _maintain_env_records(data_dir, plugins, ok_entries, quiet_entries):
         # at. Keeps the record equal to what the pass itself exported.
         if not os.path.isfile(os.path.join(plugin_info.install_path, "bootstrap.json")):
             continue
-        roots[plugin_root_env_var_name(plugin_info.name)] = plugin_info.install_path
+        root_name = plugin_root_env_var_name(plugin_info.name)
+        if refuse_cache_root(root_name, plugin_info.install_path):
+            continue  # claudx: the record is re-emitted by the prelude; keep it clean
+        roots[root_name] = plugin_info.install_path
 
     record_path = plugin_roots_record_path(data_dir)
     before = read_env_record(record_path)

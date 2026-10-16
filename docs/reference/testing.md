@@ -89,9 +89,39 @@ interpreter is missing, including when a re-exec loop guard is inherited. The
 missing-venv mechanism is reproduced; the exact invocation behind the earlier
 `claudx -p` observation was not captured and remains unproven.
 
+Four further escapes are contained, each pinned by a test in
+`tests/bootstrap/test_claudx_escapes.py` (the 2026-10-02 observations of
+the exported plugin roots and the harvest):
+
+- **The harvest stands down.** `harvest.py` resolves bootstrap's install path from
+  `$HOME/.claude/plugins/installed_plugins.json`, the production registry, so
+  inside a session with a redirected data tree it detached the CACHED
+  `session-bootstrap.sh` against that tree. The cached hook's own stand-down is a
+  glob on its `.claude/plugins/cache` path and does not match an install path
+  spelled through a `~/.claude` link. `harvest.main` now returns before any
+  trigger runs when `CLAUDE_PLUGIN_TEST` is set, so none of the harvest, the
+  import-crash retry or the mid-session install relaunch runs in a claudx
+  session; the working copy's SessionStart pass provisions it.
+- **An inherited re-exec loop flag no longer pins a child to the wrong
+  interpreter.** `bootstrap_guard.reexec_under_plugin_venv` exports
+  `_BOOTSTRAP_GUARD_VENV_REEXEC` with the interpreter it moved into as the
+  value, and honors an inherited flag only when it names the interpreter this call
+  would move into (or is the literal `1`, the opt-out each `tests/<plugin>/conftest.py`
+  sets). A flag left by another plugin's re-exec therefore falls through to the
+  `sys.prefix` check and re-execs, and a chain stays bounded because each call
+  re-execs at most once per target. A `1` inherited from a guard older than the
+  token format is still trusted.
+- **A plugin root inside the plugin cache is refused.** With `CLAUDE_PLUGIN_TEST`
+  set, the engine's per-plugin export, its `plugin_roots` record and the SessionStart
+  prelude's re-emit each decline a `<PLUGIN>_ROOT` that resolves through
+  `plugins/cache`, print one stderr line naming the variable and value, and leave
+  the name unset so a consumer's `:?` guard fails loudly. The cause that put a
+  cache path there on 2026-10-02 was not identified; the refusal covers every
+  writer rather than one cause.
+
 Containment remains partial: `CLAUDE_BOOTSTRAP_DATA_ROOT` redirects what bootstrap
 owns, not everything it reaches. These remaining escapes were observed on
-2026-09-20 (marketplace and shell writes) and 2026-10-02 (exported plugin roots):
+2026-09-20:
 
 - **Marketplace refresh hits the real clone.** Bootstrap's own
   `bootstrap.json` sets `"alwaysUpdate": true`, so `_phase_marketplaces` runs
@@ -102,14 +132,6 @@ owns, not everything it reaches. These remaining escapes were observed on
   registry**, regardless of the data root. `BOOTSTRAP_SKIP_SHELL_INTEGRATION=1`
   suppresses the rc-file and registry persistence but does not suppress
   marketplace refresh or the `~/.local/bin` writes.
-- **`<PLUGIN>_ROOT` points at the installed plugin.** Bootstrap exports one
-  `<PLUGIN>_ROOT` variable per plugin, and `SKILLS_KIT_ROOT` resolved to
-  `~/.claude/plugins/cache/plugins-kit/skills-kit/0.83.0` inside a `claudx`
-  session. `--plugin-dir` repoints Claude Code's loading of skills and hooks,
-  not the exported variable. So a command anchored on `"${SKILLS_KIT_ROOT}"`
-  runs the installed plugin's script. A green `claudx` run can therefore
-  exercise the installed plugin instead of the dev tree, the same false pass
-  as the enablement-filtering trap.
 
 What `claudx` still does not test, by construction: anything whose output IS
 the machine -- package-manager tool installs, PATH / rc-file / registry

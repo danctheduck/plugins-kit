@@ -622,6 +622,22 @@ still aborts loudly, naming the missing variable, instead of running against a
 version directory that no longer exists. A `cadence: always` throttled lane
 returns before Step 4 and never rewrites the record.
 
+**A claudx session refuses a plugin root that points into the plugin cache.**
+When `CLAUDE_PLUGIN_TEST` is set (only `scripts/claude_plugin_test.py` sets it),
+a `<PLUGIN>_ROOT` whose resolved path passes through `plugins/cache` is neither
+exported, nor recorded, nor re-emitted: a command anchored on it would run the
+installed plugin instead of the working copy under test. The refusal is loud --
+one stderr line naming the variable and the value -- and the consumer's `:?`
+guard then fails naming the missing variable. Three writers apply the same test:
+the per-plugin export (`_bootstrap_single_plugin`, which also drops an earlier
+`export` line for the name from the env file), this record
+(`_maintain_env_records`), and the prelude's re-emit in `session-bootstrap.sh`.
+The two Python writers resolve links with `realpath`, so a directory reached
+through a junction or symlink is judged by where it lives. The prelude cannot
+fork, so it tests the recorded string lexically for a `plugins/cache` component
+(either separator); a record written by this engine already passed the resolved
+test. Other sessions are unchanged.
+
 Placement is after Step 4b, so a plugin installed mid-pass is in the record,
 and before Steps 5/6, so the entries reach `bootstrap.log`. Write policy
 follows `_maintain_project_python_record` and [Every check must log its
@@ -1056,6 +1072,16 @@ Bootstrap keeps several small string-valued **stamp** files — the cooldown epo
 **The stale-restart notice stops once provisioning converges.** `_bootstrap_stale_advice` suppresses the "bootstrap was updated to X; restart to load it" notice when `engine_ran_version` is already `>=` the registry version: the new engine has completed a pass (via the harvest or an earlier restart), so a restart would only reload plugin *code*. The notice is kept while `engine_ran_version` is still behind.
 
 **The harvest logs the version actually on disk.** `launch_new_engine` launches an `installPath`, not a version number. `read_path_version` reads that path's own `.claude-plugin/plugin.json`, and when it disagrees with the registry-claimed version the harvest's log line names both -- otherwise a mismatch (a half-written cache dir, a dev-tree repoint) is invisible and the status line reports a version that never ran.
+
+**The harvest stands down in a claudx session.** `harvest.main` returns before any
+trigger runs when `CLAUDE_PLUGIN_TEST` is set. Every trigger resolves its target
+engine from `$HOME/.claude/plugins/installed_plugins.json` -- the production
+registry -- so inside a session whose data tree is redirected it would detach the
+cached engine against that redirected tree, and the cached hook's own stand-down
+(a glob on its `.claude/plugins/cache` path) does not match an install path
+spelled through a link. The working copy's SessionStart pass owns provisioning
+there, so the harvest, the import-crash retry and the mid-session install
+relaunch do not run in a claudx session.
 
 ## Diagnosing a Python that uv reports but cannot run
 

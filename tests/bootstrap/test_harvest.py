@@ -25,6 +25,15 @@ from bootstrap_lib.harvest import (
 from bootstrap_lib.stamps import global_stamp, project_stamp
 
 
+@pytest.fixture(autouse=True)
+def _not_a_claudx_session(monkeypatch):
+    """main() stands down when CLAUDE_PLUGIN_TEST is set, which is how a test run
+    launched from inside a claudx session would inherit it. These tests exercise
+    the harvest itself, so run them as an ordinary session; the stand-down is
+    pinned in test_claudx_escapes.py and below."""
+    monkeypatch.delenv("CLAUDE_PLUGIN_TEST", raising=False)
+
+
 def _registry(tmp_path, plugins):
     p = tmp_path / "installed_plugins.json"
     p.write_text(json.dumps({"plugins": plugins}), encoding="utf-8")
@@ -738,3 +747,37 @@ class TestReadInstalledBootstrapDuplicateRecords:
             ],
         })
         assert read_installed_bootstrap(reg, "plugins-kit") == ("0.10.0", "/b")
+
+
+class TestClaudxStandDown:
+    """harvest.main launches nothing inside a claudx session, whichever trigger
+    would have fired."""
+
+    def test_main_returns_before_any_trigger_runs(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("CLAUDE_PLUGIN_TEST", "1")
+        called = []
+        monkeypatch.setattr(harvest, "run_harvest", lambda *a, **k: called.append("harvest"))
+        monkeypatch.setattr(
+            harvest, "run_registry_relaunch", lambda *a, **k: called.append("relaunch")
+        )
+        rc = harvest.main([
+            "--data-dir", str(tmp_path / "data"), "--project-dir", str(tmp_path),
+            "--registry", str(tmp_path / "installed_plugins.json"),
+        ])
+        assert rc == 0
+        assert called == []
+
+    def test_main_runs_the_triggers_in_an_ordinary_session(self, tmp_path, monkeypatch):
+        """Control: the same call reaches the triggers when the signal is absent."""
+        monkeypatch.delenv("CLAUDE_PLUGIN_TEST", raising=False)
+        called = []
+        monkeypatch.setattr(harvest, "run_harvest", lambda *a, **k: called.append("harvest"))
+        monkeypatch.setattr(
+            harvest, "run_registry_relaunch", lambda *a, **k: called.append("relaunch")
+        )
+        rc = harvest.main([
+            "--data-dir", str(tmp_path / "data"), "--project-dir", str(tmp_path),
+            "--registry", str(tmp_path / "installed_plugins.json"),
+        ])
+        assert rc == 0
+        assert called == ["harvest", "relaunch"]
