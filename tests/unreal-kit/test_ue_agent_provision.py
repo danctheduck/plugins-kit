@@ -64,9 +64,9 @@ You are responsible for correctly executing tool calls to the Unreal MCP server.
 ## Tool Assistance Sequence
 
 Execute the task you were given. After every MCP call that creates or modifies an asset:
-1. Call `control_editor` -> `save_all`
-2. Verify the `.uasset` exists on disk (use Glob)
-3. Only proceed after both steps succeed
+1. Save that asset alone, not with `save_all`. Graph edits do not always mark the package dirty, so `save_all` can skip the asset you changed while reporting success. It can also save other assets that a recompile dirtied, and source control then checks those out.
+2. Verify the save reached disk: the `.uasset`'s modification time or checksum must have changed since before the edit. Existence alone proves nothing.
+3. Only proceed after both steps succeed.
 """
 
 
