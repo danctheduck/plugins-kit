@@ -8,6 +8,8 @@ from unittest.mock import patch
 import pytest
 
 from bootstrap_lib.marketplace_lifecycle import (
+    InventoryError,
+    Install,
     LifecycleResult,
     VersionCheckResult,
     _find_claude_cli,
@@ -21,6 +23,10 @@ from bootstrap_lib.marketplace_lifecycle import (
     check_plugin_version,
     enable_plugin_at_scope,
     ensure_registry_scope,
+    norm_project_path,
+    plugin_installs,
+    uninstall_installs,
+    uninstall_plugin,
     update_marketplace,
     update_plugin,
 )
@@ -1534,3 +1540,395 @@ class TestUpdatePluginRecordedScope:
         assert scoped_scope == "project"
         assert project_dir == "D:/dev/x"
         assert args[args.index("--scope") + 1] == "project"
+
+
+class TestCheckPluginEnabledAtScopeLocal:
+    """check_plugin_enabled_at_scope reads settings.local.json for scope local."""
+
+    def test_enabled_at_local_scope(self, tmp_path, monkeypatch):
+        project_dir = tmp_path / "proj"
+        (project_dir / ".claude").mkdir(parents=True)
+        (project_dir / ".claude" / "settings.local.json").write_text(
+            json.dumps({"enabledPlugins": {"bootstrap@plugins-kit": True}}))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        result = check_plugin_enabled_at_scope("plugins-kit:bootstrap", "local", str(project_dir))
+        assert result.passed is True
+        assert "local scope" in result.message
+
+    def test_project_settings_do_not_satisfy_local_scope(self, tmp_path, monkeypatch):
+        project_dir = tmp_path / "proj"
+        (project_dir / ".claude").mkdir(parents=True)
+        (project_dir / ".claude" / "settings.json").write_text(
+            json.dumps({"enabledPlugins": {"bootstrap@plugins-kit": True}}))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        result = check_plugin_enabled_at_scope("plugins-kit:bootstrap", "local", str(project_dir))
+        assert result.passed is False
+        assert "not enabled at local scope" in result.message
+
+    def test_local_scope_without_project_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        result = check_plugin_enabled_at_scope("plugins-kit:bootstrap", "local")
+        assert result.passed is False
+        assert "missing project_dir" in result.message
+
+
+class TestNormProjectPath:
+    """norm_project_path mirrors norm_path in spiritcrossing ensure-bootstrap.sh."""
+
+    @pytest.mark.parametrize("raw, expected", [
+        ("D:\\dev\\x", "D:/dev/x"),
+        ("d:/dev/x", "D:/dev/x"),
+        ("/d/dev/x", "D:/dev/x"),
+        ("/d", "D:"),
+        ("D:\\dev\\\\x\\", "D:/dev/x"),
+        ("D://dev///x/", "D:/dev/x"),
+        ("D:/Dev/x", "D:/Dev/x"),
+        ("/home/me/x/", "/home/me/x"),
+        ("/usr/x", "/usr/x"),
+    ])
+    def test_normalization(self, raw, expected):
+        assert norm_project_path(raw) == expected
+
+    def test_remainder_is_not_case_folded(self):
+        assert norm_project_path("D:/Dev/x") != norm_project_path("D:/dev/x")
+
+
+class _InventoryFixture:
+    """Builds a HOME with a registry, settings files and install dirs."""
+
+    REF = "plugins-kit:skills-kit"
+    CLI_REF = "skills-kit@plugins-kit"
+
+    @pytest.fixture
+    def env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        project = tmp_path / "proj"
+        (project / ".claude").mkdir(parents=True)
+        (tmp_path / ".claude" / "plugins").mkdir(parents=True)
+        return tmp_path, project
+
+    @staticmethod
+    def write_registry(home, plugins):
+        (home / ".claude" / "plugins" / "installed_plugins.json").write_text(
+            json.dumps({"version": 2, "plugins": plugins}))
+
+    @staticmethod
+    def write_settings(path, enabled):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"enabledPlugins": enabled}))
+
+    @classmethod
+    def enable(cls, home, project, *scopes):
+        files = {
+            "user": home / ".claude" / "settings.json",
+            "project": project / ".claude" / "settings.json",
+            "local": project / ".claude" / "settings.local.json",
+        }
+        for scope in scopes:
+            cls.write_settings(files[scope], {cls.CLI_REF: True})
+
+    @staticmethod
+    def install_dir(home, name):
+        path = home / "cache" / name
+        path.mkdir(parents=True, exist_ok=True)
+        return str(path)
+
+
+class TestPluginInstalls(_InventoryFixture):
+    """plugin_installs returns EVERY applicable install, scope-aware."""
+
+    def test_empty_registry_falls_back_to_cache_and_settings(self, env):
+        home, project = env
+        self.write_registry(home, {})
+        cache = home / ".claude" / "plugins" / "cache" / "plugins-kit" / "skills-kit" / "1.0.0"
+        cache.mkdir(parents=True)
+        self.enable(home, project, "user", "local")
+
+        installs = plugin_installs(self.REF, str(project))
+
+        assert [(i.scope, i.source, i.install_path) for i in installs] == [
+            ("local", "cache", str(cache)),
+            ("user", "cache", str(cache)),
+        ]
+        assert installs[0].project_path == norm_project_path(str(project))
+        assert installs[1].project_path == ""
+
+    def test_empty_registry_cache_without_enabling_settings_is_not_installed(self, env):
+        home, project = env
+        self.write_registry(home, {})
+        (home / ".claude" / "plugins" / "cache" / "plugins-kit" / "skills-kit" / "1.0.0").mkdir(
+            parents=True)
+        assert plugin_installs(self.REF, str(project)) == []
+
+    def test_stale_install_path_is_dropped(self, env):
+        home, project = env
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "user", "installPath": str(home / "gone"), "version": "1"},
+            {"scope": "local", "projectPath": str(project),
+             "installPath": self.install_dir(home, "ok"), "version": "2"},
+        ]})
+        self.enable(home, project, "user", "local")
+
+        installs = plugin_installs(self.REF, str(project))
+
+        assert [i.scope for i in installs] == ["local"]
+
+    def test_duplicate_user_and_local_records_are_both_returned(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "user", "installPath": path, "version": "1"},
+            {"scope": "local", "projectPath": str(project), "installPath": path, "version": "1"},
+            {"scope": "local", "projectPath": str(project), "installPath": path, "version": "2"},
+        ]})
+        self.enable(home, project, "user", "local")
+
+        installs = plugin_installs(self.REF, str(project))
+
+        assert [i.scope for i in installs] == ["user", "local", "local"]
+        assert all(i.source == "registry" and not i.dormant for i in installs)
+        assert [i.version for i in installs] == ["1", "1", "2"]
+
+    def test_other_projects_local_and_project_records_are_ignored(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "local", "projectPath": str(home / "other"), "installPath": path},
+            {"scope": "project", "projectPath": str(home / "other"), "installPath": path},
+            {"scope": "local", "installPath": path},
+        ]})
+        self.enable(home, project, "local", "project")
+
+        assert plugin_installs(self.REF, str(project)) == []
+
+    def test_chimera_user_record_for_another_project_is_ignored(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "user", "projectPath": str(home / "other"), "installPath": path},
+        ]})
+        self.enable(home, project, "user")
+
+        assert plugin_installs(self.REF, str(project)) == []
+
+    def test_chimera_user_record_for_this_project_applies(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "user", "projectPath": str(project), "installPath": path},
+        ]})
+        self.enable(home, project, "user")
+
+        installs = plugin_installs(self.REF, str(project))
+
+        assert len(installs) == 1 and installs[0].scope == "user"
+        assert installs[0].project_path == norm_project_path(str(project))
+
+    def test_record_nothing_enables_is_dormant_not_installed(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "project", "projectPath": str(project), "installPath": path},
+        ]})
+        # Enabled at user scope only: the project record's own file does not enable it.
+        self.enable(home, project, "user")
+
+        assert plugin_installs(self.REF, str(project)) == []
+        dormant = plugin_installs(self.REF, str(project), include_dormant=True)
+        assert [(i.scope, i.dormant) for i in dormant] == [("project", True)]
+
+    def test_enabled_false_is_dormant(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "local", "projectPath": str(project), "installPath": path},
+        ]})
+        self.write_settings(project / ".claude" / "settings.local.json", {self.CLI_REF: False})
+
+        assert plugin_installs(self.REF, str(project)) == []
+
+    def test_project_path_matching_uses_claude_code_normalization(self, env):
+        home, _project = env
+        path = self.install_dir(home, "a")
+        project = "D:\\dev\\x"
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "local", "projectPath": "D:/Dev/x", "installPath": path, "version": "differs-in-case"},
+            {"scope": "local", "projectPath": "/d/dev/x", "installPath": path, "version": "msys"},
+            {"scope": "local", "projectPath": "d:\\dev\\x\\", "installPath": path, "version": "lower-drive"},
+            {"scope": "project", "projectPath": "D:/dev/x", "installPath": path, "version": "slashes"},
+        ]})
+
+        installs = plugin_installs(self.REF, project, include_dormant=True)
+
+        assert [i.version for i in installs] == ["msys", "lower-drive", "slashes"]
+        assert {i.project_path for i in installs} == {"D:/dev/x"}
+
+    def test_both_registry_key_forms_are_read(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {
+            self.CLI_REF: [{"scope": "user", "installPath": path, "version": "1"}],
+            self.REF: [{"scope": "local", "projectPath": str(project),
+                        "installPath": path, "version": "2"}],
+        })
+        self.enable(home, project, "user", "local")
+
+        assert [i.version for i in plugin_installs(self.REF, str(project))] == ["1", "2"]
+
+    def test_without_project_dir_only_user_installs_apply(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "user", "installPath": path},
+            {"scope": "local", "projectPath": str(project), "installPath": path},
+        ]})
+        self.enable(home, project, "user", "local")
+
+        assert [i.scope for i in plugin_installs(self.REF, None)] == ["user"]
+
+    def test_missing_registry_means_nothing_installed(self, env):
+        _home, project = env
+        assert plugin_installs(self.REF, str(project)) == []
+
+    def test_corrupt_registry_raises(self, env):
+        home, project = env
+        (home / ".claude" / "plugins" / "installed_plugins.json").write_text("{not json")
+        with pytest.raises(InventoryError, match="registry"):
+            plugin_installs(self.REF, str(project))
+
+    def test_corrupt_settings_file_raises(self, env):
+        home, project = env
+        self.write_registry(home, {})
+        (project / ".claude" / "settings.local.json").write_text("{not json")
+        with pytest.raises(InventoryError, match="settings"):
+            plugin_installs(self.REF, str(project))
+
+    def test_record_with_unknown_scope_raises(self, env):
+        home, project = env
+        self.write_registry(home, {self.CLI_REF: [
+            {"installPath": self.install_dir(home, "a")},
+        ]})
+        with pytest.raises(InventoryError, match="scope"):
+            plugin_installs(self.REF, str(project))
+
+
+class TestUninstallPlugin(_InventoryFixture):
+    """uninstall_plugin argv per scope; uninstall_installs dedupes mutations."""
+
+    @staticmethod
+    def _patched():
+        return patch("bootstrap_lib.marketplace_lifecycle._run_claude", return_value=(True, "", ""))
+
+    def test_local_scope_runs_in_project_dir(self, env):
+        _home, project = env
+        with self._patched() as run:
+            result = uninstall_plugin(self.REF, "local", str(project))
+        assert result.passed is True and result.message == "uninstalled"
+        run.assert_called_once_with(
+            ["plugin", "uninstall", self.CLI_REF, "--scope", "local"], cwd=str(project))
+
+    def test_user_scope_has_no_cwd(self, env):
+        _home, project = env
+        with self._patched() as run:
+            uninstall_plugin(self.REF, "user", str(project))
+        run.assert_called_once_with(
+            ["plugin", "uninstall", self.CLI_REF, "--scope", "user"], cwd=None)
+
+    def test_project_scope_is_refused_and_nothing_runs(self, env):
+        _home, project = env
+        with self._patched() as run:
+            with pytest.raises(ValueError, match="project"):
+                uninstall_plugin(self.REF, "project", str(project))
+        run.assert_not_called()
+
+    def test_local_scope_requires_project_dir(self, env):
+        with self._patched() as run:
+            with pytest.raises(ValueError, match="project_dir"):
+                uninstall_plugin(self.REF, "local", None)
+        run.assert_not_called()
+
+    def test_cli_failure_is_reported_not_swallowed(self, env):
+        _home, project = env
+        with patch("bootstrap_lib.marketplace_lifecycle._run_claude",
+                   return_value=(False, "", "Plugin skills-kit@plugins-kit not found in marketplace")):
+            result = uninstall_plugin(self.REF, "local", str(project))
+        assert result.passed is False
+        assert result.message.startswith("uninstall failed")
+        assert "not found in marketplace" in result.detail
+
+    def test_local_uninstall_never_touches_tracked_settings(self, env):
+        _home, project = env
+        tracked = project / ".claude" / "settings.json"
+        tracked.write_text(json.dumps({"enabledPlugins": {self.CLI_REF: True}}))
+        before = tracked.read_bytes()
+        with self._patched():
+            uninstall_plugin(self.REF, "local", str(project))
+        assert tracked.read_bytes() == before
+
+    def test_chimera_plus_normal_user_record_is_one_user_uninstall(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "user", "projectPath": str(project), "installPath": path},
+            {"scope": "user", "installPath": path},
+        ]})
+        self.enable(home, project, "user")
+        installs = plugin_installs(self.REF, str(project))
+        assert len(installs) == 2
+
+        with self._patched() as run:
+            results = uninstall_installs(self.REF, installs, str(project))
+
+        assert run.call_count == 1
+        assert [r.passed for r in results] == [True]
+
+    def test_two_local_records_for_this_project_are_one_local_uninstall(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        self.write_registry(home, {self.CLI_REF: [
+            {"scope": "local", "projectPath": str(project), "installPath": path, "version": "1"},
+            {"scope": "local", "projectPath": str(project).replace("\\", "/") + "/",
+             "installPath": path, "version": "2"},
+        ]})
+        self.enable(home, project, "local")
+        installs = plugin_installs(self.REF, str(project))
+        assert len(installs) == 2
+
+        with self._patched() as run:
+            results = uninstall_installs(self.REF, installs, str(project))
+
+        assert run.call_count == 1
+        assert all(r.passed for r in results) and len(results) == 1
+
+    def test_user_and_local_installs_are_two_uninstalls(self, env):
+        home, project = env
+        path = self.install_dir(home, "a")
+        installs = [
+            Install("user", "", path, "registry"),
+            Install("local", norm_project_path(str(project)), path, "registry"),
+        ]
+        with self._patched() as run:
+            results = uninstall_installs(self.REF, installs, str(project))
+        scopes = [c.args[0][c.args[0].index("--scope") + 1] for c in run.call_args_list]
+        assert scopes == ["user", "local"] and len(results) == 2
+
+    def test_failed_local_uninstall_is_reported_as_failed_result(self, env):
+        home, project = env
+        installs = [Install("local", norm_project_path(str(project)), self.install_dir(home, "a"),
+                            "registry")]
+        with patch("bootstrap_lib.marketplace_lifecycle._run_claude",
+                   return_value=(False, "", "boom")):
+            results = uninstall_installs(self.REF, installs, str(project))
+        assert [r.passed for r in results] == [False]
+
+    def test_project_install_is_refused_before_any_command(self, env):
+        home, project = env
+        installs = [
+            Install("local", norm_project_path(str(project)), self.install_dir(home, "a"), "registry"),
+            Install("project", norm_project_path(str(project)), self.install_dir(home, "a"), "registry"),
+        ]
+        with self._patched() as run:
+            with pytest.raises(ValueError, match="project"):
+                uninstall_installs(self.REF, installs, str(project))
+        run.assert_not_called()
