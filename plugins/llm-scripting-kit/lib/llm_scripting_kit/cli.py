@@ -208,12 +208,6 @@ def _add_describe_args(parser: argparse.ArgumentParser) -> None:
         default=[],
         help="An id the caller has ruled out; repeatable or comma-separated.",
     )
-    parser.add_argument(
-        "--context-tokens",
-        type=_non_negative_int,
-        default=None,
-        help=argparse.SUPPRESS,  # Deprecated no-op shim; has no effect on routing and will be removed in 0.66.0.
-    )
     parser.add_argument("--json", action="store_true", help="Emit the ranking as JSON.")
     _add_project_arg(parser)
 
@@ -832,7 +826,6 @@ def _cmd_describe(ids: list[str], args: argparse.Namespace) -> int:
         backend_factory=_backend_factory if args.caller == "process" else None,
         exclude=_split_ids(args.exclude),
         dispatchable=tuple(args.dispatchable),
-        context_tokens=args.context_tokens,
     )
     if args.json:
         _json(ranking.to_json())

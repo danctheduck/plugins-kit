@@ -1,7 +1,6 @@
 import dataclasses
 import io
 import json
-import warnings
 from types import SimpleNamespace
 
 import pytest
@@ -187,51 +186,6 @@ def test_resolve_emits_selection(monkeypatch, capsys):
             "deliverable": True, "emits": "--effort", "style": None, "source": "adapter",
         },
     }
-
-
-def test_context_tokens_compatibility_shims_are_ignored(monkeypatch, capsys):
-    entries = {
-        name: EndpointEntry(
-            id=name, base_url=None, model=name, kind=HARNESS_KIND, harness="claude"
-        )
-        for name in ("haiku", "sonnet")
-    }
-    cache = {
-        name: Reachability(status=STATUS_REACHABLE, checked="test", detail="ok")
-        for name in entries
-    }
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        ranking = declaration.describe(
-            list(entries), caller="process", entries=entries,
-            reachability_cache=cache, context_tokens=1,
-        )
-    assert [entry.id for entry in ranking.rendered_entries] == ["haiku", "sonnet"]
-    assert len(caught) == 1
-    assert caught[0].category is DeprecationWarning
-    assert "no effect" in str(caught[0].message)
-
-    monkeypatch.setattr(cli, "describe", lambda *args, **kwargs: SimpleNamespace(
-        render=lambda: "haiku\nsonnet"
-    ))
-    assert cli.main(["describe", "haiku", "sonnet", "--context-tokens", "1"]) == cli.EXIT_OK
-    assert capsys.readouterr().out.splitlines() == ["haiku", "sonnet"]
-
-
-@pytest.mark.parametrize("value", [-1, True, 1.5, "1"])
-def test_context_tokens_invalid_values_keep_value_error(value):
-    with pytest.raises(ValueError, match="context_tokens must be a non-negative integer"):
-        declaration.describe([], caller="process", context_tokens=value)
-
-
-def test_removed_disposition_constant_warns_and_keeps_old_value():
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        from llm_scripting_kit.declaration import DISPOSITION_OVER_CONTEXT_BUDGET
-
-    assert DISPOSITION_OVER_CONTEXT_BUDGET == "over-context-budget"
-    assert len(caught) == 1
-    assert caught[0].category is DeprecationWarning
 
 
 # ---------------------------------------------------------------------------
