@@ -52,7 +52,7 @@ technique_skill:
           action: "Write the Required-user-action part -- enumerate every requested item against live state, then classify. State A names one concrete next decision in one sentence; State B uses the exact phrase 'all requested work complete - ready to end session' only when every item verifies as done."
           on_failure: A false State B silently abandons work; when unsure after the enumeration, you are in State A and owe a concrete action. If you have more work, do not end the turn -- do the work.
         - n: 5
-          action: At a work-unit boundary, emit two back-to-back updates (close the finished unit, then open the next), each using the full template. Do not ask permission to move to the next unit -- the agreed plan authorizes it (the task's `plan.md` where there is one, otherwise the plan the user approved this session). If you cannot name the plan you are relying on, you do not have that authorization: ask.
+          action: "At a work-unit boundary, emit two back-to-back updates (close the finished unit, then open the next), each using the full template. Do not ask permission to move to the next unit -- the agreed plan authorizes it (the task's `plan.md` where there is one, otherwise the plan the user approved this session). If you cannot name the plan you are relying on, you do not have that authorization: ask."
       gotchas:
         - The ordered-step heuristic counts explanatory numbered lists as procedure steps; the real procedure is the three-part template, not those lists.
         - Auto mode authorizes execution, not chasing already-done work or fabricating next steps -- when the next decision is the user's, surface it and stop.
