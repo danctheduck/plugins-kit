@@ -118,4 +118,29 @@ standards_set:
       severity: fail
       keywords: [discipline-skill, pressure testing, red green refactor, legacy heuristics]
       enforcement: mechanical
+    - id: domain-identity-sentence
+      statement: A domain-skill body carries a single-sentence identity after the H1.
+      severity: judgment
+      keywords: [domain-skill, identity sentence, first paragraph, legacy heuristics]
+      enforcement: mechanical
+    - id: domain-companion-declaration
+      statement: A domain-skill declares its companions (siblings, or an explicit "no sibling").
+      severity: fail
+      keywords: [domain-skill, companion declaration, sibling domains, legacy heuristics]
+      enforcement: mechanical
+    - id: domain-orientation
+      statement: A domain-skill body carries orientation content (at least one H2 beyond the index).
+      severity: fail
+      keywords: [domain-skill, orientation content, h2 sections, legacy heuristics]
+      enforcement: mechanical
+    - id: domain-reference-index
+      statement: A domain-skill body carries a Conditional-Loading reference index.
+      severity: fail
+      keywords: [domain-skill, reference index, conditional loading, legacy heuristics]
+      enforcement: mechanical
+    - id: domain-prohibited-index-only
+      statement: A domain-skill is not an index-only stub (an index with no orientation content).
+      severity: fail
+      keywords: [domain-skill, prohibited index only, index stub, legacy heuristics]
+      enforcement: mechanical
 ```

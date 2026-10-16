@@ -151,7 +151,9 @@ SKILL.md legacy per-skill-type heuristic criteria of `SKILL-legacy-standards.md`
 `pattern-prohibited-checklist`, `pattern-prohibited-rule-counter`,
 `technique-ordered-steps`, `step-tracking`,
 `technique-prohibited-pressure-test`, `discipline-rule-counter`,
-`discipline-red-flags`, `discipline-pressure-test`) and the CLAUDE.md
+`discipline-red-flags`, `discipline-pressure-test`, `domain-identity-sentence`,
+`domain-companion-declaration`, `domain-orientation`, `domain-reference-index`,
+`domain-prohibited-index-only`) and the CLAUDE.md
 criteria (`claude-md-import-size`, `claude-md-size-signal`,
 `claude-md-record-floor`) are not an example to copy: the shipped layer already
 declares them, so repeating one of those ids in an authored file is an error.

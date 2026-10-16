@@ -468,6 +468,15 @@ def _marker_absent(
     return evaluate
 
 
+def has_identity_sentence(body_text: str) -> bool:
+    after_h1 = re.split(r"^#\s+\S.+$", body_text, maxsplit=1, flags=re.MULTILINE)
+    if len(after_h1) < 2:
+        return False
+    rest = after_h1[1].lstrip()
+    first_para = rest.split("\n\n", 1)[0].strip()
+    return bool(first_para) and "." in first_para and len(first_para) < 600
+
+
 def _discipline_content(text: str) -> bool:
     return has_red_green_refactor(text) or has_excuse_reality_table(text)
 
@@ -517,10 +526,30 @@ def _eval_pressure_test(ctx: SkillContext, th: dict[str, int]) -> tuple[str, boo
     return label, False, "no RED/GREEN/REFACTOR markers"
 
 
+def _h2_count(text: str) -> int:
+    return len(re.findall(r"^##\s+\S", text, re.MULTILINE))
+
+
+def _eval_domain_orientation(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    h2_count = _h2_count(ctx.body.text)
+    return "orientation content (>=1 H2 beyond index)", h2_count >= 2, f"{h2_count} H2 sections"
+
+
+def _eval_domain_index_only(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    """An index with no orientation content: Conditional Loading is the only H2."""
+    index_only = _h2_count(ctx.body.text) == 1 and has_conditional_loading(ctx.body.text)
+    return (
+        "prohibited: index without orientation",
+        not index_only,
+        "only Conditional Loading H2; no orientation content" if index_only else "",
+    )
+
+
 _REFERENCE_SKILL_APPLIES = _legacy_applies("reference-skill")
 _PATTERN_SKILL_APPLIES = _legacy_applies("pattern-skill")
 _TECHNIQUE_SKILL_APPLIES = _legacy_applies("technique-skill")
 _DISCIPLINE_SKILL_APPLIES = _legacy_applies("discipline-skill")
+_DOMAIN_SKILL_APPLIES = _legacy_applies("domain-skill")
 
 
 def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
@@ -759,6 +788,42 @@ MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
         "adversarial pressure testing applied (deferred)", _DISCIPLINE_SKILL_APPLIES, _eval_pressure_test,
         section="type_specific", bare_severity="fail",
     ),
+    "domain-identity-sentence": MechanicalEvaluator(
+        "skill_md", None,
+        "identity sentence (deferred)", _DOMAIN_SKILL_APPLIES,
+        _marker_present(
+            "identity sentence",
+            has_identity_sentence,
+            "no clear single-sentence identity after H1",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "domain-companion-declaration": MechanicalEvaluator(
+        "skill_md", None,
+        "companion declaration (deferred)", _DOMAIN_SKILL_APPLIES,
+        _marker_present(
+            "companion declaration",
+            has_companion_declaration,
+            "no 'Companion declaration' heading or 'no sibling' / 'companion domains' phrase",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
+    "domain-orientation": MechanicalEvaluator(
+        "skill_md", None,
+        "orientation content (>=1 H2 beyond index) (deferred)", _DOMAIN_SKILL_APPLIES, _eval_domain_orientation,
+        section="type_specific", bare_severity="fail",
+    ),
+    "domain-reference-index": MechanicalEvaluator(
+        "skill_md", None,
+        "reference index (Conditional Loading) (deferred)", _DOMAIN_SKILL_APPLIES,
+        _marker_present("reference index (Conditional Loading)", has_conditional_loading, ""),
+        section="type_specific", bare_severity="fail",
+    ),
+    "domain-prohibited-index-only": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: index without orientation (deferred)", _DOMAIN_SKILL_APPLIES, _eval_domain_index_only,
+        section="type_specific", bare_severity="fail",
+    ),
     "claude-md-import-size": MechanicalEvaluator(
         "claude_md", "import_max_lines",
         "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
@@ -836,15 +901,6 @@ def _criterion_rows(
     return rows
 
 
-def has_identity_sentence(body_text: str) -> bool:
-    after_h1 = re.split(r"^#\s+\S.+$", body_text, maxsplit=1, flags=re.MULTILINE)
-    if len(after_h1) < 2:
-        return False
-    rest = after_h1[1].lstrip()
-    first_para = rest.split("\n\n", 1)[0].strip()
-    return bool(first_para) and "." in first_para and len(first_para) < 600
-
-
 def check_universal(
     fm: Frontmatter | None,
     body: Body,
@@ -910,48 +966,6 @@ def check_universal(
     return out
 
 
-def check_domain_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
-    out: list[CheckResult] = []
-    out.append(CheckResult(
-        "identity sentence",
-        PASS if has_identity_sentence(body.text) else JUDGMENT,
-        "no clear single-sentence identity after H1" if not has_identity_sentence(body.text) else "",
-        rule="domain-identity-sentence",
-    ))
-    out.append(CheckResult(
-        "companion declaration",
-        PASS if has_companion_declaration(body.text) else FAIL,
-        "no 'Companion declaration' heading or 'no sibling' / 'companion domains' phrase" if not has_companion_declaration(body.text) else "",
-        rule="domain-companion-declaration",
-    ))
-    h2_count = len(re.findall(r"^##\s+\S", body.text, re.MULTILINE))
-    out.append(CheckResult(
-        "orientation content (>=1 H2 beyond index)",
-        PASS if h2_count >= 2 else FAIL,
-        f"{h2_count} H2 sections",
-        rule="domain-orientation",
-    ))
-    out.append(CheckResult(
-        "reference index (Conditional Loading)",
-        PASS if has_conditional_loading(body.text) else FAIL,
-        rule="domain-reference-index",
-    ))
-    if h2_count == 1 and has_conditional_loading(body.text):
-        out.append(CheckResult(
-            "prohibited: index without orientation",
-            FAIL,
-            "only Conditional Loading H2; no orientation content",
-            rule="domain-prohibited-index-only",
-        ))
-    else:
-        out.append(CheckResult(
-            "prohibited: index without orientation",
-            PASS,
-            rule="domain-prohibited-index-only",
-        ))
-    return out
-
-
 def mixed_type_signal(body_text: str, threshold: int | None = None) -> tuple[int, list[str]]:
     """Detect cross-type signals via the ONE shared scorer,
     markdown_heuristics.type_signals (I5) -- do not re-implement per-type
@@ -969,11 +983,6 @@ def mixed_type_signal(body_text: str, threshold: int | None = None) -> tuple[int
     scores = type_signals(body_text)
     active = high_scoring_types(scores, th)
     return len(active), [f"{t}={scores[t]}" for t in active]
-
-
-TYPE_RUNNERS = {
-    "domain-skill": check_domain_skill,
-}
 
 
 def check_yaml_contract(yaml_data: dict) -> tuple[list[CheckResult], str | None]:
@@ -1710,8 +1719,6 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
     type_specific: list[CheckResult] = [
         row for _section, row in _criterion_rows(type_ctx, skill_criteria, th, section="type_specific")
     ]
-    if not contract_staged and declared_type in TYPE_RUNNERS:
-        type_specific = TYPE_RUNNERS[declared_type](narrative_body, skill_dir)
 
     if not contract_staged:
         # threshold=th["mixed_min_score"] gates each TYPE's score (I5, the

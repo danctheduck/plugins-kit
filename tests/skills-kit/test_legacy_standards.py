@@ -55,8 +55,10 @@ ROWS_BY_TYPE = {
     "technique-skill": ["technique-ordered-steps", "step-tracking",
                         "technique-prohibited-pressure-test"],
     "discipline-skill": ["discipline-rule-counter", "discipline-red-flags", "discipline-pressure-test"],
+    "domain-skill": ["domain-identity-sentence", "domain-companion-declaration", "domain-orientation",
+                     "domain-reference-index", "domain-prohibited-index-only"],
 }
-MIGRATED_TYPES = ("reference-skill", "pattern-skill", "technique-skill", "discipline-skill")
+MIGRATED_TYPES = ("reference-skill", "pattern-skill", "technique-skill", "discipline-skill", "domain-skill")
 LEGACY_IDS = [rid for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]]
 TYPE_OF = {rid: t for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]}
 
@@ -70,6 +72,8 @@ SEVERITY = {
     "technique-ordered-steps": "fail", "step-tracking": "fail",
     "technique-prohibited-pressure-test": "fail",
     "discipline-rule-counter": "fail", "discipline-red-flags": "fail", "discipline-pressure-test": "fail",
+    "domain-identity-sentence": "judgment", "domain-companion-declaration": "fail",
+    "domain-orientation": "fail", "domain-reference-index": "fail", "domain-prohibited-index-only": "fail",
 }
 
 H1 = "# Subject skill\n\n"
@@ -168,6 +172,41 @@ CASES = [
     ("discipline-pressure-test", "markers-present-needs-judgment", H1 + "Run RED -> GREEN -> REFACTOR on each rule.\n", (),
      ("adversarial pressure testing applied", JUDGMENT,
       "RED/GREEN/REFACTOR markers present; agent must verify pressure testing was applied to this skill's own rules")),
+    ("domain-identity-sentence", "hit", BLANK, (),
+     ("identity sentence", PASS, "")),
+    ("domain-identity-sentence", "miss-no-period", H1 + "No terminator here\n", (),
+     ("identity sentence", JUDGMENT, "no clear single-sentence identity after H1")),
+    ("domain-identity-sentence", "miss-no-h1", "just text.\n", (),
+     ("identity sentence", JUDGMENT, "no clear single-sentence identity after H1")),
+    ("domain-identity-sentence", "miss-too-long", H1 + "x" * 700 + ".\n", (),
+     ("identity sentence", JUDGMENT, "no clear single-sentence identity after H1")),
+    ("domain-companion-declaration", "miss", BLANK, (),
+     ("companion declaration", FAIL,
+      "no 'Companion declaration' heading or 'no sibling' / 'companion domains' phrase")),
+    ("domain-companion-declaration", "hit-heading", H1 + "## Companions\n\nfoo\n", (),
+     ("companion declaration", PASS, "")),
+    ("domain-companion-declaration", "hit-no-sibling", H1 + "There are no sibling domains.\n", (),
+     ("companion declaration", PASS, "")),
+    ("domain-companion-declaration", "hit-companion-domains", H1 + "See the companion domain for X.\n", (),
+     ("companion declaration", PASS, "")),
+    ("domain-orientation", "miss-no-h2", BLANK, (),
+     ("orientation content (>=1 H2 beyond index)", FAIL, "0 H2 sections")),
+    ("domain-orientation", "miss-one-h2", H1 + "## Only\n\nx\n", (),
+     ("orientation content (>=1 H2 beyond index)", FAIL, "1 H2 sections")),
+    ("domain-orientation", "hit", H1 + "## One\n\nx\n\n## Two\n\ny\n", (),
+     ("orientation content (>=1 H2 beyond index)", PASS, "2 H2 sections")),
+    ("domain-reference-index", "miss", BLANK, (),
+     ("reference index (Conditional Loading)", FAIL, "")),
+    ("domain-reference-index", "hit", H1 + "## Conditional Loading\n\n- x\n", (),
+     ("reference index (Conditional Loading)", PASS, "")),
+    ("domain-prohibited-index-only", "violation", H1 + "## Conditional Loading\n\n- x\n", (),
+     ("prohibited: index without orientation", FAIL, "only Conditional Loading H2; no orientation content")),
+    ("domain-prohibited-index-only", "ok-no-h2", BLANK, (),
+     ("prohibited: index without orientation", PASS, "")),
+    ("domain-prohibited-index-only", "ok-one-other-h2", H1 + "## Only\n\nx\n", (),
+     ("prohibited: index without orientation", PASS, "")),
+    ("domain-prohibited-index-only", "ok-index-plus-orientation", H1 + "## Conditional Loading\n\n- x\n\n## More\n\ny\n", (),
+     ("prohibited: index without orientation", PASS, "")),
 ]
 
 # A marker that appears ONLY inside a fenced block must not count: the id, the
@@ -190,6 +229,11 @@ FENCED = [
      H1 + "```markdown\n| excuse | reality |\n|---|---|\n| a | b |\n```\n", FAIL),
     ("discipline-red-flags", H1 + "```markdown\n## Red flags\n```\n", FAIL),
     ("discipline-pressure-test", H1 + "```markdown\nRED -> GREEN -> REFACTOR\n```\n", FAIL),
+    ("domain-identity-sentence", H1 + "```markdown\nIdentity here.\n```\n", JUDGMENT),
+    ("domain-companion-declaration", H1 + "```markdown\n## Companions\n```\n", FAIL),
+    ("domain-orientation", H1 + "```markdown\n## A\n\n## B\n```\n", FAIL),
+    ("domain-reference-index", H1 + "```markdown\n## Conditional Loading\n```\n", FAIL),
+    ("domain-prohibited-index-only", H1 + "## Conditional Loading\n\n```markdown\n## Extra\n```\n", FAIL),
 ]
 
 CONTRACT_BLOCK = {
@@ -197,6 +241,7 @@ CONTRACT_BLOCK = {
     "pattern-skill": "```yaml\npattern_skill:\n  _schema_version: \"1\"\n```\n",
     "technique-skill": "```yaml\ntechnique_skill:\n  _schema_version: \"1\"\n```\n",
     "discipline-skill": "```yaml\ndiscipline_skill:\n  _schema_version: \"1\"\n```\n",
+    "domain-skill": "```yaml\ndomain_skill:\n  _schema_version: \"1\"\n```\n",
 }
 
 
@@ -285,6 +330,30 @@ def _standards_md(criteria_yaml):
 # ---------------------------------------------------------------------------
 # where the criteria live
 # ---------------------------------------------------------------------------
+
+
+def test_all_twenty_legacy_ids_have_moved_into_the_shipped_file():
+    """The 19 per-type ids and step-tracking, no more and no fewer."""
+    assert len(LEGACY_IDS) == 20
+    assert set(MIGRATED_TYPES) == {"reference-skill", "pattern-skill", "technique-skill",
+                                   "discipline-skill", "domain-skill"}
+    assert "step-tracking" in LEGACY_IDS
+    assert LEGACY_IDS == [c["id"] for c in _shipped_block()["standards_set"]["criteria"]]
+
+
+def test_the_catalog_keeps_only_the_coverage_ids_as_optional():
+    """Settled decision D2: the eight coverage ids stay registered in the
+    catalog; their criteria are shipped data in coverage-standards.md."""
+    coverage = {"absent-fact-earns-ambient-cost", "already-ambient-suppressed",
+                "fact-scoped-to-this-directory", "candidate-tier-classified", "hazard-durability",
+                "loud-failure-excluded", "evidence-floor", "present-content-not-re-audited"}
+    assert set(rule_catalog.optional_rule_ids()) == coverage
+    assert {g for b, g, _d in rule_catalog.RULES.values() if b == "optional"} == {"coverage-criteria"}
+
+
+def test_the_audit_module_has_no_per_type_runner_left():
+    assert not hasattr(audit_mod, "TYPE_RUNNERS")
+    assert not [n for n in dir(audit_mod) if n.startswith("check_") and n.endswith("_skill")]
 
 
 def test_the_legacy_ids_left_the_catalog():

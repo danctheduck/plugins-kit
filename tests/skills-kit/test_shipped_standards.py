@@ -52,7 +52,10 @@ PATTERN_LEGACY_IDS = ["pattern-recognition-block", "pattern-counter-example", "p
                       "pattern-prohibited-checklist", "pattern-prohibited-rule-counter"]
 TECHNIQUE_LEGACY_IDS = ["technique-ordered-steps", "step-tracking", "technique-prohibited-pressure-test"]
 DISCIPLINE_LEGACY_IDS = ["discipline-rule-counter", "discipline-red-flags", "discipline-pressure-test"]
-LEGACY_IDS = [*REF_LEGACY_IDS, *PATTERN_LEGACY_IDS, *TECHNIQUE_LEGACY_IDS, *DISCIPLINE_LEGACY_IDS]
+DOMAIN_LEGACY_IDS = ["domain-identity-sentence", "domain-companion-declaration", "domain-orientation",
+                     "domain-reference-index", "domain-prohibited-index-only"]
+LEGACY_IDS = [*REF_LEGACY_IDS, *PATTERN_LEGACY_IDS, *TECHNIQUE_LEGACY_IDS, *DISCIPLINE_LEGACY_IDS,
+              *DOMAIN_LEGACY_IDS]
 CLAUDE_IDS = ["claude-md-import-size", "claude-md-size-signal", "claude-md-record-floor"]
 
 
@@ -158,7 +161,7 @@ def test_the_shipped_ids_left_the_catalog_and_nothing_else_did():
         assert rid not in rule_catalog.RULES
     buckets = [b for b, _g, _d in rule_catalog.RULES.values()]
     assert (buckets.count("optional"), buckets.count("inoffensive"),
-            buckets.count("architectural")) == (13, 11, 3)
+            buckets.count("architectural")) == (8, 11, 3)
     assert "import_max_lines" not in audit_mod.THRESHOLDS
 
 

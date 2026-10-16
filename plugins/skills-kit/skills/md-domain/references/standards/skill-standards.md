@@ -106,8 +106,10 @@ criteria are `pattern-recognition-block`, `pattern-counter-example`,
 `technique-prohibited-pressure-test`; the discipline-skill criteria are
 `discipline-rule-counter`, `discipline-red-flags` and `discipline-pressure-test`
 (markers present is a judgment-required row, not a pass: the agent verifies the
-testing was applied to the skill's own rules). Each switches off with
-`rules: {<id>: off}`.
+testing was applied to the skill's own rules); the domain-skill criteria are
+`domain-identity-sentence`, `domain-companion-declaration`,
+`domain-orientation`, `domain-reference-index` and
+`domain-prohibited-index-only`. Each switches off with `rules: {<id>: off}`.
 
 ### 2.2 Schemas are floors, not ceilings
 

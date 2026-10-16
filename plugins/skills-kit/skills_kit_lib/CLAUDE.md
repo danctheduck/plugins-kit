@@ -71,7 +71,7 @@ claude_md:
 
         The dead `is_user_only` import into audit.py and the dead
         TYPE_RUNNERS["technique-skill"] dict entry were removed; the technique
-        rows no longer pass through TYPE_RUNNERS at all.
+        rows were later moved to shipped criteria and the TYPE_RUNNERS table was deleted.
       origin: Phase 4.2 audit lessons-learned F-4-2-2 / F-4-2-3; corrected 2026-09-06 by the plugin architecture audit after the claim was found false against shipped behavior and Dec-2.
       added: "2026-04-28"
       updated: "2026-09-06"
@@ -91,7 +91,7 @@ claude_md:
       detail: |
         State 1 (yaml-validated): pyyaml present + a recognized YAML contract block. Schema walker runs, deterministic per-row pass/fail, mixed-type signal deterministic. Legacy heuristics skipped.
         State 2 (contract-staged): pyyaml absent BUT a YAML contract block is detected by regex (root key match). Universal rows pass; YAML contract row reports judgment-required ("install pyyaml to validate"); legacy heuristics skipped (because a contract is staged, just unvalidated). Mixed-type signal deferred.
-        State 3 (legacy markdown fallback): no YAML contract block at all. All legacy heuristics run as before; mixed-type via narrative scoring.
+        State 3 (legacy markdown fallback): no YAML contract block at all. The legacy per-type heuristics run (they are the criteria of the shipped defaults/standards/SKILL-legacy-standards.md, in the type_specific list, with a bare interpreter's real verdicts kept via bare_severity); mixed-type via narrative scoring.
         The middle state was added so the converted skills don't report bogus markdown-heuristic failures during the transition.
       origin: Phase Y1.3 implementation; permission denial on global pip install of pyyaml in this dev env.
       added: "2026-04-28"
@@ -265,8 +265,9 @@ claude_md:
         caller states which criteria it evaluates. Provenance:
         ../skills/md-domain/references/provenance/standards-decisions.md,
         shipped_standards_layer_enabled, skill_type_criteria_shipped,
-        claude_md_criteria_shipped, body_refs_criteria_shipped and
-        contract_floor_criteria_shipped. Pinned by
+        claude_md_criteria_shipped, body_refs_criteria_shipped,
+        contract_floor_criteria_shipped and legacy_heuristic_criteria_shipped.
+        Pinned by
         tests/skills-kit/test_shipped_standards.py.
       origin: skills-kit 0.92.0, milestone M5 of the configurable-standards work.
       added: "2026-10-16"

@@ -10,10 +10,11 @@ field, it carries the judgment criteria an agent applies inside a workflow lane
   mixed-type / cross-block drift). These are the spine of the framework and are
   never disableable; the standards resolver rejects any attempt to switch one
   off by id.
-- ``optional`` -- opinion checks (description hygiene, size signals, record
-  floors, the legacy per-type heuristic rows, and the coverage lane's admission
-  criteria). These carry stable ids so a user can disable or tune them via
-  config.
+- ``optional`` -- opinion checks. They carry stable ids so a user can disable
+  or tune them via config. The catalog holds only the coverage lane's admission
+  criteria; every other optional opinion (description hygiene, size signals,
+  record floors, the legacy per-type heuristic rows) is a criterion of a
+  shipped standards file.
 - ``inoffensive`` -- mechanical integrity checks (frontmatter/name presence and
   charset, reference reachability and citation resolution, asset-path
   resolution). Disabling one could never make a correct document, so they get
@@ -21,18 +22,29 @@ field, it carries the judgment criteria an agent applies inside a workflow lane
 
 Criteria declared by the shipped standards layer (defaults/standards/) are not
 catalogued here: the shipped file is their source, and the resolver rejects a
-criterion id that repeats a catalog id. Thirty-one ids live there: desc-160-char,
-desc-directive-form, desc-exclusion-clause, skill-type-tag, skill-type-valid,
-body-line-count, body-token-count, body-size-signal, refs-one-hop-deep,
-facts-floor, facts-gotcha, facts-example and caution-floor (SKILL-standards.md),
-ref-example-block, ref-gotcha-block, ref-prohibited-discipline,
-ref-prohibited-checklist, pattern-recognition-block, pattern-counter-example,
-pattern-prohibited-bundle, pattern-prohibited-checklist,
-pattern-prohibited-rule-counter, technique-ordered-steps, step-tracking and
-technique-prohibited-pressure-test, discipline-rule-counter,
-discipline-red-flags and discipline-pressure-test (SKILL-legacy-standards.md),
-and claude-md-import-size,
-claude-md-size-signal and claude-md-record-floor (CLAUDE-md-standards.md).
+criterion id that repeats a catalog id. Thirty-six ids live there:
+
+- SKILL-standards.md: desc-160-char, desc-directive-form,
+  desc-exclusion-clause, skill-type-tag, skill-type-valid, body-line-count,
+  body-token-count, body-size-signal, refs-one-hop-deep, facts-floor,
+  facts-gotcha, facts-example and caution-floor.
+- SKILL-legacy-standards.md: ref-example-block, ref-gotcha-block,
+  ref-prohibited-discipline, ref-prohibited-checklist,
+  pattern-recognition-block, pattern-counter-example,
+  pattern-prohibited-bundle, pattern-prohibited-checklist,
+  pattern-prohibited-rule-counter, technique-ordered-steps, step-tracking,
+  technique-prohibited-pressure-test, discipline-rule-counter,
+  discipline-red-flags, discipline-pressure-test, domain-identity-sentence,
+  domain-companion-declaration, domain-orientation, domain-reference-index and
+  domain-prohibited-index-only.
+- CLAUDE-md-standards.md: claude-md-import-size, claude-md-size-signal and
+  claude-md-record-floor.
+
+The eight coverage ids below stay registered here (settled decision D2): their
+criteria are shipped data in skills/md-domain/references/standards/
+coverage-standards.md, applied by an agent inside the coverage lane rather than
+evaluated by audit.MECHANICAL_EVALUATORS, and the lane's disable check reads
+this registry.
 
 This module is the single source consumed by the standards resolver (for the
 reject-architectural check) and rendered into the configuring-standards.md
@@ -65,30 +77,12 @@ RULES: dict[str, tuple[str, str, str]] = {
     "yaml-contract": ("architectural", "contract", "The YAML type-contract block is recognized and validates against its schema (root key found, required keys present, rules satisfied)."),
     "mixed-type": ("architectural", "contract", "A SKILL.md declares exactly one skill-type root -- no drift across two type contracts (consumes `mixed_min_score`)."),
     "cross-block-drift": ("architectural", "contract", "Multiple YAML blocks in one document do not disagree about the document's type."),
-    # -- optional: description hygiene ------------------------------------
-    # The thirty-one shipped-criterion ids are not here: desc-160-char,
-    # desc-directive-form, desc-exclusion-clause, skill-type-tag,
-    # skill-type-valid, body-line-count, body-token-count, body-size-signal,
-    # refs-one-hop-deep, facts-floor, facts-gotcha, facts-example and
-    # caution-floor (defaults/standards/SKILL-standards.md), ref-example-block,
-    # ref-gotcha-block, ref-prohibited-discipline, ref-prohibited-checklist,
-    # pattern-recognition-block, pattern-counter-example,
-    # pattern-prohibited-bundle, pattern-prohibited-checklist,
-    # pattern-prohibited-rule-counter, technique-ordered-steps, step-tracking,
-    # technique-prohibited-pressure-test, discipline-rule-counter,
-    # discipline-red-flags and discipline-pressure-test
-    # (defaults/standards/SKILL-legacy-standards.md), and claude-md-import-size,
-    # claude-md-size-signal and claude-md-record-floor
-    # (defaults/standards/CLAUDE-md-standards.md). They are criteria of the
+    # -- optional: shipped standards criteria ----------------------------
+    # None of them is here. The thirty-six criteria listed in the module
+    # docstring (defaults/standards/SKILL-standards.md,
+    # SKILL-legacy-standards.md and CLAUDE-md-standards.md) are criteria of the
     # shipped standards layer, evaluated by audit.MECHANICAL_EVALUATORS. A
     # criterion id may not repeat a catalog id.
-    # -- optional: record floors ------------------------------------------
-    # -- optional: legacy per-type heuristic rows -------------------------
-    "domain-identity-sentence": ("optional", "legacy-heuristics", "A domain-skill body carries a single-sentence identity after the H1."),
-    "domain-companion-declaration": ("optional", "legacy-heuristics", 'A domain-skill declares its companions (siblings, or an explicit "no sibling").'),
-    "domain-orientation": ("optional", "legacy-heuristics", "A domain-skill body carries orientation content (at least one H2 beyond the index)."),
-    "domain-reference-index": ("optional", "legacy-heuristics", "A domain-skill body carries a Conditional-Loading reference index."),
-    "domain-prohibited-index-only": ("optional", "legacy-heuristics", "A domain-skill is not an index-only stub (an index with no orientation content)."),
     # -- optional: coverage (analyze) admission criteria --------------------
     # The eight criteria declared in skills/md-domain/references/standards/
     # coverage-standards.md, registered here so each is disableable by id. They

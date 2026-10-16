@@ -251,7 +251,9 @@ claude_md:
           report.py) are stdlib-only entry points invoked by the lanes themselves.
         - Outside the venv (bare system Python): audit.py runs but reports
           judgment-required on the YAML contract row and on each shipped
-          standards criterion row (deferred). classify.py and tag.py operate
+          standards criterion row (deferred), except that the contract floors
+          have no row and the legacy per-type heuristic rows keep their real
+          verdicts. classify.py and tag.py operate
           on frontmatter and a regex-detected YAML root key; they do not need pyyaml.
           material.py does not degrade: without bootstrap_lib or pyyaml it prints a
           diagnosis and exits 3. Neither do resolve_standards.py and

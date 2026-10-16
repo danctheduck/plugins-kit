@@ -188,11 +188,6 @@ through `audit-framework.yaml`.
 
 | Rule id | Meaning |
 |---------|---------|
-| `domain-identity-sentence` | A domain-skill body carries a single-sentence identity after the H1. |
-| `domain-companion-declaration` | A domain-skill declares its companions (siblings, or an explicit "no sibling"). |
-| `domain-orientation` | A domain-skill body carries orientation content (at least one H2 beyond the index). |
-| `domain-reference-index` | A domain-skill body carries a Conditional-Loading reference index. |
-| `domain-prohibited-index-only` | A domain-skill is not an index-only stub (an index with no orientation content). |
 | `absent-fact-earns-ambient-cost` | CV-1: a coverage candidate is durable and consequential rather than cheaply recoverable from the local files. |
 | `already-ambient-suppressed` | CV-2: a fact already carried by any CLAUDE.md in the directory's ancestor chain is not a candidate, a trigger site closer to the code included. |
 | `fact-scoped-to-this-directory` | CV-3: a candidate is a fact about the assessed directory's own direct code, and its destination is that directory. |
@@ -228,6 +223,11 @@ source of each statement, severity and threshold default.
 | `discipline-rule-counter` | `skill_md` | fail | A discipline-skill body carries at least one rule+counter pair. |
 | `discipline-red-flags` | `skill_md` | fail | A discipline-skill body carries a "Red flags" list. |
 | `discipline-pressure-test` | `skill_md` | fail | A discipline-skill applies adversarial pressure testing to its own rules. |
+| `domain-identity-sentence` | `skill_md` | judgment | A domain-skill body carries a single-sentence identity after the H1. |
+| `domain-companion-declaration` | `skill_md` | fail | A domain-skill declares its companions (siblings, or an explicit "no sibling"). |
+| `domain-orientation` | `skill_md` | fail | A domain-skill body carries orientation content (at least one H2 beyond the index). |
+| `domain-reference-index` | `skill_md` | fail | A domain-skill body carries a Conditional-Loading reference index. |
+| `domain-prohibited-index-only` | `skill_md` | fail | A domain-skill is not an index-only stub (an index with no orientation content). |
 | `desc-160-char` | `skill_md` | fail | The description frontmatter field is at most `desc_max_chars` characters. |
 | `desc-directive-form` | `skill_md` | fail | The description opens with "Use when..." or "Invoke when...". |
 | `desc-exclusion-clause` | `skill_md` | fail | The description carries a "Do NOT use for..." exclusion clause. |
