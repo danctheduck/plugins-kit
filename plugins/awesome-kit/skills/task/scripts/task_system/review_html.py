@@ -96,7 +96,7 @@ def _render_task(task: dict[str, Any], now: datetime) -> str:
         + summary_text
         + '</span></span><span class="task-id-group"><button class="task-id-copy" type="button" data-task-id="'
         + escape(str(task.get("id") or ""), quote=True)
-        + '" aria-label="Copy task work command for '
+        + '" aria-label="Copy task name '
         + escape(str(task.get("id") or ""), quote=True)
         + '">'
         + task_id
@@ -243,11 +243,11 @@ def render_review_html(data: dict[str, Any], now: datetime | None = None) -> str
             "  button.addEventListener('click', async function (event) {",
             "    event.preventDefault();",
             "    event.stopPropagation();",
-            "    var command = 'task work ' + button.dataset.taskId;",
+            "    var taskName = button.dataset.taskId;",
             "    var feedback = button.nextElementSibling;",
             "    async function legacyCopy() {",
             "      var field = document.createElement('textarea');",
-            "      field.value = command;",
+            "      field.value = taskName;",
             "      field.setAttribute('readonly', '');",
             "      field.style.position = 'fixed';",
             "      field.style.opacity = '0';",
@@ -259,7 +259,7 @@ def render_review_html(data: dict[str, Any], now: datetime | None = None) -> str
             "    }",
             "    try {",
             "      if (navigator.clipboard && navigator.clipboard.writeText) {",
-            "        try { await navigator.clipboard.writeText(command); } catch (_) { await legacyCopy(); }",
+            "        try { await navigator.clipboard.writeText(taskName); } catch (_) { await legacyCopy(); }",
             "      } else { await legacyCopy(); }",
             "      feedback.dataset.state = 'success';",
             "      feedback.textContent = 'Copied';",

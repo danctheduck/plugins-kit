@@ -248,9 +248,10 @@ class TestTaskListingAndReview:
         html = output.read_text(encoding="utf-8")
         assert html.count('<div class="task-card ') == 3
         assert '<button class="task-id-copy" type="button" data-task-id="tmp/newer-open"' in html
-        assert "var command = 'task work ' + button.dataset.taskId;" in html
+        assert "var taskName = button.dataset.taskId;" in html
+        assert "task work " not in html
+        assert "navigator.clipboard.writeText(taskName)" in html
         assert "event.stopPropagation();" in html
-        assert "navigator.clipboard.writeText(command)" in html
         assert "document.execCommand('copy')" in html
         assert html.count('<section class="task-section">') == 2
         assert "Needs attention" not in html
