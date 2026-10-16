@@ -27,7 +27,25 @@ Escape 3 -- an inherited re-exec loop flag keeps a child on the wrong interprete
     ``reexec_under_plugin_venv`` returns on ``_BOOTSTRAP_GUARD_VENV_REEXEC``
     before it looks at ``sys.prefix``, so a child that inherits the flag from
     another plugin's process never moves into the redirected plugin venv.
+Escape 4 -- the registry-change relaunch launches the cached engine too.
+    ``run_registry_relaunch`` is harvest.py's third trigger. A stored plugin-set
+    snapshot that differs from the current one makes it detach the same cached
+    ``session-bootstrap.sh``, with no redirect awareness.
+Escape 5 -- the harvest default registry is the production registry.
+    The hook passes no ``--registry``, so ``harvest.py`` reads
+    ``$HOME/.claude/plugins/installed_plugins.json`` however
+    CLAUDE_BOOTSTRAP_DATA_ROOT is set.
+Escape 6 -- a ``<PLUGIN>_ROOT`` under plugins/cache is accepted in a redirected session.
+    Neither ``export_env_var`` nor the pre-gate ``plugin_roots`` record
+    (``engine._maintain_env_records``, re-emitted by the hook prelude into later
+    gate-skipped sessions) refuses a cache-rooted install path, so a command
+    anchored on ``"${<PLUGIN>_ROOT}"`` runs the installed plugin.
+
+Escapes 5 and 6 run in this process with HOME,
+USERPROFILE and CLAUDE_BOOTSTRAP_DATA_ROOT monkeypatched into tmp_path, and
+subprocess.Popen stubbed, so no process is spawned.
 """
+import contextlib
 import json
 import os
 import subprocess
@@ -325,4 +343,142 @@ def test_inherited_loop_flag_does_not_leave_a_child_on_the_wrong_interpreter(tmp
         f"{_LOOP_FLAG} was inherited, the redirected venv {plugin_venv} exists, and "
         f"the process stayed on sys.prefix={prefix!r} (exit {res.returncode}); "
         "reexec_under_plugin_venv returned on the flag before checking sys.prefix"
+    )
+
+
+# --------------------------------------------------------------------------
+# Escape 4: registry-change relaunch (harvest's third trigger)
+# --------------------------------------------------------------------------
+
+@_escape(4)
+def test_registry_change_relaunch_does_not_launch_the_cached_engine(tmp_path):
+    """Escape 4. engine_ran_version equals the installed version, so the version
+    trigger stays quiet; a stored plugin-set snapshot that differs from the
+    current one arms ``run_registry_relaunch``, which detaches the cached
+    ``session-bootstrap.sh`` from the production registry's installPath."""
+    from bootstrap_lib.plugins_snapshot import LAUNCHED_STAMP, STATE_STAMP
+    from bootstrap_lib.stamps import global_stamp
+
+    h = _Harvest(tmp_path)
+    install = h.home / ".claude" / "plugins" / "cache" / "plugins-kit" / "bootstrap" / "9.9.9"
+    h.install_fake_cached_bootstrap(
+        install, h.home / ".claude" / "plugins" / "installed_plugins.json",
+        with_stand_down=False,
+    )
+    global_stamp(str(h.data_dir), "engine_ran_version").write("9.9.9")
+    global_stamp(str(h.data_dir), STATE_STAMP).write("stale-snapshot-hash")
+    proc = h.run()
+    assert proc.returncode == 0, proc.stderr
+    relaunched = global_stamp(str(h.data_dir), LAUNCHED_STAMP).read()
+    if relaunched:
+        h.wait_for_launched_child()
+    assert not relaunched and not h.ran.exists(), (
+        "claudx escape: harvest.py's registry-change relaunch launched the CACHED "
+        "session-bootstrap.sh from the production registry inside a "
+        f"CLAUDE_PLUGIN_TEST / CLAUDE_BOOTSTRAP_DATA_ROOT session (ran={h.ran.exists()})"
+    )
+
+
+# --------------------------------------------------------------------------
+# Escapes 5 and 6: in-process, nothing spawned
+# --------------------------------------------------------------------------
+
+@pytest.fixture
+def redirected(tmp_path, monkeypatch) -> _Harvest:
+    """A claudx-shaped environment for THIS process, all under tmp_path."""
+    h = _Harvest(tmp_path)
+    monkeypatch.setenv("HOME", str(h.home))
+    monkeypatch.setenv("USERPROFILE", str(h.home))
+    monkeypatch.setenv("CLAUDE_BOOTSTRAP_DATA_ROOT", str(h.data_root))
+    monkeypatch.setenv("CLAUDE_PLUGIN_TEST", "1")
+    monkeypatch.delenv("CLAUDE_ENV_FILE", raising=False)
+    # Prove the sandbox before any code under test runs.
+    assert Path(os.path.expanduser("~")) == h.home
+    assert Path(os.environ["CLAUDE_BOOTSTRAP_DATA_ROOT"]) == h.data_root
+    assert tmp_path in h.home.parents and tmp_path in h.data_root.parents
+    return h
+
+
+@_escape(5)
+def test_default_registry_is_not_the_production_registry(redirected):
+    """Escape 5. In a redirected session the harvest default must not be the
+    registry under HOME/.claude/plugins."""
+    from bootstrap_lib import harvest
+
+    production = redirected.home / ".claude" / "plugins" / "installed_plugins.json"
+    resolved = Path(harvest._default_registry())
+    assert resolved != production, (
+        f"claudx escape: a redirected session resolves the production registry {resolved}"
+    )
+
+
+@_escape(5)
+def test_main_without_registry_flag_does_not_launch_the_cached_engine(
+    redirected, monkeypatch
+):
+    """Escape 5, end to end through ``main`` with the hook's argument list (no
+    ``--registry``). Popen is stubbed, so the launch is observed and not made."""
+    from bootstrap_lib import harvest, tool_check
+
+    install = redirected.home / ".claude" / "plugins" / "cache" / "plugins-kit" / "bootstrap" / "9.9.9"
+    redirected.install_fake_cached_bootstrap(
+        install, redirected.home / ".claude" / "plugins" / "installed_plugins.json",
+        with_stand_down=False,
+    )
+    launched: list = []
+
+    class _FakePopen:
+        def __init__(self, argv, **kwargs):
+            launched.append([str(a) for a in argv])
+
+    monkeypatch.setattr(harvest.subprocess, "Popen", _FakePopen)
+    monkeypatch.setattr(tool_check, "resolve_bash", lambda: "bash-stub")
+    redirected.data_dir.mkdir(parents=True)
+    assert harvest.main([
+        "--data-dir", str(redirected.data_dir),
+        "--project-dir", str(redirected.project),
+        "--marketplace", "plugins-kit",
+    ]) == 0
+    assert not launched, (
+        f"claudx escape: main() read the production registry and launched {launched}"
+    )
+
+
+@_escape(6)
+def test_export_refuses_a_plugin_root_under_the_cache(redirected, monkeypatch):
+    """Escape 6, the export. A fix may refuse by raising or by returning; either
+    leaves the cache path out of the environment."""
+    from bootstrap_lib.env_var_check import export_env_var
+
+    cache_root = redirected.home / ".claude" / "plugins" / "cache" / "plugins-kit" / "skills-kit" / "0.83.0"
+    cache_root.mkdir(parents=True)
+    # Seeded so monkeypatch restores the variable (it undoes nothing for an absent name).
+    monkeypatch.setenv("SKILLS_KIT_ROOT", "sentinel-not-a-path")
+    with contextlib.suppress(Exception):
+        export_env_var("SKILLS_KIT_ROOT", str(cache_root))
+    assert os.environ["SKILLS_KIT_ROOT"] != str(cache_root), (
+        "claudx escape: a redirected session exported a plugin root under plugins/cache"
+    )
+
+
+@_escape(6)
+def test_pre_gate_record_excludes_a_plugin_root_under_the_cache(redirected):
+    """Escape 6, the record the hook prelude re-emits into later gate-skipped
+    sessions."""
+    from bootstrap_lib.engine import _maintain_env_records
+    from bootstrap_lib.env_var_check import plugin_roots_record_path, read_env_record
+    from bootstrap_lib.plugin_resolve import PluginInfo
+
+    install = redirected.home / ".claude" / "plugins" / "cache" / "plugins-kit" / "skills-kit" / "0.83.0"
+    install.mkdir(parents=True)
+    (install / "bootstrap.json").write_text("{}", encoding="utf-8")
+    plugins = [PluginInfo(name="skills-kit", install_path=str(install),
+                          version="0.83.0", marketplace="plugins-kit")]
+    redirected.data_dir.mkdir(parents=True)
+    with contextlib.suppress(Exception):
+        _maintain_env_records(str(redirected.data_dir), plugins, [], [])
+    record = read_env_record(plugin_roots_record_path(str(redirected.data_dir)))
+    assert record.get("SKILLS_KIT_ROOT") != str(install), (
+        "claudx escape: the redirected data root records a plugin root under "
+        "plugins/cache, which the hook prelude re-emits into later sessions"
     )
