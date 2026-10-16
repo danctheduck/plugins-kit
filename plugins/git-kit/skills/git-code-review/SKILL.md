@@ -183,8 +183,8 @@ technique_skill:
             - A one-entry declaration has no menu and no announcement: dispatch its entry by
               the entry-harness rule below.
             - For each declaration with two or more entries, run
-              `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <entry>... --caller session`
-              (Windows: ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
+              `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <entry>... --caller session`
+              (Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
               (the venv path works from every shell; a bare name resolves only inside a Claude Code
               Bash session) with each entry's `id` in
               declared order, plus `--project-root <bundle.project_root>` when the bundle

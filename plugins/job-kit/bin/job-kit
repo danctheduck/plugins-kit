@@ -20,9 +20,18 @@ DATA_DIR="${HOME}/.claude/plugins/data/plugins-kit/job-kit"
 
 OS="$(uname -s 2>/dev/null || echo Unknown)"
 if [[ "$OS" == MINGW* ]] || [[ "$OS" == MSYS* ]] || [[ "$OS" == CYGWIN* ]]; then
-    VENV_PY="${DATA_DIR}/.venv/Scripts/python.exe"
+    VENV_REL=".venv/Scripts/python.exe"
 else
-    VENV_PY="${DATA_DIR}/.venv/bin/python"
+    VENV_REL=".venv/bin/python"
+fi
+VENV_PY="${DATA_DIR}/${VENV_REL}"
+# CLAUDE_BOOTSTRAP_DATA_ROOT is set only for a session that redirects bootstrap's
+# data tree (scripts/claude_plugin_test.py). When it is set AND that tree holds this
+# plugin's venv, the redirected venv outranks the production one; in every other
+# case the chain below is unchanged.
+if [ -n "${CLAUDE_BOOTSTRAP_DATA_ROOT:-}" ] \
+    && [ -x "${CLAUDE_BOOTSTRAP_DATA_ROOT}/plugins-kit/job-kit/${VENV_REL}" ]; then
+    VENV_PY="${CLAUDE_BOOTSTRAP_DATA_ROOT}/plugins-kit/job-kit/${VENV_REL}"
 fi
 
 if [ -x "$VENV_PY" ]; then

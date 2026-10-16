@@ -154,7 +154,7 @@ capability_skill:
 
 ## Precondition - bootstrap must have provisioned unreal-kit
 
-Before invoking the plugin venv interpreter (`~/.claude/plugins/data/plugins-kit/unreal-kit/.venv/Scripts/python.exe`) to run `ue_runner.py`, confirm `~/.claude/plugins/data/plugins-kit/unreal-kit/bootstrap.log` exists. If it does not, the venv interpreter path won't exist either and the command fails opaquely (no Python starts, so the in-script guard can't fire). Tell the user "the bootstrap plugin hasn't provisioned unreal-kit -- install/enable plugins-kit:bootstrap and start a new session" and stop.
+Before invoking the plugin venv interpreter (`"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/unreal-kit/.venv/Scripts/python.exe`) to run `ue_runner.py`, confirm `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/unreal-kit/bootstrap.log` exists. If it does not, the venv interpreter path won't exist either and the command fails opaquely (no Python starts, so the in-script guard can't fire). Tell the user "the bootstrap plugin hasn't provisioned unreal-kit -- install/enable plugins-kit:bootstrap and start a new session" and stop.
 
 For API search, run `scripts/search_unreal_stub.py`. It preflights the enriched
 and stock locations in that order. If neither exists, it states that API search

@@ -282,7 +282,7 @@ The Editor must be running with the MCP automation-bridge plugin active. If MCP 
 
 ## Precondition - bootstrap must have provisioned unreal-kit
 
-Before invoking the plugin venv interpreter (`~/.claude/plugins/data/plugins-kit/unreal-kit/.venv/Scripts/python.exe`) to run any `ue_mcp_client` batch script, confirm `~/.claude/plugins/data/plugins-kit/unreal-kit/bootstrap.log` exists. If it does not, the venv interpreter path won't exist either (and `websocket-client`, which the MCP client imports, won't be installed) and the command fails opaquely. Tell the user "the bootstrap plugin hasn't provisioned unreal-kit -- install/enable plugins-kit:bootstrap and start a new session" and stop.
+Before invoking the plugin venv interpreter (`"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/unreal-kit/.venv/Scripts/python.exe`) to run any `ue_mcp_client` batch script, confirm `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/unreal-kit/bootstrap.log` exists. If it does not, the venv interpreter path won't exist either (and `websocket-client`, which the MCP client imports, won't be installed) and the command fails opaquely. Tell the user "the bootstrap plugin hasn't provisioned unreal-kit -- install/enable plugins-kit:bootstrap and start a new session" and stop.
 
 ## How It Works
 

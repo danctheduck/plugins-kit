@@ -13,6 +13,11 @@ set "PLUGIN_ROOT=%SCRIPT_DIR%.."
 set "CLI=%PLUGIN_ROOT%\scripts\llm_scripting_kit_cli.py"
 set "DATA_DIR=%USERPROFILE%\.claude\plugins\data\plugins-kit\llm-scripting-kit"
 set "VENV_PY=%DATA_DIR%\.venv\Scripts\python.exe"
+rem CLAUDE_BOOTSTRAP_DATA_ROOT is set only for a session that redirects bootstrap's
+rem data tree (scripts\claude_plugin_test.py). When it is set AND that tree holds this
+rem plugin's venv, the redirected venv outranks the production one; in every other
+rem case the chain below is unchanged.
+if defined CLAUDE_BOOTSTRAP_DATA_ROOT if exist "%CLAUDE_BOOTSTRAP_DATA_ROOT%\plugins-kit\llm-scripting-kit\.venv\Scripts\python.exe" set "VENV_PY=%CLAUDE_BOOTSTRAP_DATA_ROOT%\plugins-kit\llm-scripting-kit\.venv\Scripts\python.exe"
 set "STANDALONE_PY=%USERPROFILE%\.local\share\python-standalone\python\python.exe"
 
 set "PY="

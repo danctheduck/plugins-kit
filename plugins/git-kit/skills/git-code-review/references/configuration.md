@@ -239,9 +239,9 @@ no separate field to set.
 
 For each declaration with two or more entries, the skill runs
 
-    ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <id>... --caller session [--project-root <root>] [--dispatchable transport] [--self <id>]
+    "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <id>... --caller session [--project-root <root>] [--dispatchable transport] [--self <id>]
 
-(Windows: ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe), and prints its output verbatim: the entries this machine can use or will be able to use, in pace
+(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe), and prints its output verbatim: the entries this machine can use or will be able to use, in pace
 order, the one marked `[default]`, and the rule text that says how to choose, how to announce
 the choice, and when to re-select. The skill follows that printed rule rather than restating
 it, so the rule you read in a review is the rule llm-scripting-kit applied. `--self` names the

@@ -70,7 +70,7 @@ technique_skill:
       venv from the cwd and misses this plugin's dependencies when run from another project
       (macOS/Linux path shown; Windows uses .venv/Scripts/python.exe):
 
-        ~/.claude/plugins/data/plugins-kit/awesome-kit/.venv/bin/python \
+        "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/awesome-kit/.venv/bin/python \
           "${CLAUDE_SKILL_DIR}/scripts/orchestration_guidance.py" \
           --self <your endpoint alias>
 

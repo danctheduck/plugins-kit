@@ -51,7 +51,7 @@ from a foreign cwd:
 
 ```bash
 # macOS/Linux (Windows: .venv/Scripts/python.exe instead of .venv/bin/python)
-~/.claude/plugins/data/plugins-kit/awesome-kit/.venv/bin/python \
+"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/awesome-kit/.venv/bin/python \
   "${CLAUDE_SKILL_DIR}/scripts/task.py" <verb> [args]
 ```
 

@@ -272,8 +272,8 @@ LANE_ROUTING = """\
             - A one-entry declaration has no menu and no announcement: dispatch its entry by
               the entry-harness rule below.
             - For each declaration with two or more entries, run
-              `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <entry>... --caller session`
-              (Windows: ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
+              `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <entry>... --caller session`
+              (Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
               (the venv path works from every shell; a bare name resolves only inside a Claude Code
               Bash session) with each entry's `id` in
               declared order, plus `--project-root <bundle.project_root>` when the bundle
@@ -1906,8 +1906,8 @@ use "Manual detect invocation" below. Locate the INSTALLED skills-kit plugin:
 - Standards resolver: `<root>/scripts/resolve_standards.py` (see "Resolve the run's standards
   configuration" below).
 - venvPython: skills-kit's provisioned venv, which lives in the version-independent DATA dir --
-  `~/.claude/plugins/data/plugins-kit/skills-kit/.venv/Scripts/python.exe` on Windows,
-  `~/.claude/plugins/data/plugins-kit/skills-kit/.venv/bin/python` on macOS/Linux.
+  `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/skills-kit/.venv/Scripts/python.exe` on Windows,
+  `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/skills-kit/.venv/bin/python` on macOS/Linux.
 
 **Version-coupling safety valve (three-tier fallback).** Do NOT guess when an entry point is
 missing, a documented args contract is not what this doc describes, or the installed lane predates
@@ -2513,9 +2513,9 @@ no separate field to set.
 
 For each declaration with two or more entries, the skill runs
 
-    ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <id>... --caller session [--project-root <root>] [--dispatchable transport] [--self <id>]
+    "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <id>... --caller session [--project-root <root>] [--dispatchable transport] [--self <id>]
 
-(Windows: ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe), and prints its output verbatim: the entries this machine can use or will be able to use, in pace
+(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe), and prints its output verbatim: the entries this machine can use or will be able to use, in pace
 order, the one marked `[default]`, and the rule text that says how to choose, how to announce
 the choice, and when to re-select. The skill follows that printed rule rather than restating
 it, so the rule you read in a review is the rule llm-scripting-kit applied. `--self` names the

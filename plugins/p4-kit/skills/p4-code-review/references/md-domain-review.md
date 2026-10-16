@@ -82,8 +82,8 @@ use "Manual detect invocation" below. Locate the INSTALLED skills-kit plugin:
 - Standards resolver: `<root>/scripts/resolve_standards.py` (see "Resolve the run's standards
   configuration" below).
 - venvPython: skills-kit's provisioned venv, which lives in the version-independent DATA dir --
-  `~/.claude/plugins/data/plugins-kit/skills-kit/.venv/Scripts/python.exe` on Windows,
-  `~/.claude/plugins/data/plugins-kit/skills-kit/.venv/bin/python` on macOS/Linux.
+  `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/skills-kit/.venv/Scripts/python.exe` on Windows,
+  `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/skills-kit/.venv/bin/python` on macOS/Linux.
 
 **Version-coupling safety valve (three-tier fallback).** Do NOT guess when an entry point is
 missing, a documented args contract is not what this doc describes, or the installed lane predates
