@@ -18,8 +18,17 @@ Two asymmetries are deliberate and carry most of the design:
   matter what ``profile`` says. A project that never adopted profiles must
   never be warned about, prompted about, or failed for them.
 
-Everything here is pure with two named exceptions -- ``write_selection`` and
-``mark_prompted`` write, and ``ensure_vcs_excluded`` shells out to Git. Message
+Plugin tiers ride on the same machinery. ``plugins[]`` entries may carry a
+``tier`` (see :data:`TIERS`) with two why lines; the per-machine answers to the
+resulting questions are recorded under ``plugin_choices`` in the project-local
+file, bound to the profile they were recorded under, and handed to
+``plugin_tiers`` through :attr:`ProfileState.plugin_answers`. A tracked
+``profile_prompt: false`` turns the built-in profile prompt off for that one
+project.
+
+Everything here is pure with named exceptions -- ``write_selection``,
+``write_selection_with_answers``, ``clear_selection`` and ``mark_prompted``
+write, and ``ensure_vcs_excluded`` shells out to Git. Message
 TEXT for the engine's log lines stays in the engine, as elsewhere in
 ``bootstrap_lib``; what this module returns are structured outcomes plus the
 two agent-facing strings (the question and the prompt directive) that have to
@@ -54,6 +63,36 @@ PROJECT_KINDS = ("project", "project_local")
 #: Reserved selection meaning "base manifest only, and stop asking".
 NONE_SELECTION = "none"
 
+#: Reserved selection that CLEARS the choice. Written to the project-local
+#: file it masks a ``profile`` left in a lower layer, so the project reads as
+#: unselected (``clear`` cannot simply delete the key: the user-local layer
+#: would then select again).
+UNSET_SELECTION = "unset"
+
+#: Plugin tiers a ``plugins[]`` entry may declare.
+TIER_REQUIRED = "required"
+TIER_RECOMMENDED = "recommended"
+TIER_NOT_RECOMMENDED = "not_recommended"
+TIERS = (TIER_REQUIRED, TIER_RECOMMENDED, TIER_NOT_RECOMMENDED)
+
+#: Tiers whose entries must carry both why lines.
+QUESTIONED_TIERS = (TIER_RECOMMENDED, TIER_NOT_RECOMMENDED)
+
+#: Tiered entries are authored ``install: "manual"`` so an engine that does
+#: not know tiers never installs one (legacy-safe authoring).
+TIER_INSTALL_MODE = "manual"
+
+#: The one value a recorded answer's ``scope`` may take: the user confirmed
+#: acting on a user-scope install.
+ANSWER_SCOPE_USER = "user"
+
+#: Top-level keys this module owns; none may appear in a profile body.
+_RESERVED_BODY_KEYS = ("profiles", "profile", "plugin_choices", "profile_prompt")
+
+#: Why lines are single display lines, sanitized like profile descriptions but
+#: allowed more room than an option label.
+WHY_LINE_MAX = 200
+
 #: A profile name is a file-safe, lower-case identifier.
 PROFILE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 
@@ -71,7 +110,7 @@ QUESTION_HEADER = "Profile"
 
 #: Label of the option that sends the user to Other when the profiles do not
 #: fit as options.
-TYPED_CHOICE_LABEL = "Type a profile name"
+TYPED_CHOICE_LABEL = "Select a Profile Now"
 
 #: Descriptions are sanitized before they reach a question. The cap is a hard
 #: truncation with no ellipsis: an ellipsis is decoration that costs three of
@@ -145,6 +184,35 @@ class ProfileState:
     warnings: Tuple[str, ...] = ()
     errors: Tuple[str, ...] = ()
     write_target: Optional[str] = None
+    profile_prompt: bool = True
+    plugin_answers: Tuple["PluginAnswer", ...] = ()
+    answers_stale: bool = False
+
+
+@dataclass(frozen=True)
+class PluginAnswer:
+    """One recorded answer to a plugin question.
+
+    ``want`` True means the plugin should be installed, False that it should
+    not be. ``scope`` is ``"user"`` only when the user confirmed acting on a
+    user-scope install; otherwise ``None``.
+    """
+
+    ref: str
+    want: bool
+    decided: str = ""
+    scope: Optional[str] = None
+
+
+def answers_by_ref(state):
+    """The bound answers as ``{ref: {"want": bool, "scope": str|None}}``.
+
+    The plain-data form ``plugin_tiers.resolve_plugin_tiers`` consumes.
+    """
+    return {
+        a.ref: {"want": a.want, "scope": a.scope}
+        for a in state.plugin_answers
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -161,9 +229,10 @@ def resolve_layers(layers, project_dir=None, home=None):
     reports the parse error itself, and passing it through here is what lets
     rule 5 refuse to prompt on top of a half-read configuration.
 
-    Returns ``(effective_manifest, ProfileState)``. ``profiles`` and ``profile``
-    are stripped from the effective manifest in EVERY status, so no downstream
-    check can observe them and no engine pass can act on a profile twice.
+    Returns ``(effective_manifest, ProfileState)``. ``profiles``, ``profile``,
+    ``plugin_choices`` and ``profile_prompt`` are stripped from the effective
+    manifest in EVERY status, so no downstream check can observe them and no
+    engine pass can act on a profile twice.
     """
     entries = [(path, kind, data) for path, kind, data in layers]
 
@@ -175,6 +244,8 @@ def resolve_layers(layers, project_dir=None, home=None):
 
     warnings = []
     selected, source = _read_selection(entries, warnings)
+    prompt_enabled, prompt_warnings = _read_profile_prompt(entries)
+    choices_profile, choice_answers, choice_warnings = _read_plugin_choices(entries)
     raw_profiles = merged.get("profiles")
 
     # D9: an empty (or absent) `profiles` is the inert case, whatever `profile`
@@ -184,12 +255,18 @@ def resolve_layers(layers, project_dir=None, home=None):
         return base, ProfileState(
             status="no_profiles",
             write_target=_user_local_path(home),
+            profile_prompt=prompt_enabled,
         )
+
+    warnings.extend(prompt_warnings)
+    warnings.extend(choice_warnings)
 
     if isinstance(raw_profiles, dict):
         available, errors = _validate_profiles(raw_profiles)
     else:
         available, errors = (), ["'profiles' must be an object of profile names"]
+    errors = list(errors)
+    errors.extend(validate_plugin_entries(merged.get("plugins"), "plugins"))
 
     write_target = _write_target(entries, project_dir, home)
 
@@ -200,6 +277,7 @@ def resolve_layers(layers, project_dir=None, home=None):
             warnings=tuple(warnings),
             errors=tuple(errors),
             write_target=write_target,
+            profile_prompt=prompt_enabled,
         )
 
     # Rule 5: an unparseable LOCAL layer could be the one that holds the
@@ -211,9 +289,13 @@ def resolve_layers(layers, project_dir=None, home=None):
             available=available,
             warnings=tuple(warnings),
             write_target=write_target,
+            profile_prompt=prompt_enabled,
         )
 
     names = [info.name for info in available]
+    if selected == UNSET_SELECTION:
+        # A cleared choice reads exactly like one never made.
+        selected, source = None, None
     if selected is None:
         status = "unselected"
     elif selected == NONE_SELECTION:
@@ -235,6 +317,33 @@ def resolve_layers(layers, project_dir=None, home=None):
         for name in chain:
             effective = merge_manifests(effective, _profile_body(raw_profiles[name]))
 
+        # An overlay can turn an untiered base entry into a tiered one, or
+        # replace a tiered entry's install mode, so the authored-entry lint
+        # above is repeated over the merged result.
+        merged_errors = [
+            e for e in validate_plugin_entries(effective.get("plugins"), "plugins")
+            if e not in errors
+        ]
+        if merged_errors:
+            return base, ProfileState(
+                status="invalid",
+                available=available,
+                warnings=tuple(warnings),
+                errors=tuple(merged_errors),
+                write_target=write_target,
+                profile_prompt=prompt_enabled,
+            )
+
+    # Answers bind to the profile they were recorded under: recorded for any
+    # other profile (or while none is selected) they are stale and ignored.
+    plugin_answers = ()
+    answers_stale = False
+    if choices_profile is not None:
+        if status == "selected" and choices_profile == selected:
+            plugin_answers = choice_answers
+        else:
+            answers_stale = True
+
     return effective, ProfileState(
         status=status,
         selected=selected if status in ("selected", "none", "unknown") else None,
@@ -244,19 +353,22 @@ def resolve_layers(layers, project_dir=None, home=None):
         warnings=tuple(warnings),
         errors=(),
         write_target=write_target,
+        profile_prompt=prompt_enabled,
+        plugin_answers=plugin_answers,
+        answers_stale=answers_stale,
     )
 
 
 def _strip_profile_keys(manifest):
-    """The manifest without the two keys this module owns."""
-    return {k: v for k, v in manifest.items() if k not in ("profiles", "profile")}
+    """The manifest without the keys this module owns."""
+    return {k: v for k, v in manifest.items() if k not in _RESERVED_BODY_KEYS}
 
 
 def _profile_body(body):
     """A profile's manifest content: everything that is not its own metadata."""
     return {
         k: v for k, v in body.items()
-        if k not in ("extends", "description", "profiles", "profile")
+        if k not in ("extends", "description") + _RESERVED_BODY_KEYS
     }
 
 
@@ -266,6 +378,11 @@ def _read_selection(entries, warnings):
     A ``profile`` outside the two local layers is IGNORED with a warning naming
     the file: acting on it would let a committed manifest decide a per-machine
     choice, and dropping it silently would leave the author believing it took.
+
+    The highest local layer that carries a ``profile`` wins, so
+    :data:`UNSET_SELECTION` in the project-local file is returned before the
+    user-local layer is consulted and masks it; the caller reads it as
+    "nothing selected".
     """
     by_kind = {}
     for path, kind, data in entries:
@@ -294,6 +411,146 @@ def _read_selection(entries, warnings):
     return None, None
 
 
+def _read_profile_prompt(entries):
+    """Return ``(enabled, warnings)`` for the per-project prompt switch.
+
+    ``profile_prompt: false`` is honored only from the TRACKED project layer,
+    where a team that ships its own profile setup says so for that project
+    alone. Read from any other layer it would switch the prompt off for every
+    project, so it is ignored with a warning naming the file.
+    """
+    enabled = True
+    warnings = []
+    for path, kind, data in entries:
+        if not isinstance(data, dict) or data.get("profile_prompt") is None:
+            continue
+        if kind != "project":
+            warnings.append(
+                "'profile_prompt' in %s is ignored -- set it in the project's "
+                "tracked .claude/bootstrap.json" % path
+            )
+            continue
+        value = data["profile_prompt"]
+        if not isinstance(value, bool):
+            warnings.append(
+                "'profile_prompt' in %s is not true or false and was ignored" % path
+            )
+            continue
+        enabled = value
+    return enabled, warnings
+
+
+def _parse_answer(ref, value):
+    """Return ``(PluginAnswer, None)`` or ``(None, problem)``."""
+    if not isinstance(ref, str) or not ref.strip():
+        return None, "answer key %r is not a plugin ref" % (ref,)
+    if not isinstance(value, dict):
+        return None, "answer for '%s' must be an object" % ref
+    want = value.get("want")
+    if not isinstance(want, bool):
+        return None, "answer for '%s': 'want' must be true or false" % ref
+    decided = value.get("decided", "")
+    if not isinstance(decided, str):
+        return None, "answer for '%s': 'decided' must be a string" % ref
+    scope = value.get("scope")
+    if scope is not None and scope != ANSWER_SCOPE_USER:
+        return None, "answer for '%s': 'scope' must be 'user' when present" % ref
+    return PluginAnswer(ref=ref.strip(), want=want, decided=decided, scope=scope), None
+
+
+def _read_plugin_choices(entries):
+    """Return ``(bound_profile, answers, warnings)`` from the project-local layer.
+
+    Recorded answers are a per-machine, per-project record, so they are read
+    from the project-local file only; the key in any other layer is ignored
+    with a warning naming the file. A malformed record is ignored (the user is
+    asked again) rather than half-applied, and says so.
+    """
+    warnings = []
+    profile = None
+    answers = ()
+    for path, kind, data in entries:
+        if not isinstance(data, dict) or data.get("plugin_choices") is None:
+            continue
+        if kind != "project_local":
+            warnings.append(
+                "'plugin_choices' in %s is ignored -- answers are recorded in "
+                "the project's bootstrap.local.json" % path
+            )
+            continue
+        record = data["plugin_choices"]
+        bound = record.get("profile") if isinstance(record, dict) else None
+        raw_answers = record.get("answers") if isinstance(record, dict) else None
+        if (not isinstance(bound, str) or not bound.strip()
+                or not isinstance(raw_answers, dict)):
+            warnings.append(
+                "'plugin_choices' in %s needs a 'profile' name and an 'answers' "
+                "object and was ignored" % path
+            )
+            continue
+        parsed = []
+        for ref, value in raw_answers.items():
+            answer, problem = _parse_answer(ref, value)
+            if problem:
+                warnings.append("'plugin_choices' in %s: %s; ignored" % (path, problem))
+                continue
+            parsed.append(answer)
+        profile = bound.strip()
+        answers = tuple(parsed)
+    return profile, answers, warnings
+
+
+def validate_plugin_entries(entries, where="plugins"):
+    """Return lint errors for the tier fields of a ``plugins`` list.
+
+    ``entries`` is the raw list (``None`` and a non-list are the engine's to
+    report, not this lint's). Only entries that declare a ``tier`` are held to
+    the tier rules:
+
+    - ``tier`` is one of :data:`TIERS` and the entry has a ``ref``;
+    - ``install`` is ``"manual"`` (legacy-safe authoring: an engine that does
+      not know tiers must never install or remove a tiered plugin);
+    - ``recommended`` and ``not_recommended`` entries carry both ``why_install``
+      and ``why_skip`` as non-empty text; a ``required`` entry's why lines are
+      optional but must be text when present.
+    """
+    if not isinstance(entries, list):
+        return []
+    errors = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict) or "tier" not in entry:
+            continue
+        ref = entry.get("ref")
+        label = "%s[%s]" % (where, ref if isinstance(ref, str) and ref else index)
+        if not isinstance(ref, str) or not ref.strip():
+            errors.append("%s: a tiered entry needs a 'ref'" % label)
+        tier = entry["tier"]
+        if tier not in TIERS:
+            errors.append(
+                "%s: tier %r is not one of %s" % (label, tier, ", ".join(TIERS))
+            )
+            continue
+        if entry.get("install") != TIER_INSTALL_MODE:
+            errors.append(
+                "%s: a tiered entry must set install to \"manual\" so an older "
+                "engine never installs or removes it" % label
+            )
+        for key in ("why_install", "why_skip"):
+            value = entry.get(key)
+            if value is None:
+                if tier in QUESTIONED_TIERS:
+                    errors.append("%s: tier %s requires '%s'" % (label, tier, key))
+                continue
+            if not isinstance(value, str):
+                errors.append("%s: '%s' must be a string" % (label, key))
+            elif tier in QUESTIONED_TIERS and not sanitize_description(
+                    value, WHY_LINE_MAX):
+                errors.append(
+                    "%s: '%s' must hold printable ASCII text" % (label, key)
+                )
+    return errors
+
+
 def _validate_profiles(raw_profiles):
     """Return ``(available, errors)``; any error makes the whole set unusable.
 
@@ -318,6 +575,12 @@ def _validate_profiles(raw_profiles):
                 "name a profile"
             )
             continue
+        if name == UNSET_SELECTION:
+            errors.append(
+                "'unset' is reserved as the cleared selection and cannot "
+                "name a profile"
+            )
+            continue
         if not isinstance(body, dict):
             errors.append("profile '%s' must be an object" % name)
             continue
@@ -328,6 +591,15 @@ def _validate_profiles(raw_profiles):
                     "profile '%s' declares '%s'; profiles do not nest"
                     % (name, reserved)
                 )
+        for reserved in ("plugin_choices", "profile_prompt"):
+            if reserved in body:
+                errors.append(
+                    "profile '%s' declares '%s'; it is a project-level key, "
+                    "not profile content" % (name, reserved)
+                )
+        errors.extend(validate_plugin_entries(
+            body.get("plugins"), "profile '%s': plugins" % name
+        ))
 
         description = body.get("description", "")
         if description is not None and not isinstance(description, str):
@@ -656,8 +928,13 @@ def should_prompt(state, env, marker_dir):
     Every clause is a refusal to interrupt: only an open choice is worth
     asking about, only an attended session has anyone to answer, and a session
     is asked at most once -- with a short directory-wide guard so two sessions
-    starting together do not both ask (F13).
+    starting together do not both ask (F13). A project whose tracked manifest
+    sets ``profile_prompt: false`` is never asked by bootstrap: it runs its own
+    setup. The switch lives on the per-project ``state``, so other projects
+    that declare profiles are unaffected.
     """
+    if not state.profile_prompt:
+        return False
     if state.status not in PROMPTABLE_STATUSES:
         return False
     if env.get(ENV_SESSION_ATTENDED) != "1":
@@ -740,8 +1017,106 @@ def write_selection(path, value):
     ``~/.claude/bootstrap.local.json`` has a concurrent writer: the engine's
     self-registration rewrites it on every full pass (F11).
 
+    Recorded plugin answers belong to one profile: a write that changes the
+    selection (or removes it) drops ``plugin_choices`` in the same write, so
+    switching away and back never revives answers given for the earlier
+    choice. Re-writing the profile the answers are bound to keeps them.
+
     Raises :class:`ProfileWriteError` WITHOUT writing when the file cannot be
     read, is not valid JSON, or is not a JSON object.
+    """
+    existing = _read_json_object(path)
+    changed = False
+
+    if value is None:
+        if "profile" in existing:
+            existing.pop("profile")
+            changed = True
+    elif existing.get("profile") != value:
+        existing["profile"] = value
+        changed = True
+
+    choices = existing.get("plugin_choices")
+    bound = choices.get("profile") if isinstance(choices, dict) else None
+    if "plugin_choices" in existing and (value is None or bound != value):
+        existing.pop("plugin_choices")
+        changed = True
+
+    if not changed:
+        return
+    write_atomic(path, json.dumps(existing, indent=2) + "\n")
+
+
+def write_selection_with_answers(path, profile, answers, decided=None):
+    """Record ``profile`` and its plugin ``answers`` in ONE atomic write.
+
+    ``answers`` maps a plugin ref to ``{"want": bool}`` plus, for a ``want``
+    False that the user confirmed on a user-scope install, ``"scope": "user"``.
+    Each answer is stamped with ``decided`` (default: today, ``YYYY-MM-DD``)
+    unless it carries its own. The answers are bound to ``profile``. Every
+    other key in the file is preserved. With no answers any earlier
+    ``plugin_choices`` is removed, so a re-applied profile never keeps answers
+    the user did not just give.
+
+    Profile and answers share one ``os.replace``: a convergence pass started
+    afterwards sees both or neither, never a new profile with the old answers.
+
+    Raises :class:`ProfileWriteError` WITHOUT writing when ``profile`` is not
+    a selectable profile name (``none`` and ``unset`` are not -- see
+    :func:`clear_selection`), an answer is malformed, or the file is unusable.
+    """
+    if not isinstance(profile, str) or not PROFILE_NAME_RE.match(profile):
+        raise ProfileWriteError(
+            "cannot record answers for %r: not a profile name" % (profile,)
+        )
+    if profile in (NONE_SELECTION, UNSET_SELECTION):
+        raise ProfileWriteError(
+            "'%s' is reserved and cannot be applied with answers" % profile
+        )
+    stamp = decided if decided is not None else time.strftime("%Y-%m-%d")
+    if not isinstance(answers, dict):
+        raise ProfileWriteError("answers must be an object of plugin refs")
+
+    recorded = {}
+    for ref, value in answers.items():
+        answer, problem = _parse_answer(ref, value)
+        if problem:
+            raise ProfileWriteError("%s; nothing was written" % problem)
+        entry = {"want": answer.want, "decided": answer.decided or stamp}
+        if answer.scope:
+            entry["scope"] = answer.scope
+        recorded[answer.ref] = entry
+
+    existing = _read_json_object(path)
+    existing["profile"] = profile
+    existing.pop("plugin_choices", None)
+    if recorded:
+        existing["plugin_choices"] = {"profile": profile, "answers": recorded}
+    write_atomic(path, json.dumps(existing, indent=2) + "\n")
+
+
+def clear_selection(path):
+    """Clear the choice: ``profile`` becomes ``"unset"``, answers are removed.
+
+    One atomic write that always happens, even when no file or key existed,
+    because ``"unset"`` in the project-local file is what stops a ``profile``
+    left in the user-local file from selecting again (see
+    :data:`UNSET_SELECTION`). Every other key is preserved.
+
+    Raises :class:`ProfileWriteError` WITHOUT writing when the file is unusable.
+    """
+    existing = _read_json_object(path)
+    existing["profile"] = UNSET_SELECTION
+    existing.pop("plugin_choices", None)
+    write_atomic(path, json.dumps(existing, indent=2) + "\n")
+
+
+def _read_json_object(path):
+    """The JSON object in ``path`` (``{}`` when absent or empty).
+
+    Raises :class:`ProfileWriteError` when the file cannot be read, is not
+    valid JSON, or is not an object -- a hand-authored file is never rewritten
+    from a guess about what it meant.
     """
     existing = {}
     if os.path.isfile(path):
@@ -761,15 +1136,7 @@ def write_selection(path, value):
                 raise ProfileWriteError(
                     "%s does not hold a JSON object; nothing was written" % path
                 )
-
-    if value is None:
-        if "profile" not in existing:
-            return
-        existing.pop("profile")
-    else:
-        existing["profile"] = value
-
-    write_atomic(path, json.dumps(existing, indent=2) + "\n")
+    return existing
 
 
 def ensure_vcs_excluded(project_dir):

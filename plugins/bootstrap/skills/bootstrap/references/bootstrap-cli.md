@@ -154,7 +154,15 @@ bootstrap profile set <name> --project  # write to <project>/.claude/bootstrap.l
 bootstrap profile clear              # remove the selection
 bootstrap profile clear --user       # clear from the user-local file specifically
 bootstrap profile clear --project    # clear from the project-local file specifically
+bootstrap profile status [--json]    # same read as bare `profile`; --json adds `capabilities`
+bootstrap profile choices --for NAME [--json]
+                                     # the plugin questions NAME would ask; read-only
+bootstrap profile apply --profile NAME [--answers JSON|FILE]
+                                     # select NAME and record its answers, then run a pass
+bootstrap profile clear --all        # profile -> "unset", answers removed; no pass
 ```
+
+`status`, `choices`, `apply` and `clear --all` all accept `--project-dir P`.
 
 All three resolve state through the same engine function
 (`bootstrap_lib.engine._load_layered_manifests_ex`) a live bootstrap pass uses,
@@ -170,7 +178,7 @@ plain text, one per line (`""` under `no_profiles`); and `needs_typed_choice`
 then names no profile and offers a typed-choice option instead), then ask
 with `question` either way.
 
-**`bootstrap profile` (status).** Reports `status`, the current `selected`
+**`bootstrap profile` / `profile status` (status).** Reports `status`, the current `selected`
 name and its `source` file, the applied `chain`, every `available` profile
 with its `description` and `extends`, any `warnings` or `errors`, and the
 `write_target` a `set` with no `--user`/`--project` flag would use. The human
@@ -209,6 +217,84 @@ defer to a later session.
 | `bootstrap profile set`/`clear`, a pass holds the lock | 2 |
 | `bootstrap profile set`/`clear`, ambiguous marketplace | 2 |
 | `bootstrap profile clear`, wrote (or nothing to remove) | 0 |
+
+**`bootstrap profile status --json` capabilities.** The JSON adds
+`capabilities`, the profile verbs this install provides, probed by import (no
+registry, settings or network access, so a hook can run it every session
+start). Members, in order: `choices_for` (`profile choices --for`), `apply`,
+`clear_all` (`profile clear --all`), `unset` (the reserved `"unset"`
+selection). A caller that needs a verb checks the list and stays silent on an
+install that lacks it.
+
+**`bootstrap profile choices --for NAME`.** Read-only: applies NAME to the
+current layers in memory, reads the scope-aware installed inventory, and
+reports the plugin questions a fresh selection would ask. Only `recommended`
+plugins that are not installed and `not_recommended` plugins that are
+installed are asked about. No lock, no write, no pass. `--json` prints:
+
+```json
+{"profile": "NAME", "chain": ["base", "NAME"], "warnings": [],
+ "questions": [{"ref": "mkt:plugin", "tier": "recommended",
+   "why_lines": [{"kind": "why_install", "text": "..."},
+                 {"kind": "why_skip", "text": "..."}],
+   "why_install": "...", "why_skip": "...",
+   "scopes": ["user"], "needs_user_scope_confirm": true}]}
+```
+
+`why_lines` is in display order: `why_install` first for `recommended`,
+`why_skip` first for `not_recommended`. `scopes` lists the scopes of existing
+installs (empty for an uninstalled recommended plugin).
+`needs_user_scope_confirm` is `true` when removal would touch a user-scope
+install. Without `--json` it prints the same data as text.
+
+**`bootstrap profile apply --profile NAME [--answers JSON|FILE]`.** Takes the
+engine lock without blocking, re-reads and re-validates the candidate under it,
+writes the selection and the answers in ONE atomic replace of
+`<project>/.claude/bootstrap.local.json` (excluded from Git), releases the
+lock, then runs the same pass `bootstrap run` runs, streaming its output. The
+pass acts on the recorded answers: it installs wanted recommended plugins and
+uninstalls unwanted not-recommended ones. `--answers` is a JSON object or the
+path of a file holding one:
+
+```json
+{"mkt:plugin": {"want": false, "scope": "user"}}
+```
+
+`want` (boolean) is required. `scope: "user"` is allowed only with
+`want: false` and is the caller's record that the user confirmed removing a
+user-scope install; without it bootstrap never removes a user-scope install.
+Each answer is stamped with a `decided` date. A ref omitted from `--answers`
+stays unanswered and is asked again. Re-applying replaces earlier answers.
+
+**`bootstrap profile clear --all`.** Under the same lock, sets the
+project-local `profile` to the reserved `"unset"` and removes
+`plugin_choices`. It always writes, even when no file or key existed, because
+`"unset"` masks a `profile` left in `~/.claude/bootstrap.local.json`; it warns
+when that user-level file still selects a profile. It does **not** run a pass
+and uninstalls nothing. `apply` runs a pass; `clear --all` does not.
+
+**Refusal output (exit 3).** `choices` and `apply` print one JSON object on
+stdout (and the message on stderr): `{"refused": CODE, "message": TEXT,
+"refs": [...]}`. Codes: `not_a_profile` (not a selectable name; `none` and
+`unset` are not), `unknown_profile`, `invalid_declaration`,
+`invalid_tier_data` (a malformed tiered entry), `unreadable_answers`,
+`malformed_answers`, `unknown_answer_ref` (the ref is not a recommended or
+not-recommended plugin of the profile), `malformed_answer`, and
+`user_scope_confirmation_required` (`want: false` on a user-scope install
+without `scope: "user"`; `refs` names them). A refusal writes nothing.
+
+**Lock.** `apply` and `clear --all` take the engine lock non-blocking; when a
+pass holds it they write nothing and exit 2. `choices` and `status` never
+lock.
+
+| Form | Exit code |
+|---|---|
+| `bootstrap profile status` / `choices`, ok (possibly no questions) | 0 |
+| `bootstrap profile apply`, wrote and converged | 0 |
+| `bootstrap profile clear --all`, wrote | 0 |
+| `choices`/`apply`, write or pass failure, installed bootstrap too old, unreadable registry | 1 |
+| `apply`/`clear --all`, a pass holds the lock; any form, ambiguous marketplace | 2 |
+| `choices`/`apply`, validation refusal (codes above) | 3 |
 
 ## Engine and data discovery
 

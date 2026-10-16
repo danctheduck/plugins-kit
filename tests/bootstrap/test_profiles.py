@@ -378,6 +378,10 @@ class TestOverflowQuestion:
         assert [o["label"] for o in question["options"]] == [
             "Not now", profiles.TYPED_CHOICE_LABEL]
 
+    def test_typed_option_label_is_select_a_profile_now(self):
+        question = profiles.build_question(_state_with(FIVE), "first_run")
+        assert question["options"][1]["label"] == "Select a Profile Now"
+
     def test_switch_mode_keeps_its_own_lead_option(self):
         state = _state_with(FIVE, status="selected", selected="alpha")
         question = profiles.build_question(state, "switch")
@@ -682,3 +686,418 @@ class TestEnsureVcsExcluded:
             "generated profile selection"
             not in open(os.path.join(repo, ".git", "info", "exclude")).read()
         )
+
+
+# ===========================================================================
+# Plugin tiers, the cleared selection, recorded answers, the prompt switch
+# ===========================================================================
+
+
+def _tiered(ref, tier, **extra):
+    data = {"ref": ref, "tier": tier, "install": "manual"}
+    if tier in ("recommended", "not_recommended"):
+        data["why_install"] = "Why you might want it."
+        data["why_skip"] = "Why you might not."
+    data.update(extra)
+    return data
+
+
+DESIGNER = {"profiles": {"designer": {"plugins": [
+    _tiered("mkt:req", "required"),
+    _tiered("mkt:rec", "recommended"),
+    _tiered("mkt:norec", "not_recommended"),
+]}, "engineer": {}}}
+
+
+def _choices(profile, answers):
+    return {"plugin_choices": {"profile": profile, "answers": answers}}
+
+
+class TestTierLint:
+    def _state(self, plugins, where="profile"):
+        if where == "profile":
+            layers = [_layer("project", {"profiles": {"p": {"plugins": plugins}}})]
+        else:
+            layers = [_layer("project", {"profiles": {"p": {}}, "plugins": plugins})]
+        _, state = _resolve(layers)
+        return state
+
+    def test_a_well_formed_tiered_profile_resolves(self):
+        _, state = _resolve([_layer("project", DESIGNER)])
+        assert state.status == "unselected" and state.errors == ()
+
+    def test_an_unknown_tier_is_an_error(self):
+        state = self._state([_tiered("mkt:a", "mandatory")])
+        assert state.status == "invalid"
+        assert any("tier 'mandatory'" in e for e in state.errors)
+
+    @pytest.mark.parametrize("install", [None, "auto"])
+    def test_a_tiered_entry_must_be_install_manual(self, install):
+        entry = _tiered("mkt:a", "recommended")
+        if install is None:
+            del entry["install"]
+        else:
+            entry["install"] = install
+        state = self._state([entry])
+        assert state.status == "invalid"
+        assert any('install to "manual"' in e for e in state.errors)
+
+    @pytest.mark.parametrize("tier", ["recommended", "not_recommended"])
+    @pytest.mark.parametrize("missing", ["why_install", "why_skip"])
+    def test_both_why_lines_are_required_for_a_questioned_tier(self, tier, missing):
+        entry = _tiered("mkt:a", tier)
+        del entry[missing]
+        state = self._state([entry])
+        assert state.status == "invalid"
+        assert any("requires '%s'" % missing in e for e in state.errors)
+
+    def test_a_why_line_must_be_text(self):
+        state = self._state([_tiered("mkt:a", "recommended", why_skip=3)])
+        assert any("'why_skip' must be a string" in e for e in state.errors)
+
+    def test_a_why_line_with_no_printable_ascii_is_an_error(self):
+        state = self._state([_tiered("mkt:a", "recommended", why_skip="\u2014")])
+        assert any("printable ASCII" in e for e in state.errors)
+
+    def test_required_needs_no_why_lines(self):
+        state = self._state([_tiered("mkt:a", "required")])
+        assert state.status == "unselected" and state.errors == ()
+
+    def test_a_tiered_entry_needs_a_ref(self):
+        state = self._state([{"tier": "required", "install": "manual"}])
+        assert any("needs a 'ref'" in e for e in state.errors)
+
+    def test_the_base_plugins_list_is_linted_too(self):
+        state = self._state([_tiered("mkt:a", "recommended", install="auto")], "base")
+        assert state.status == "invalid"
+        assert any(e.startswith("plugins[mkt:a]") for e in state.errors)
+
+    def test_an_overlay_that_breaks_a_tiered_entry_is_caught_after_merge(self):
+        layers = [
+            _layer("project", {
+                "plugins": [_tiered("mkt:a", "recommended")],
+                "profiles": {"p": {"plugins": [{"ref": "mkt:a", "install": "auto"}]}},
+            }),
+            _layer("project_local", {"profile": "p"}),
+        ]
+        manifest, state = _resolve(layers)
+        assert state.status == "invalid"
+        assert any('install to "manual"' in e for e in state.errors)
+        # Invalid keeps the base manifest, as every other declaration error does.
+        assert manifest["plugins"][0]["install"] == "manual"
+
+    def test_untiered_entries_are_not_linted(self):
+        state = self._state([{"ref": "mkt:a", "install": "auto"}])
+        assert state.status == "unselected" and state.errors == ()
+
+    def test_a_profile_cannot_declare_the_project_level_keys(self):
+        for key in ("plugin_choices", "profile_prompt"):
+            _, state = _resolve([_layer("project", {"profiles": {"p": {key: {}}}})])
+            assert state.status == "invalid"
+            assert any(key in e for e in state.errors)
+
+
+class TestUnsetSelection:
+    def test_unset_in_project_local_masks_a_user_local_selection(self):
+        layers = [
+            _layer("project", DESIGNER),
+            _layer("user_local", {"profile": "designer"}),
+            _layer("project_local", {"profile": "unset"}),
+        ]
+        manifest, state = _resolve(layers)
+        assert state.status == "unselected"
+        assert state.selected is None
+        assert "plugins" not in manifest
+
+    def test_without_the_mask_the_user_local_selection_applies(self):
+        layers = [
+            _layer("project", DESIGNER),
+            _layer("user_local", {"profile": "designer"}),
+        ]
+        _, state = _resolve(layers)
+        assert state.status == "selected"
+
+    def test_unset_is_promptable_like_any_unselected_project(self, tmp_path):
+        _, state = _resolve([_layer("project", DESIGNER),
+                             _layer("project_local", {"profile": "unset"})])
+        assert profiles.should_prompt(state, ATTENDED, str(tmp_path)) is True
+
+    def test_unset_cannot_name_a_profile(self):
+        _, state = _resolve([_layer("project", {"profiles": {"unset": {}}})])
+        assert state.status == "invalid"
+        assert any("'unset' is reserved" in e for e in state.errors)
+
+    def test_unset_is_stripped_like_any_selection(self):
+        manifest, _ = _resolve([_layer("project", DESIGNER),
+                                _layer("project_local", {"profile": "unset"})])
+        assert "profile" not in manifest
+
+
+class TestPluginChoices:
+    def _state(self, selected="designer", record=None, extra_layers=()):
+        local = {"profile": selected}
+        if record is not None:
+            local.update(record)
+        layers = [_layer("project", DESIGNER), _layer("project_local", local)]
+        layers.extend(extra_layers)
+        return _resolve(layers)
+
+    def test_answers_bound_to_the_selected_profile_are_read(self):
+        record = _choices("designer", {
+            "mkt:rec": {"want": True, "decided": "2026-10-16"},
+            "mkt:norec": {"want": False, "decided": "2026-10-16", "scope": "user"},
+        })
+        _, state = self._state(record=record)
+        assert state.answers_stale is False
+        assert profiles.answers_by_ref(state) == {
+            "mkt:rec": {"want": True, "scope": None},
+            "mkt:norec": {"want": False, "scope": "user"},
+        }
+
+    def test_answers_bound_to_another_profile_are_stale_and_ignored(self):
+        record = _choices("engineer", {"mkt:rec": {"want": True, "decided": "d"}})
+        _, state = self._state(record=record)
+        assert state.plugin_answers == ()
+        assert state.answers_stale is True
+
+    def test_answers_are_ignored_when_no_profile_is_selected(self):
+        record = _choices("designer", {"mkt:rec": {"want": True, "decided": "d"}})
+        _, state = self._state(selected="unset", record=record)
+        assert state.status == "unselected"
+        assert state.plugin_answers == () and state.answers_stale is True
+
+    def test_plugin_choices_never_reaches_the_effective_manifest(self):
+        record = _choices("designer", {"mkt:rec": {"want": True, "decided": "d"}})
+        manifest, _ = self._state(record=record)
+        assert "plugin_choices" not in manifest
+
+    @pytest.mark.parametrize("kind", ["legacy", "user", "user_local", "project"])
+    def test_plugin_choices_in_another_layer_is_ignored_with_a_warning(self, kind):
+        extra = [_layer(kind, _choices("designer", {"mkt:rec": {"want": True}}))]
+        manifest, state = self._state(extra_layers=extra)
+        assert state.plugin_answers == ()
+        assert any("/fixtures/%s.json" % kind in w and "plugin_choices" in w
+                   for w in state.warnings)
+        assert "plugin_choices" not in manifest
+
+    @pytest.mark.parametrize("record", [
+        {"plugin_choices": "yes"},
+        {"plugin_choices": {"answers": {}}},
+        {"plugin_choices": {"profile": "designer"}},
+        {"plugin_choices": {"profile": "designer", "answers": []}},
+    ])
+    def test_a_malformed_record_is_ignored_with_a_warning(self, record):
+        _, state = self._state(record=record)
+        assert state.plugin_answers == ()
+        assert any("plugin_choices" in w for w in state.warnings)
+
+    @pytest.mark.parametrize("answer", [
+        {"want": "yes"}, {"decided": "d"}, {"want": False, "scope": "local"}, "no",
+    ])
+    def test_a_malformed_answer_is_skipped_and_the_rest_survive(self, answer):
+        record = _choices("designer", {
+            "mkt:rec": answer, "mkt:norec": {"want": False, "decided": "d"}})
+        _, state = self._state(record=record)
+        assert list(profiles.answers_by_ref(state)) == ["mkt:norec"]
+        assert any("mkt:rec" in w for w in state.warnings)
+
+    def test_no_profiles_means_no_warning_about_answers(self):
+        _, state = _resolve([_layer("project_local", _choices("d", {}))])
+        assert state.status == "no_profiles" and state.warnings == ()
+
+
+class TestProfilePromptSwitch:
+    def test_false_in_the_tracked_project_layer_suppresses_the_prompt(self, tmp_path):
+        _, state = _resolve([_layer("project", dict(DESIGNER, profile_prompt=False))])
+        assert state.status == "unselected" and state.profile_prompt is False
+        assert profiles.should_prompt(state, ATTENDED, str(tmp_path)) is False
+
+    def test_another_project_with_profiles_is_unaffected(self, tmp_path):
+        _, quiet = _resolve([_layer("project", dict(DESIGNER, profile_prompt=False))])
+        _, other = _resolve([_layer("project", DESIGNER)], project_dir="/other")
+        assert profiles.should_prompt(quiet, ATTENDED, str(tmp_path)) is False
+        assert profiles.should_prompt(other, ATTENDED, str(tmp_path)) is True
+
+    def test_true_or_absent_keeps_the_prompt(self, tmp_path):
+        _, state = _resolve([_layer("project", dict(DESIGNER, profile_prompt=True))])
+        assert profiles.should_prompt(state, ATTENDED, str(tmp_path)) is True
+
+    @pytest.mark.parametrize("kind", ["legacy", "user", "user_local", "project_local"])
+    def test_it_is_ignored_with_a_warning_outside_the_tracked_project_layer(
+            self, kind, tmp_path):
+        layers = [_layer("project", DESIGNER),
+                  _layer(kind, {"profile_prompt": False})]
+        _, state = _resolve(layers)
+        assert state.profile_prompt is True
+        assert any("/fixtures/%s.json" % kind in w for w in state.warnings)
+        assert profiles.should_prompt(state, ATTENDED, str(tmp_path)) is True
+
+    def test_a_non_boolean_value_is_ignored_with_a_warning(self):
+        _, state = _resolve([_layer("project", dict(DESIGNER, profile_prompt="no"))])
+        assert state.profile_prompt is True
+        assert any("not true or false" in w for w in state.warnings)
+
+    def test_the_key_is_stripped_from_the_effective_manifest(self):
+        manifest, _ = _resolve([_layer("project", dict(DESIGNER, profile_prompt=False))])
+        assert "profile_prompt" not in manifest
+
+    def test_it_is_carried_even_when_the_feature_is_inert(self):
+        _, state = _resolve([_layer("project", {"profile_prompt": False})])
+        assert state.status == "no_profiles" and state.profile_prompt is False
+
+
+def _read(path):
+    return json.loads(open(path).read())
+
+
+class TestWriteSelectionWithAnswers:
+    def test_profile_and_answers_land_in_one_write(self, tmp_path):
+        path = tmp_path / "bootstrap.local.json"
+        profiles.write_selection_with_answers(str(path), "designer", {
+            "mkt:rec": {"want": True},
+            "mkt:norec": {"want": False, "scope": "user"},
+        }, decided="2026-10-16")
+        assert _read(path) == {
+            "profile": "designer",
+            "plugin_choices": {"profile": "designer", "answers": {
+                "mkt:rec": {"want": True, "decided": "2026-10-16"},
+                "mkt:norec": {"want": False, "decided": "2026-10-16", "scope": "user"},
+            }},
+        }
+
+    def test_one_atomic_replace_is_used(self, tmp_path, monkeypatch):
+        calls = []
+        real = profiles.write_atomic
+        monkeypatch.setattr(profiles, "write_atomic",
+                            lambda p, c, *a, **k: (calls.append(p), real(p, c, *a, **k)))
+        profiles.write_selection_with_answers(
+            str(tmp_path / "b.json"), "designer", {"mkt:rec": {"want": True}})
+        assert len(calls) == 1
+
+    def test_the_written_file_reads_back_as_bound_answers(self, tmp_path):
+        path = tmp_path / "bootstrap.local.json"
+        profiles.write_selection_with_answers(
+            str(path), "designer", {"mkt:rec": {"want": True}})
+        layers = [_layer("project", DESIGNER), ("x", "project_local", _read(path))]
+        _, state = _resolve(layers)
+        assert state.status == "selected"
+        assert profiles.answers_by_ref(state) == {"mkt:rec": {"want": True, "scope": None}}
+
+    def test_today_is_the_default_decided_date(self, tmp_path):
+        path = tmp_path / "b.json"
+        profiles.write_selection_with_answers(str(path), "designer",
+                                              {"mkt:rec": {"want": True}})
+        decided = _read(path)["plugin_choices"]["answers"]["mkt:rec"]["decided"]
+        assert decided == time.strftime("%Y-%m-%d")
+
+    def test_other_keys_survive_and_old_answers_are_replaced(self, tmp_path):
+        path = tmp_path / "b.json"
+        path.write_text(json.dumps({
+            "tools": [{"name": "uv"}], "profile": "engineer",
+            **_choices("engineer", {"mkt:old": {"want": True, "decided": "d"}}),
+        }))
+        profiles.write_selection_with_answers(str(path), "designer",
+                                              {"mkt:rec": {"want": False}})
+        data = _read(path)
+        assert data["tools"] == [{"name": "uv"}]
+        assert list(data["plugin_choices"]["answers"]) == ["mkt:rec"]
+
+    def test_no_answers_removes_the_old_record(self, tmp_path):
+        path = tmp_path / "b.json"
+        path.write_text(json.dumps(
+            {"profile": "designer", **_choices("designer", {"a:b": {"want": True}})}))
+        profiles.write_selection_with_answers(str(path), "designer", {})
+        assert _read(path) == {"profile": "designer"}
+
+    @pytest.mark.parametrize("profile", ["none", "unset", "Bad Name", "", None])
+    def test_a_non_selectable_profile_is_refused_without_writing(self, tmp_path, profile):
+        path = tmp_path / "b.json"
+        with pytest.raises(profiles.ProfileWriteError):
+            profiles.write_selection_with_answers(str(path), profile, {})
+        assert not path.exists()
+
+    @pytest.mark.parametrize("bad", [
+        {"mkt:rec": {"want": "yes"}},
+        {"mkt:rec": {"want": True, "scope": "local"}},
+        {"": {"want": True}},
+        {"mkt:rec": True},
+    ])
+    def test_a_malformed_answer_is_refused_without_writing(self, tmp_path, bad):
+        path = tmp_path / "b.json"
+        path.write_text('{"keep": 1}')
+        with pytest.raises(profiles.ProfileWriteError):
+            profiles.write_selection_with_answers(str(path), "designer", bad)
+        assert path.read_text() == '{"keep": 1}'
+
+    def test_an_unparseable_file_is_refused_without_writing(self, tmp_path):
+        path = tmp_path / "b.json"
+        path.write_text("{ not json")
+        with pytest.raises(profiles.ProfileWriteError):
+            profiles.write_selection_with_answers(str(path), "designer", {})
+        assert path.read_text() == "{ not json"
+
+
+class TestClearSelection:
+    def test_profile_becomes_unset_and_answers_are_removed(self, tmp_path):
+        path = tmp_path / "b.json"
+        path.write_text(json.dumps({
+            "tools": [], "profile": "designer",
+            **_choices("designer", {"mkt:rec": {"want": True, "decided": "d"}}),
+        }))
+        profiles.clear_selection(str(path))
+        assert _read(path) == {"tools": [], "profile": "unset"}
+
+    def test_it_writes_even_when_the_file_is_missing(self, tmp_path):
+        path = tmp_path / "nested" / "b.json"
+        profiles.clear_selection(str(path))
+        assert _read(path) == {"profile": "unset"}
+
+    def test_a_cleared_project_reads_unselected_despite_a_user_local_profile(self, tmp_path):
+        path = tmp_path / "b.json"
+        profiles.write_selection_with_answers(
+            str(path), "designer", {"mkt:rec": {"want": True}})
+        profiles.clear_selection(str(path))
+        layers = [_layer("project", DESIGNER),
+                  _layer("user_local", {"profile": "designer"}),
+                  ("x", "project_local", _read(path))]
+        _, state = _resolve(layers)
+        assert state.status == "unselected" and state.plugin_answers == ()
+
+    def test_an_unparseable_file_is_refused_without_writing(self, tmp_path):
+        path = tmp_path / "b.json"
+        path.write_text("[1]")
+        with pytest.raises(profiles.ProfileWriteError):
+            profiles.clear_selection(str(path))
+        assert path.read_text() == "[1]"
+
+
+class TestWriteSelectionAnswerBinding:
+    def test_switching_the_profile_drops_the_answers(self, tmp_path):
+        path = tmp_path / "b.json"
+        profiles.write_selection_with_answers(
+            str(path), "designer", {"mkt:rec": {"want": True}})
+        profiles.write_selection(str(path), "engineer")
+        assert _read(path) == {"profile": "engineer"}
+
+    def test_switching_away_and_back_does_not_revive_old_answers(self, tmp_path):
+        path = tmp_path / "b.json"
+        profiles.write_selection_with_answers(
+            str(path), "designer", {"mkt:rec": {"want": True}})
+        profiles.write_selection(str(path), "engineer")
+        profiles.write_selection(str(path), "designer")
+        assert "plugin_choices" not in _read(path)
+
+    def test_rewriting_the_same_profile_keeps_the_answers(self, tmp_path):
+        path = tmp_path / "b.json"
+        profiles.write_selection_with_answers(
+            str(path), "designer", {"mkt:rec": {"want": True}})
+        before = path.read_text()
+        profiles.write_selection(str(path), "designer")
+        assert path.read_text() == before
+
+    def test_removing_the_selection_drops_the_answers(self, tmp_path):
+        path = tmp_path / "b.json"
+        profiles.write_selection_with_answers(
+            str(path), "designer", {"mkt:rec": {"want": True}})
+        profiles.write_selection(str(path), None)
+        assert _read(path) == {}

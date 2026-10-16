@@ -6,11 +6,14 @@ marketplace and plugin management (add, remove, update, install, etc.).
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from typing import NamedTuple, Optional
 
+from .path_check import _home
 from .plugin_resolve import discover_cache_plugins, pick_registry_record
 
 
@@ -786,6 +789,203 @@ def check_plugin_installed(plugin_ref: str) -> LifecycleResult:
     return LifecycleResult(passed=False, ref=plugin_ref, message="not installed")
 
 
+# --- Scope-aware installed inventory ---
+
+
+class InventoryError(RuntimeError):
+    """The installed inventory could not be read reliably.
+
+    Raised for a corrupt registry or settings file and for a registry record
+    whose scope is missing or unknown. An inventory that guessed past one of
+    these would report "not installed" for something that is, and the callers
+    install or uninstall on that answer.
+    """
+
+
+_INSTALL_SCOPES = ("user", "project", "local")
+
+
+def norm_project_path(path: str) -> str:
+    """Normalize a project path the way Claude Code compares ``projectPath``.
+
+    Mirrors ``norm_path`` in the spiritcrossing ``ensure-bootstrap.sh``:
+    backslashes to slashes, repeated slashes collapsed, an MSYS ``/d/x`` form
+    to ``D:/x``, an upper-case drive letter, one trailing slash dropped. The
+    rest of the path is NOT case-folded: Claude Code matches it exactly, so a
+    record for ``D:/Dev/x`` does not apply to a session in ``D:/dev/x``.
+    """
+    p = re.sub(r"/+", "/", path.replace("\\", "/"))
+    if re.fullmatch(r"/[A-Za-z]/.*", p):
+        p = p[1] + ":" + p[2:]
+    elif re.fullmatch(r"/[A-Za-z]", p):
+        p = p[1] + ":"
+    if re.match(r"[A-Za-z]:", p):
+        p = p[0].upper() + p[1:]
+    if p.endswith("/"):
+        p = p[:-1]
+    return p
+
+
+@dataclass(frozen=True)
+class Install:
+    """One install of a plugin that applies to the current project.
+
+    Fields:
+      scope        "user", "project" or "local" -- the registry record's scope,
+                   or, for a cache-derived install, the settings file that
+                   enables the plugin.
+      project_path The record's projectPath, normalized (norm_project_path);
+                   "" when the record carries none. A user record may carry
+                   one (the claude-code#79892 chimera); it is kept for
+                   diagnostics.
+      install_path Existing directory holding the plugin code.
+      source       "registry" (installed_plugins.json) or "cache" (registry v2
+                   empty; found by scanning the plugin cache).
+      version      The record's version ("" when unknown).
+      dormant      True for a registry record that no settings file of its own
+                   scope enables. plugin_installs omits these unless asked.
+
+    ``mutation_key`` is what an uninstall changes: ``(scope, project_path)``
+    for project and local, ``("user", "")`` for user (a user uninstall has no
+    project). Installs with an equal key are one uninstall.
+    """
+
+    scope: str
+    project_path: str
+    install_path: str
+    source: str
+    version: str = ""
+    dormant: bool = False
+
+    @property
+    def mutation_key(self) -> tuple:
+        return (self.scope, "" if self.scope == "user" else self.project_path)
+
+
+def _read_enabled_plugins(settings_path: str) -> dict:
+    """The ``enabledPlugins`` map of one settings file ({} if file or key is absent)."""
+    try:
+        with open(settings_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as exc:
+        raise InventoryError(f"cannot read settings file {settings_path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise InventoryError(f"settings file {settings_path} root is not an object")
+    enabled = data.get("enabledPlugins", {})
+    if not isinstance(enabled, dict):
+        raise InventoryError(f"settings file {settings_path}: enabledPlugins is not an object")
+    return enabled
+
+
+def _enabling_scopes(cli_ref: str, home: str, project_dir: Optional[str]) -> dict:
+    """Map scope -> True when that scope's own settings file enables the plugin."""
+    paths = {"user": os.path.join(home, ".claude", "settings.json")}
+    if project_dir:
+        paths["project"] = os.path.join(project_dir, ".claude", "settings.json")
+        paths["local"] = os.path.join(project_dir, ".claude", "settings.local.json")
+    return {
+        scope: _read_enabled_plugins(path).get(cli_ref) is True
+        for scope, path in paths.items()
+    }
+
+
+def _registry_records_for(plugin_ref: str, home: str) -> list:
+    """EVERY registry record for the ref, under both key forms, uncollapsed."""
+    registry_path = os.path.join(home, ".claude", "plugins", "installed_plugins.json")
+    try:
+        with open(registry_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return []
+    except (OSError, ValueError) as exc:
+        raise InventoryError(f"cannot read registry {registry_path}: {exc}") from exc
+    plugins = data.get("plugins", {}) if isinstance(data, dict) else None
+    if not isinstance(plugins, dict):
+        raise InventoryError(f"registry {registry_path}: plugins is not an object")
+    records = []
+    for key in dict.fromkeys((_to_cli_ref(plugin_ref), plugin_ref)):
+        entry = plugins.get(key)
+        if entry is None:
+            continue
+        if isinstance(entry, dict):
+            entry = [entry]
+        if not isinstance(entry, list) or not all(isinstance(e, dict) for e in entry):
+            raise InventoryError(f"registry {registry_path}: records for {key} are malformed")
+        records.extend(entry)
+    return records
+
+
+def plugin_installs(
+    plugin_ref: str, project_dir: Optional[str], include_dormant: bool = False
+) -> list:
+    """Every usable install of a plugin that applies to this project.
+
+    Unlike check_plugin_installed (one record, any scope), this returns each
+    applicable install so a caller can ask scope-aware questions and uninstall
+    them all. A record is dropped when:
+      * its installPath is not an existing directory (stale);
+      * it is a local or project record whose projectPath is not this project
+        (compared with norm_project_path; a record with no projectPath cannot
+        match);
+      * it is a user record carrying a projectPath that is not this project;
+      * (unless include_dormant) no settings file of its own scope enables the
+        plugin: a registry record nothing enables is "dormant", not installed.
+
+    When the registry holds no record for the ref at all (registry v2 with an
+    empty "plugins" map), the plugin cache is scanned instead and one Install
+    is returned per settings file that enables the plugin, ordered local,
+    project, user. Order otherwise follows the registry.
+
+    Raises InventoryError for an unreadable registry or settings file or a
+    record with a missing or unknown scope.
+    """
+    cli_ref = _to_cli_ref(plugin_ref)
+    home = _home()
+    project = norm_project_path(project_dir) if project_dir else None
+    enabled = _enabling_scopes(cli_ref, home, project_dir)
+    records = _registry_records_for(plugin_ref, home)
+
+    installs = []
+    for record in records:
+        scope = record.get("scope")
+        if scope not in _INSTALL_SCOPES:
+            raise InventoryError(f"registry record for {plugin_ref} has scope {scope!r}: {record}")
+        install_path = record.get("installPath") or ""
+        if not os.path.isdir(install_path):
+            continue
+        record_project = norm_project_path(record["projectPath"]) if record.get("projectPath") else ""
+        if scope == "user":
+            if record_project and record_project != project:
+                continue
+        elif not record_project or record_project != project:
+            continue
+        dormant = not enabled.get(scope, False)
+        if dormant and not include_dormant:
+            continue
+        installs.append(Install(
+            scope=scope, project_path=record_project, install_path=install_path,
+            source="registry", version=str(record.get("version") or ""), dormant=dormant,
+        ))
+    if records:
+        return installs
+
+    cached = discover_cache_plugins(os.path.join(home, ".claude", "plugins"), {cli_ref})
+    for record in cached.get(cli_ref, []):
+        install_path = record.get("installPath") or ""
+        if not os.path.isdir(install_path):
+            continue
+        for scope in ("local", "project", "user"):
+            if enabled.get(scope, False):
+                installs.append(Install(
+                    scope=scope, project_path=project if scope != "user" else "",
+                    install_path=install_path, source="cache",
+                    version=str(record.get("version") or ""),
+                ))
+    return installs
+
+
 def _run_claude_scoped(args, scope: str, project_dir: Optional[str]):
     """Run a scope-targeted `claude plugin ...` command, guarding its settings write.
 
@@ -833,6 +1033,66 @@ def install_plugin(
     if ok:
         return LifecycleResult(passed=True, ref=plugin_ref, message="installed")
     return _cli_failure("install", plugin_ref, _combined_output(stdout, stderr))
+
+
+def uninstall_plugin(
+    plugin_ref: str, scope: str, project_dir: Optional[str] = None
+) -> LifecycleResult:
+    """Uninstall a plugin at one scope via `claude plugin uninstall`.
+
+    Mirrors install_plugin. Only "user" and "local" are accepted: the CLI
+    rewrites the scope's settings file, and project scope is the TRACKED
+    ``.claude/settings.json`` that the runtime never writes (a shared file; a
+    project install is reported to the user, not removed). Asking for it is a
+    caller bug and raises ValueError rather than editing the shared file.
+    ``local`` needs ``project_dir``, which is also the command's cwd; ``user``
+    runs without one.
+    """
+    if scope not in ("user", "local"):
+        raise ValueError(
+            f"uninstall_plugin: scope {scope!r} is not allowed; only 'user' and "
+            "'local' (the runtime never writes the tracked project settings.json)"
+        )
+    if scope == "local" and not project_dir:
+        raise ValueError("uninstall_plugin: scope 'local' requires project_dir")
+    cli_ref = _to_cli_ref(plugin_ref)
+    ok, stdout, stderr = _run_claude_scoped(
+        ["plugin", "uninstall", cli_ref, "--scope", scope], scope,
+        project_dir if scope == "local" else None,
+    )
+    if ok:
+        return LifecycleResult(passed=True, ref=plugin_ref, message="uninstalled")
+    return _cli_failure("uninstall", plugin_ref, _combined_output(stdout, stderr))
+
+
+def uninstall_installs(
+    plugin_ref: str, installs: list, project_dir: Optional[str]
+) -> list:
+    """Uninstall every given Install, one command per distinct mutation.
+
+    Installs sharing a ``mutation_key`` are one uninstall: a chimera user
+    record plus a normal user record, or two local records for this project,
+    run a single command. Returns one LifecycleResult per key, in first-seen
+    order; the plugin is gone when all of them passed. A project-scope Install
+    raises ValueError (see uninstall_plugin) -- the caller lists it as
+    unsatisfied instead of passing it here.
+    """
+    for install in installs:
+        if install.scope == "project":
+            # Refuse the whole batch before any command runs.
+            raise ValueError(
+                f"uninstall_installs: project-scope install of {plugin_ref} "
+                "cannot be uninstalled by the runtime (tracked project settings.json)"
+            )
+    results = []
+    seen = set()
+    for install in installs:
+        key = install.mutation_key
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append(uninstall_plugin(plugin_ref, install.scope, project_dir))
+    return results
 
 
 def _recorded_scope(cli_ref: str, plugin_ref: str) -> str:
@@ -1193,8 +1453,8 @@ def check_plugin_enabled_at_scope(plugin_ref: str, scope: str, project_dir: str 
 
     Args:
         plugin_ref: Plugin reference in marketplace:plugin format
-        scope: Desired scope (user, project)
-        project_dir: Project directory (required for project scope)
+        scope: Desired scope (user, project, local)
+        project_dir: Project directory (required for project and local scope)
     """
     cli_ref = _to_cli_ref(plugin_ref)
     home = os.environ.get("HOME") or os.path.expanduser("~")
@@ -1203,6 +1463,8 @@ def check_plugin_enabled_at_scope(plugin_ref: str, scope: str, project_dir: str 
         settings_path = os.path.join(home, ".claude", "settings.json")
     elif scope == "project" and project_dir:
         settings_path = os.path.join(project_dir, ".claude", "settings.json")
+    elif scope == "local" and project_dir:
+        settings_path = os.path.join(project_dir, ".claude", "settings.local.json")
     else:
         return LifecycleResult(passed=False, ref=plugin_ref, message=f"unknown scope '{scope}' or missing project_dir")
 
