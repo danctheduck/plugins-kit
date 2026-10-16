@@ -9,7 +9,7 @@
 - Route pipeline backend construction through dispatch while preserving every constructor option and injection seam.
 - Keep flat jobs and leased pipeline execution separate above shared execution and storage mechanics.
 - Preserve job schema 12, pipeline schema 10, spend-ledger schema 1, DDL, pragmas, and event bytes during coexistence.
-- Serialize active-run ownership across old and new implementations; keep the verdict file's advisory last-writer-wins semantics.
+- Keep one job process per ledger across frozen job-kit and llm-kit; preserve pipeline leases and fencing; retain the verdict file's last-writer-wins semantics.
 - Publish only llm_kit; legacy import names remain owned by old plugins through a two-minor deprecation window.
 - Migrate qualified skill, agent, workflow, launch-flag, and resumable references before retiring any registration.
 - Defer a generic migration runner until differential tests demonstrate a common algorithm worth extracting.
@@ -94,7 +94,7 @@ Public symbols are exported from their owning component, never the root.
 
 ## Execution-overlap ruling
 
-The recommendation in dev/tasks/llm-plugins-merge/execution-overlap.md is adopted with a split shared kernel. Flat jobs and leased pipeline execution keep different state machines, schemas, users, and acceptance rules. A job runner owns a call; a pipeline worker claims a unit under a lease and fencing token. Combining them would violate CRP and weaken the pipeline concurrency contract.
+The measured execution-overlap recommendation is adopted with a split shared kernel. Flat jobs and leased pipeline execution keep different state machines, schemas, users, and acceptance rules. A job runner owns a call; a pipeline worker claims a unit under a lease and fencing token. Combining them would violate CRP and weaken the pipeline concurrency contract.
 
 Shared bootstrap execution contracts live in execution; SQLite and ownership mechanics live in storage. Product interrupt records, transitions, schemas, and migration loops remain product-owned. A generic migration runner is not in the first contract. Differential parity tests must first show that the legacy runners share an algorithm rather than only similar syntax.
 
@@ -141,6 +141,8 @@ Layer 0  schema             -> {}
 | content_pipeline.llm.backends concrete construction | dispatch.pipeline_backends | Runtime wrappers call dispatch, never adapters. |
 
 pipeline.runtime.backends keeps the public pipeline wrappers and every constructor option: endpoint, project root, client, timeout, retry, diagnostics, executable, argv prefix, runner, and model endpoint. Each wrapper passes an immutable construction spec to an injected completion.BackendFactory; the default is dispatch.ConfiguredBackendFactory. Dispatch maps names to concrete adapter classes. CLI is the composition root and injects the configured factory into jobs, pipeline runtime, and frontdoor. Direct library users either inject the protocol or call the public dispatch builder.
+
+Dispatch requires a new construction builder, not a rename of llm_scripting_kit.completion.factory.create_backend. That factory accepts only endpoint, model, cheap, and project root, then constructs default harness instances. The new builder accepts the full construction spec while preserving content_pipeline's lazy delegate construction. An omitted runner remains omitted from the concrete constructor rather than being passed as None, so each adapter retains its default runner semantics.
 
 The old llm_scripting_kit.completion facade is split, not copied. Neutral result, option, halt, requirement, output-contract, skill-context, and capability TYPE exports move to llm_kit.completion. The other exports move as follows:
 
@@ -260,7 +262,7 @@ Option A, recommended:
 
 An llm-kit plugin version may ship before step 5, but it exposes no temporary public namespace and triggers no consumer migration. A generic migration runner is considered only after step 3 demonstrates reusable behavior.
 
-Option B exposes the fully restructured public API first and accepts packaging, persistence coordination, execution refactoring, consumer migration, and legacy retirement together. It shortens the release sequence but makes failures hard to localize and can force a second consumer migration. Option B is not recommended.
+Option B restructures the private llm_kit tree to the final package boundaries before establishing differential parity; option A establishes parity before restructuring those boundaries. Both options keep the same legacy coordination release, final public namespace, consumer migration, functional compatibility aliases, deprecation window, rollback checks, and retirement gates. Option B can reduce temporary internal adapters, but parity failures span consolidation and restructuring and are therefore harder to localize. Option B is not recommended.
 
 ## TanStack insights
 
@@ -282,33 +284,30 @@ LEGACY_LLM_DATA/usage-verdicts.json remains exactly the legacy single-session pa
 
 - Simultaneous writers are last-writer-wins, including writers from different sessions and writers updating different endpoints.
 - Atomic replacement prevents torn JSON but does not prevent lost updates.
-- A lost verdict causes recomputation and may alter pacing.
+- A stale snapshot can overwrite an observed OUT_OF_QUOTA verdict with AVAILABLE. pinned_evaluate returns that pinned AVAILABLE verdict without recomputing it.
+- While old and new writers coexist, that resurrection can repeatedly select an exhausted endpoint, cause additional failed calls, and defeat session pacing.
 - The file is advisory pacing state, not authorization, accounting, reservation, or double-spend prevention.
 
-Barrier-synchronized old/new process tests cover same-session and different-session writers. They assert parseable legacy-shaped output and recomputation by the losing writer; they do not assert merged verdict retention. A stronger merge/lock protocol requires a separate compatibility release in the legacy plugin before llm-kit may use it.
+Barrier-synchronized old/new process tests cover same-session and different-session writers. They assert parseable legacy-shaped output and include stale-AVAILABLE resurrection: one writer records exhaustion, a stale writer restores AVAILABLE, and a subsequent pinned read returns AVAILABLE without recomputation. The test also demonstrates that selection can retry the exhausted endpoint. Tests do not assert merged verdict retention. A stronger merge/lock protocol requires a separate compatibility release in the legacy plugin before llm-kit may use it.
 
 ### SQLite compatibility, ownership, and handover
 
 llm-kit preserves job schema 12, pipeline schema 10, spend-ledger schema 1, canonical JSON, interrupt documents, DDL, pragma order, and event bytes. Product migration loops stay in jobs and pipeline.execution; spend ledger keeps its one create schema, autocommit, and configurable synchronous value.
 
-Coexistence permits concurrent readers but exactly one execution owner per logical run. A compatibility release of job-kit and content-pipeline-kit ships the same sidecar lock protocol before llm-kit can resume a legacy nonterminal run:
+Job ledgers retain the registered one-process-per-ledger rule. Concurrent readers are permitted, but frozen job-kit and llm-kit may not execute any runs concurrently from the same ledger, including distinct runs. A compatibility release of job-kit and llm-kit uses one shared advisory OS lock per job ledger, held for the full run or resume process lifetime. Every mutating entry point verifies ledger ownership before its transaction. Clean handover stops the owner, releases the ledger lock, then starts the other implementation. Process death releases the OS lock; filesystems without verified cross-process lock semantics refuse active use. Rollback uses the patched frozen job-kit: stop llm-kit, release the ledger lock, acquire it through job-kit, and resume unchanged bytes.
 
-- The tuple (ledger-id, product, run-id) selects an advisory OS lock held for the full controller or resume lifetime.
-- A separate ledger-schema lock covers open/migrate, then releases.
-- Every mutating entry point verifies ownership before opening its transaction.
-- Clean handover stops the owner, releases the lock, then starts the other.
-- Process death releases the OS lock; takeover never relies on a stale timestamp.
-- Filesystems without verified cross-process lock semantics refuse active-run sharing rather than simulate ownership.
+The pipeline execution store keeps its existing ownership model. Many short-lived worker processes use transactional unit claims with expiring leases and monotonically increasing fencing tokens. At most one dispatcher process holds the existing dispatcher lease and fence for a run; a different live holder is refused, expiry or release permits a higher fence, and stale dispatcher or unit fences are rejected. SQLite serializes the short writes. This permits separate pipeline runs and workers to proceed concurrently and adds no job-style ledger lock or new pipeline ownership policy. Old content-pipeline and llm-kit implementations must preserve these schema-10 lease, fence, and transaction semantics.
 
-An unpatched legacy version may read terminal records but cannot coexist as an active writer. llm-kit refuses to resume its nonterminal run. Rollback means the patched freeze version: stop llm-kit, release ownership, acquire through the old implementation, and resume unchanged bytes. Arbitrary pre-protocol downgrade is not a supported active-run rollback.
+An unpatched job-kit may read terminal records but cannot coexist as an active writer. llm-kit refuses active job use of that ledger. Arbitrary pre-protocol downgrade is not a supported active-run rollback.
 
 Compatibility tests use simultaneous processes, not alternating calls:
 
-- Old and new contenders for one run: one owns and one refuses.
-- Distinct runs in one ledger: both proceed under distinct run locks.
-- Owner termination during execution: SQLite recovers and the other version takes ownership and resumes nonterminal work once.
-- Termination during migration: the schema lock releases and SQLite rollback or idempotent migration completes on reopen.
-- llm-kit-to-old rollback resumes a new-created nonterminal run with identical events and terminal state.
+- Frozen job-kit and llm-kit contenders for the same job ledger, whether targeting the same or distinct runs: one owns the ledger and one refuses.
+- Job owner termination: SQLite recovers, the OS lock releases, and the other implementation resumes nonterminal work once.
+- Old and new pipeline dispatchers for one run: one live lease wins; release or expiry permits takeover with a higher fence.
+- Pipeline workers: valid concurrent claims proceed, while stale unit and dispatcher fences refuse mutation.
+- Distinct pipeline runs proceed concurrently under their own dispatcher leases.
+- llm-kit-to-old rollback resumes new-created nonterminal job and pipeline records with identical events and terminal state.
 - Fresh-create and every migration prefix compare sqlite_master, version rows, pragmas, isolation posture, events, interrupts, and canonical JSON.
 
 No schema change is allowed during coexistence. A change requires a separate dual-readable format, conversion, ownership, and rollback decision.
@@ -333,9 +332,9 @@ An AST guard over plugins/llm-kit/lib/llm_kit uses the exact adjacency set above
 1. Use only llm_kit as the new top-level package. Recommendation: yes. Cost: consumers change imports once; benefit: deterministic coexistence.
 2. Accept the corrected 16-package map, facade splits, factory injection, and exact edges. Recommendation: yes. Cost: code is reorganized rather than copied as three intact trees.
 3. Keep jobs and leased pipeline execution separate above shared execution/storage. Recommendation: yes. Cost: two product models remain; benefit: neither receives the other's policy.
-4. Choose sequencing option A (legacy coordination, private consolidation, parity, incremental restructuring, one consumer migration) over option B (one combined acceptance event). Recommendation: A. Cost: more gates; benefit: isolated rollback and no temporary namespace.
-5. Preserve DDL/events and require per-run ownership plus tested handover before active ledger coexistence. Recommendation: yes. Cost: legacy compatibility releases; benefit: no dual resume.
-6. Retain the verdict cache's advisory last-writer-wins semantics rather than add locking during the merge. Recommendation: yes. Cost: concurrent verdict loss and recomputation; benefit: no incompatible state protocol in the merge.
+4. Choose sequencing option A (parity before restructuring) over option B (restructuring before parity), with identical compatibility, migration, rollback, deprecation, and retirement gates. Recommendation: A. Cost: more temporary internal adapters; benefit: parity and restructuring failures remain separable.
+5. Preserve one-process-per-job-ledger ownership across frozen job-kit and llm-kit, with tested handover; preserve the pipeline store's existing dispatcher leases and unit fencing. Recommendation: yes. Cost: a job ledger cannot execute distinct runs concurrently; benefit: no unsupported dual job writer or new pipeline policy.
+6. Retain the verdict cache's advisory last-writer-wins semantics rather than add locking during the merge. Recommendation: yes. Cost: stale AVAILABLE can replace observed exhaustion, repeatedly select the exhausted endpoint, add failed calls, and defeat session pacing while old and new writers coexist; benefit: no incompatible state protocol in the merge.
 7. Share legacy credential, config, and routing environment contracts until deletion. Recommendation: yes. Cost: llm-kit carries legacy logical names.
 8. Replace migrated CLI use with one venv-first llm-kit command while old commands remain deprecation shims. Recommendation: yes. Cost: scripts migrate.
 9. Keep final skill short names under llm-kit, migrate explicit and resumable references first, and keep functional old registrations through the deprecation window. Recommendation: yes. Cost: duplicate registrations temporarily exist; benefit: either selection path succeeds.
@@ -373,5 +372,23 @@ Prefixes: L is llm_scripting_kit, C is content_pipeline, and J is job_kit. An as
 
 ## Appendix B: evidence
 
-- dev/tasks/llm-plugins-merge/inventory-coupling.md
-- dev/tasks/llm-plugins-merge/execution-overlap.md
+Measured consumer separation:
+
+- Jobs only: skills-kit emits job files and launches the job-kit CLI; no production plugin outside job-kit imports job_kit.
+- Pipeline execution only: yaml-data-editor-kit imports content_pipeline execution, LLM, and work-unit modules and imports no job_kit module.
+- Completion only: awesome-kit, git-kit, p4-kit, and workflow-kit import llm_scripting_kit without importing either execution product.
+- No plugin consumer was found that needs both jobs and pipeline execution.
+
+Measured coupling and change history:
+
+- Package imports run one way: content_pipeline and job_kit depend on llm_scripting_kit; llm_scripting_kit imports neither, and jobs and pipeline have no edge between them.
+- content_pipeline reaches llm_scripting_kit through nine lazy module pairs. job_kit imports it eagerly from its initializer, run, and select paths; only its interrupt probe is lazy.
+- Across the commit window, pair co-change counts were llm-scripting-kit/content-pipeline-kit 26, llm-scripting-kit/job-kit 18, and content-pipeline-kit/job-kit 8.
+- Execution history contained 42 job_kit commits, 53 content-pipeline execution commits, and 8 touching both; those eight were cross-cutting sweeps. Same-named event, interrupt, model, and store modules did not co-change in the window.
+
+Scope and limits:
+
+- The inventory analyzed 133 Python modules and the last 300 commits touching the three plugin trees: 296 matching commits from 2026-07-23 through 2026-10-16.
+- Its AST inventory included eager, function-local lazy, TYPE_CHECKING, and literal dynamic imports. String probes and references were separate scans.
+- The execution-overlap consumer search covered plugins/ only. It did not search external projects, so consumer separation is repository evidence, not an ecosystem census.
+- The coupling and history counts above are measurements. The package metrics in "Planned coupling and abstractness" remain projections for implementation verification.
