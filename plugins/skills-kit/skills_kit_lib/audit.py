@@ -136,9 +136,15 @@ class MechanicalEvaluator:
     - applies: context -> whether the criterion has a row for this document at
       all. It is checked in both resolved and deferred modes and reads no
       threshold.
-    - evaluate: (context, thresholds) -> (row label, passed, note). The
-      thresholds mapping holds only `threshold` and `reads_builtin_thresholds`,
-      so an evaluator cannot read a limit its record does not name.
+    - evaluate: (context, thresholds) -> (row label, outcome, note). The
+      outcome is True (pass), False (the criterion is violated; the row's
+      verdict follows the criterion's severity: fail -> fail, otherwise
+      judgment-required) or None (not applicable: the row's verdict is n/a).
+      None is for a criterion that applies to the document but has nothing to
+      check on it, so its row still appears; a criterion with no row at all
+      uses `applies`. The thresholds mapping holds only `threshold` and
+      `reads_builtin_thresholds`, so an evaluator cannot read a limit its
+      record does not name.
     - reads_builtin_thresholds: built-in thresholds (THRESHOLDS) the evaluator
       reads without owning. A criterion never declares one of these; a user
       tunes it through `thresholds:` and every reader sees the same value.
@@ -151,7 +157,7 @@ class MechanicalEvaluator:
     threshold: str | None
     deferred_row: str
     applies: Callable[[Any], bool]
-    evaluate: Callable[[Any, dict[str, int]], tuple[str, bool, str]]
+    evaluate: Callable[[Any, dict[str, int]], tuple[str, bool | None, str]]
     reads_builtin_thresholds: tuple[str, ...] = ()
     section: str = "universal"
 
@@ -213,11 +219,73 @@ def _eval_skill_type_valid(ctx: SkillContext, th: dict[str, int]) -> tuple[str, 
     return "skill-type value valid", False, f"got '{val}', expected one of {sorted(CANONICAL_TYPES)}"
 
 
+def _eval_line_count(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    # An informational count row: it always passes and carries the count.
+    return "SKILL.md line count", True, str(ctx.body.lines)
+
+
+def _eval_token_count(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    return "SKILL.md token count (approx)", True, str(ctx.body.tokens_approx)
+
+
+def _eval_progressive_disclosure(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool | None, str]:
+    """Size is a SIGNAL, not a verdict (framework Dec-11): a split is REQUIRED
+    only if a CRP-passing decomposition exists -- sections serve different
+    reading tasks. The mechanical check cannot evaluate CRP, so a violation
+    must not FAIL: the criterion's severity is judgment, and the agent runs
+    the CRP test before any split. A stub-plus-always-co-loaded-reference is a
+    tool-call doubling, not a context-efficiency win."""
+    label = "progressive disclosure (conditional)"
+    body = ctx.body
+    counts = f"lines={body.lines}, tokens~{body.tokens_approx}"
+    if not (body.lines > th["body_max_lines"] or body.tokens_approx > th["body_max_tokens"]):
+        return label, None, counts
+    if (ctx.skill_dir / "references").exists():
+        return label, True, f"body large ({counts}); references/ exists"
+    return (
+        label,
+        False,
+        f"body large ({counts}) and no references/; "
+        "run the CRP test (do sections serve different reading tasks?) before splitting -- "
+        "size is a signal, not a verdict (Dec-11)",
+    )
+
+
+def _eval_refs_one_hop_deep(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool | None, str]:
+    label = "references one-hop-deep (ADP)"
+    refs_dir = ctx.skill_dir / "references"
+    if not refs_dir.exists():
+        return label, None, "no references/ directory"
+    # A nested file is one hop when SKILL.md's index.references[] declares
+    # its exact path or its containing directory; only undeclared nested
+    # files fail (an unindexed nested file is invisible to the load graph).
+    declared = {
+        norm
+        for _, v, is_path in _structured_index_paths(ctx.body.text)
+        if is_path
+        for norm in [v.strip().replace("\\", "/").removeprefix("./").rstrip("/")]
+        if norm.startswith("references/")
+    }
+    nested = [
+        p for p in refs_dir.glob("*/*.md")
+        if p.relative_to(ctx.skill_dir).as_posix() not in declared
+        and p.parent.relative_to(ctx.skill_dir).as_posix() not in declared
+    ]
+    if nested:
+        rel = [str(p.relative_to(ctx.skill_dir)) for p in nested]
+        return (
+            label,
+            False,
+            f"nested and not declared in SKILL.md index.references[] (add the file's path or its directory as an entry): {rel}",
+        )
+    return label, True, ""
+
+
 def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
     return ctx.claude_md is not None
 
 
-def _always(ctx: ClaudeMdContext) -> bool:
+def _always(ctx: Any) -> bool:
     return True
 
 
@@ -292,6 +360,23 @@ MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
         "skill_md", None,
         "skill-type value valid (deferred)", _has_skill_type, _eval_skill_type_valid,
     ),
+    "body-line-count": MechanicalEvaluator(
+        "skill_md", None,
+        "SKILL.md line count (deferred)", _always, _eval_line_count,
+    ),
+    "body-token-count": MechanicalEvaluator(
+        "skill_md", None,
+        "SKILL.md token count (approx) (deferred)", _always, _eval_token_count,
+    ),
+    "body-size-signal": MechanicalEvaluator(
+        "skill_md", None,
+        "progressive disclosure (conditional) (deferred)", _always, _eval_progressive_disclosure,
+        reads_builtin_thresholds=("body_max_lines", "body_max_tokens"),
+    ),
+    "refs-one-hop-deep": MechanicalEvaluator(
+        "skill_md", None,
+        "references one-hop-deep (ADP) (deferred)", _always, _eval_refs_one_hop_deep,
+    ),
     "claude-md-import-size": MechanicalEvaluator(
         "claude_md", "import_max_lines",
         "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
@@ -343,7 +428,9 @@ def _criterion_rows(
             )))
             continue
         label, passed, note = evaluator.evaluate(ctx, evaluator.threshold_view(th))
-        if passed:
+        if passed is None:
+            verdict = NA
+        elif passed:
             verdict = PASS
         elif crit.severity == "fail":
             verdict = FAIL
@@ -410,69 +497,6 @@ def check_universal(
     else:
         out.append(CheckResult("frontmatter.description present", PASS, rule="desc-present"))
     out.extend(row for _section, row in _criterion_rows(ctx, skill_criteria, th))
-
-    out.append(CheckResult("SKILL.md line count", PASS, str(body.lines), rule="body-line-count"))
-    out.append(CheckResult("SKILL.md token count (approx)", PASS, str(body.tokens_approx), rule="body-token-count"))
-
-    has_references = (skill_dir / "references").exists()
-    body_too_big = (
-        body.lines > th["body_max_lines"]
-        or body.tokens_approx > th["body_max_tokens"]
-    )
-    if not body_too_big:
-        out.append(CheckResult(
-            "progressive disclosure (conditional)",
-            NA,
-            f"lines={body.lines}, tokens~{body.tokens_approx}",
-            rule="body-size-signal",
-        ))
-    elif has_references:
-        out.append(CheckResult(
-            "progressive disclosure (conditional)",
-            PASS,
-            f"body large (lines={body.lines}, tokens~{body.tokens_approx}); references/ exists",
-            rule="body-size-signal",
-        ))
-    else:
-        # Size is a SIGNAL, not a verdict (framework Dec-11): a split is REQUIRED
-        # only if a CRP-passing decomposition exists -- sections serve different
-        # reading tasks. The mechanical check cannot evaluate CRP, so it must not
-        # FAIL. It emits judgment-required: the agent runs the CRP test before any
-        # split. A stub-plus-always-co-loaded-reference is a tool-call doubling,
-        # not a context-efficiency win.
-        out.append(CheckResult(
-            "progressive disclosure (conditional)",
-            JUDGMENT,
-            f"body large (lines={body.lines}, tokens~{body.tokens_approx}) and no references/; "
-            "run the CRP test (do sections serve different reading tasks?) before splitting -- "
-            "size is a signal, not a verdict (Dec-11)",
-            rule="body-size-signal",
-        ))
-
-    refs_dir = skill_dir / "references"
-    if not refs_dir.exists():
-        out.append(CheckResult("references one-hop-deep (ADP)", NA, "no references/ directory", rule="refs-one-hop-deep"))
-    else:
-        # A nested file is one hop when SKILL.md's index.references[] declares
-        # its exact path or its containing directory; only undeclared nested
-        # files fail (an unindexed nested file is invisible to the load graph).
-        declared = {
-            norm
-            for _, v, is_path in _structured_index_paths(body.text)
-            if is_path
-            for norm in [v.strip().replace("\\", "/").removeprefix("./").rstrip("/")]
-            if norm.startswith("references/")
-        }
-        nested = [
-            p for p in refs_dir.glob("*/*.md")
-            if p.relative_to(skill_dir).as_posix() not in declared
-            and p.parent.relative_to(skill_dir).as_posix() not in declared
-        ]
-        if nested:
-            rel = [str(p.relative_to(skill_dir)) for p in nested]
-            out.append(CheckResult("references one-hop-deep (ADP)", FAIL, f"nested and not declared in SKILL.md index.references[] (add the file's path or its directory as an entry): {rel}", rule="refs-one-hop-deep"))
-        else:
-            out.append(CheckResult("references one-hop-deep (ADP)", PASS, rule="refs-one-hop-deep"))
 
     # Match local references/X.md citations only; exclude cross-plugin refs.
     cited = set(re.findall(r"(?<![/:])references/([a-zA-Z0-9_\-]+\.md)", body.text))

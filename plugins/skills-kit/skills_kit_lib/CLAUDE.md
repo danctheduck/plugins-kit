@@ -232,6 +232,10 @@ claude_md:
         body and skill dir for skill_md, or a ClaudeMdContext of path, content,
         body and parsed claude_md block for claude_md; its `applies` gate
         decides whether the criterion has a row for that document at all; its
+        `evaluate` returns (label, outcome, note) where the outcome is True
+        (pass), False (violated: the criterion's severity maps it to fail or
+        judgment-required) or None (n/a: the row appears with verdict n/a, as
+        refs-one-hop-deep does with no references/ directory); its
         `reads_builtin_thresholds` names built-in thresholds it reads without
         declaring them; its `section` places the row in the universal or the
         yaml_contract list), delete the RULES entry (a criterion id may not
@@ -248,8 +252,8 @@ claude_md:
         check_universal takes skill_criteria as a required keyword, so a direct
         caller states which criteria it evaluates. Provenance:
         ../skills/md-domain/references/provenance/standards-decisions.md,
-        shipped_standards_layer_enabled, skill_type_criteria_shipped and
-        claude_md_criteria_shipped. Pinned by
+        shipped_standards_layer_enabled, skill_type_criteria_shipped,
+        claude_md_criteria_shipped and body_refs_criteria_shipped. Pinned by
         tests/skills-kit/test_shipped_standards.py.
       origin: skills-kit 0.92.0, milestone M5 of the configurable-standards work.
       added: "2026-10-16"

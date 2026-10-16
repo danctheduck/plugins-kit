@@ -21,8 +21,9 @@ field, it carries the judgment criteria an agent applies inside a workflow lane
 
 Criteria declared by the shipped standards layer (defaults/standards/) are not
 catalogued here: the shipped file is their source, and the resolver rejects a
-criterion id that repeats a catalog id. Eight ids live there: desc-160-char,
-desc-directive-form, desc-exclusion-clause, skill-type-tag and skill-type-valid
+criterion id that repeats a catalog id. Twelve ids live there: desc-160-char,
+desc-directive-form, desc-exclusion-clause, skill-type-tag, skill-type-valid,
+body-line-count, body-token-count, body-size-signal and refs-one-hop-deep
 (SKILL-standards.md), and claude-md-import-size, claude-md-size-signal and
 claude-md-record-floor (CLAUDE-md-standards.md).
 
@@ -58,22 +59,14 @@ RULES: dict[str, tuple[str, str, str]] = {
     "mixed-type": ("architectural", "contract", "A SKILL.md declares exactly one skill-type root -- no drift across two type contracts (consumes `mixed_min_score`)."),
     "cross-block-drift": ("architectural", "contract", "Multiple YAML blocks in one document do not disagree about the document's type."),
     # -- optional: description hygiene ------------------------------------
-    # The eight shipped-criterion ids are not here: desc-160-char,
-    # desc-directive-form, desc-exclusion-clause, skill-type-tag and
-    # skill-type-valid (defaults/standards/SKILL-standards.md), and
+    # The twelve shipped-criterion ids are not here: desc-160-char,
+    # desc-directive-form, desc-exclusion-clause, skill-type-tag,
+    # skill-type-valid, body-line-count, body-token-count, body-size-signal and
+    # refs-one-hop-deep (defaults/standards/SKILL-standards.md), and
     # claude-md-import-size, claude-md-size-signal and claude-md-record-floor
     # (defaults/standards/CLAUDE-md-standards.md). They are criteria of the
     # shipped standards layer, evaluated by audit.MECHANICAL_EVALUATORS. A
     # criterion id may not repeat a catalog id.
-    # -- optional: layout ------------------------------------------------
-    # Tunability decided 2026-07-29 (md-domain fold): a project may
-    # legitimately cluster a large reference set into subdirectories when
-    # every cluster surface is index-reachable; the rule stays on by default.
-    "refs-one-hop-deep": ("optional", "layout", "`references/` is one hop deep, except that a nested reference file counts as one hop when SKILL.md's `index.references[]` declares that file's own relative path or its containing directory."),
-    # -- optional: thresholds / signals -----------------------------------
-    "body-line-count": ("optional", "thresholds-signals", "Reports the SKILL.md body line count (informational count row)."),
-    "body-token-count": ("optional", "thresholds-signals", "Reports the approximate SKILL.md body token count (informational count row)."),
-    "body-size-signal": ("optional", "thresholds-signals", "An over-threshold body with no `references/` directory raises a progressive-disclosure signal (consumes `body_max_lines`, `body_max_tokens`)."),
     # -- optional: record floors ------------------------------------------
     "step-tracking": ("optional", "record-floors", "A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation."),
     "facts-floor": ("optional", "record-floors", "A reference-skill declares at least one fact (nested in `reference_skill:` or as a top-level `facts:` unit)."),

@@ -163,8 +163,9 @@ They take the same `rules: {<id>: off}` key, and a threshold one of them
 declares takes the same `thresholds:` key as a built-in threshold. A criterion
 declares only a threshold it alone owns (`desc_max_chars`, `import_max_lines`);
 its evaluator may also read a built-in threshold without declaring it, as
-`claude-md-size-signal` reads `body_max_lines` and `body_max_tokens`, so one
-override of a built-in threshold moves every rule that reads it.
+`body-size-signal` and `claude-md-size-signal` read `body_max_lines` and
+`body_max_tokens`, so one override of a built-in threshold moves every rule that
+reads it.
 
 <!-- BEGIN GENERATED: rule-catalog (gen_standards_doc.py; SSOT: rule_catalog.py + audit.py THRESHOLDS) -->
 
@@ -183,10 +184,6 @@ through `audit-framework.yaml`.
 
 | Rule id | Meaning |
 |---------|---------|
-| `refs-one-hop-deep` | `references/` is one hop deep, except that a nested reference file counts as one hop when SKILL.md's `index.references[]` declares that file's own relative path or its containing directory. |
-| `body-line-count` | Reports the SKILL.md body line count (informational count row). |
-| `body-token-count` | Reports the approximate SKILL.md body token count (informational count row). |
-| `body-size-signal` | An over-threshold body with no `references/` directory raises a progressive-disclosure signal (consumes `body_max_lines`, `body_max_tokens`). |
 | `step-tracking` | A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation. |
 | `facts-floor` | A reference-skill declares at least one fact (nested in `reference_skill:` or as a top-level `facts:` unit). |
 | `facts-gotcha` | At least one fact carries a `gotchas` list. |
@@ -236,6 +233,10 @@ source of each statement, severity and threshold default.
 | `desc-exclusion-clause` | `skill_md` | fail | The description carries a "Do NOT use for..." exclusion clause. |
 | `skill-type-tag` | `skill_md` | judgment | A `skill-type` advisory tag is present in frontmatter (else the agent infers the type). |
 | `skill-type-valid` | `skill_md` | fail | The `skill-type` value is one of the canonical skill types. |
+| `body-line-count` | `skill_md` | info | Reports the SKILL.md body line count (informational count row that always passes). |
+| `body-token-count` | `skill_md` | info | Reports the approximate SKILL.md body token count (informational count row that always passes). |
+| `body-size-signal` | `skill_md` | judgment | A SKILL.md body within `body_max_lines` lines and `body_max_tokens` approximate tokens needs no split; an over-threshold body with no `references/` directory raises a judgment on whether its sections serve different reading tasks. |
+| `refs-one-hop-deep` | `skill_md` | fail | `references/` is one hop deep, except that a nested reference file counts as one hop when SKILL.md's `index.references[]` declares that file's own relative path or its containing directory. |
 
 ### Inoffensive -- no knob
 
@@ -449,9 +450,12 @@ degrading to an empty config, and the message names the problem:
   the shipped file cannot be read, so neither its severity nor its threshold
   default is assumed. A `skill-type-valid` finding is therefore a deferred
   row, not a FAIL, on an interpreter without pyyaml; likewise
-  `claude-md-import-size` and `claude-md-size-signal` are deferred rows on a
-  CLAUDE.md, and `claude-md-record-floor` has no row because the `claude_md:`
-  block it needs cannot be parsed.
+  `refs-one-hop-deep` is a deferred row (a nested, undeclared reference file is
+  not a FAIL there), `body-size-signal` is a deferred row whatever the body
+  size, and the two count rows carry no count. `claude-md-import-size` and
+  `claude-md-size-signal` are deferred rows on a CLAUDE.md, and
+  `claude-md-record-floor` has no row because the `claude_md:` block it needs
+  cannot be parsed.
 - **A `--primitive` no lane consumes.** `scripts/resolve_standards.py
   --primitive code_directory`, or an unknown name, exits 2 with a usage error.
   No lane applies authored standards for that subject, so its list could only

@@ -1,10 +1,11 @@
 """The shipped standards layer (skills_kit_lib/defaults/standards/) and the
 mechanical evaluators that serve its criteria.
 
-desc-160-char, desc-directive-form, desc-exclusion-clause, skill-type-tag and
-skill-type-valid are criteria of the shipped SKILL-standards.md; claude-md-
+desc-160-char, desc-directive-form, desc-exclusion-clause, skill-type-tag,
+skill-type-valid, body-line-count, body-token-count, body-size-signal and
+refs-one-hop-deep are criteria of the shipped SKILL-standards.md; claude-md-
 import-size, claude-md-size-signal and claude-md-record-floor are criteria of
-the shipped CLAUDE-md-standards.md. All eight are evaluated by
+the shipped CLAUDE-md-standards.md. All twelve are evaluated by
 audit.MECHANICAL_EVALUATORS and absent from rule_catalog.RULES. These tests pin
 that the file, not the code, decides which rows an audit emits (the
 red-on-revert tests drop a criterion from a copy of the file), and that every
@@ -40,6 +41,8 @@ RESOLVE_CLI = PLUGIN / "scripts" / "resolve_standards.py"
 
 DESC_IDS = ["desc-160-char", "desc-directive-form", "desc-exclusion-clause"]
 SHIPPED_IDS = [*DESC_IDS, "skill-type-tag", "skill-type-valid"]
+BODY_IDS = ["body-line-count", "body-token-count", "body-size-signal", "refs-one-hop-deep"]
+SKILL_IDS = [*SHIPPED_IDS, *BODY_IDS]
 CLAUDE_IDS = ["claude-md-import-size", "claude-md-size-signal", "claude-md-record-floor"]
 
 
@@ -140,24 +143,29 @@ def _standards_md(criteria_yaml):
 # ---------------------------------------------------------------------------
 
 
-def test_the_eight_ids_left_the_catalog_and_nothing_else_did():
-    for rid in [*SHIPPED_IDS, *CLAUDE_IDS]:
+def test_the_twelve_ids_left_the_catalog_and_nothing_else_did():
+    for rid in [*SKILL_IDS, *CLAUDE_IDS]:
         assert rid not in rule_catalog.RULES
     buckets = [b for b, _g, _d in rule_catalog.RULES.values()]
     assert (buckets.count("optional"), buckets.count("inoffensive"),
-            buckets.count("architectural")) == (36, 11, 3)
+            buckets.count("architectural")) == (32, 11, 3)
     assert "import_max_lines" not in audit_mod.THRESHOLDS
 
 
-def test_shipped_file_declares_the_five_mechanical_criteria():
+def test_shipped_file_declares_the_nine_mechanical_criteria():
     criteria = _shipped_block()["standards_set"]["criteria"]
-    assert [c["id"] for c in criteria] == SHIPPED_IDS
+    assert [c["id"] for c in criteria] == SKILL_IDS
     assert all(c["enforcement"] == "mechanical" for c in criteria)
     assert criteria[0]["threshold"] == {"name": "desc_max_chars", "default": 160}
     assert {c["id"]: c["severity"] for c in criteria[3:]} == {
-        "skill-type-tag": "judgment", "skill-type-valid": "fail"}
+        "skill-type-tag": "judgment", "skill-type-valid": "fail",
+        "body-line-count": "info", "body-token-count": "info",
+        "body-size-signal": "judgment", "refs-one-hop-deep": "fail"}
     assert all(len(c["keywords"]) >= 3 for c in criteria)
     assert "desc_max_chars" not in audit_mod.THRESHOLDS
+    # The body limits are built in (D1): no body criterion declares a threshold.
+    assert all("threshold" not in c for c in criteria[1:])
+    assert {"body_max_lines", "body_max_tokens"} <= set(audit_mod.THRESHOLDS)
 
 
 def test_shipped_claude_md_file_declares_the_three_mechanical_criteria():
@@ -179,7 +187,7 @@ def test_shipped_claude_md_file_declares_the_three_mechanical_criteria():
 
 def test_registry_keys_are_exactly_the_shipped_mechanical_ids():
     """No evaluator without a shipped criterion, no criterion without one."""
-    assert list(MECHANICAL_EVALUATORS) == [*SHIPPED_IDS, *CLAUDE_IDS]
+    assert list(MECHANICAL_EVALUATORS) == [*SKILL_IDS, *CLAUDE_IDS]
     assert {ev.applies_to for rid, ev in MECHANICAL_EVALUATORS.items() if rid in CLAUDE_IDS} == {"claude_md"}
 
 
@@ -846,3 +854,210 @@ def test_without_pyyaml_a_missing_claude_md_shipped_file_exits_1(tmp_path):
     ))
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "CLAUDE-md-standards.md" in proc.stderr
+
+
+# ---------------------------------------------------------------------------
+# the body and references criteria (M6 wave 3)
+# ---------------------------------------------------------------------------
+
+
+def _body_skill(tmp_path, *, words=0, references=None):
+    """A SKILL.md with `words` extra body words. references=None creates no
+    references/ directory; a list creates one holding those relative files."""
+    path = _skill(tmp_path)
+    if words:
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write("\n" + " ".join(f"w{i}" for i in range(words)) + "\n")
+    if references is not None:
+        refs = path.parent / "references"
+        refs.mkdir()
+        for rel in references:
+            target = refs / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("# ref\n", encoding="utf-8")
+    return path
+
+
+def _tune(tmp_path, text):
+    (_user_layer(tmp_path) / "config.yaml").write_text(text, encoding="utf-8")
+    return sr.resolve(None)
+
+
+def test_body_rows_keep_their_labels_notes_and_positions(tmp_path):
+    """The four rows, exactly, between skill-type-valid and refs-cited-exist."""
+    report = audit(_body_skill(tmp_path))
+    rows = report["universal"]
+    rules = [r["rule"] for r in rows]
+    i = rules.index("skill-type-valid")
+    assert rules[i + 1:i + 6] == [*BODY_IDS, "refs-cited-exist"]
+    body = {r["rule"]: r for r in rows}
+    lines = int(body["body-line-count"]["note"])
+    tokens = int(body["body-token-count"]["note"])
+    assert body["body-line-count"] == {
+        "row": "SKILL.md line count", "verdict": PASS, "note": str(lines), "rule": "body-line-count"}
+    assert body["body-token-count"] == {
+        "row": "SKILL.md token count (approx)", "verdict": PASS, "note": str(tokens),
+        "rule": "body-token-count"}
+    assert body["body-size-signal"] == {
+        "row": "progressive disclosure (conditional)", "verdict": "n/a",
+        "note": f"lines={lines}, tokens~{tokens}", "rule": "body-size-signal"}
+    assert body["refs-one-hop-deep"] == {
+        "row": "references one-hop-deep (ADP)", "verdict": "n/a",
+        "note": "no references/ directory", "rule": "refs-one-hop-deep"}
+
+
+@pytest.mark.parametrize("rid", BODY_IDS)
+def test_removing_a_body_criterion_from_the_shipped_file_drops_only_its_row(tmp_path, monkeypatch, rid):
+    """Red on revert: with the rows hard-coded in check_universal again,
+    editing the shipped file changes nothing and this test fails."""
+    path = _body_skill(tmp_path)
+    baseline = audit(path)
+    assert [r["rule"] for r in baseline["universal"]].count(rid) == 1
+
+    shipped = _write_shipped(tmp_path, lambda cs: cs.__setitem__(slice(None), [c for c in cs if c["id"] != rid]))
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", shipped)
+    report = audit(path)
+
+    assert report["universal"] == [r for r in baseline["universal"] if r["rule"] != rid]
+
+
+def test_refs_one_hop_deep_is_na_without_a_references_directory(tmp_path):
+    row = _rows(audit(_body_skill(tmp_path)))["refs-one-hop-deep"]
+    assert (row["verdict"], row["note"]) == ("n/a", "no references/ directory")
+
+
+def test_refs_one_hop_deep_passes_flat_and_fails_an_undeclared_nested_file(tmp_path):
+    flat = _rows(audit(_body_skill(tmp_path, references=["a.md"])))["refs-one-hop-deep"]
+    assert (flat["verdict"], flat["note"]) == (PASS, "")
+
+    nested_dir = tmp_path / "nested"
+    nested_dir.mkdir()
+    row = _rows(audit(_body_skill(nested_dir, references=["sub/b.md"])))["refs-one-hop-deep"]
+    assert row["verdict"] == FAIL
+    assert row["row"] == "references one-hop-deep (ADP)"
+    nested = str(Path("references") / "sub" / "b.md")
+    assert row["note"] == (
+        "nested and not declared in SKILL.md index.references[] (add the file's path "
+        f"or its directory as an entry): [{nested!r}]")
+
+
+def test_refs_one_hop_deep_below_fail_severity_reports_judgment(tmp_path, monkeypatch):
+    def soften(cs):
+        for c in cs:
+            if c["id"] == "refs-one-hop-deep":
+                c["severity"] = "info"
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", _write_shipped(tmp_path, soften))
+    other = tmp_path / "s"
+    other.mkdir()
+    row = _rows(audit(_body_skill(other, references=["sub/b.md"])))["refs-one-hop-deep"]
+    assert row["verdict"] == JUDGMENT
+
+
+def test_body_size_signal_is_na_pass_or_judgment(tmp_path):
+    """n/a within the limits; pass when over them with a references/ directory;
+    judgment-required (never fail) when over them with none."""
+    small = _rows(audit(_body_skill(tmp_path)))["body-size-signal"]
+    assert small["verdict"] == "n/a"
+
+    big_refs = tmp_path / "big-refs"
+    big_refs.mkdir()
+    row = _rows(audit(_body_skill(big_refs, words=2600, references=[])))["body-size-signal"]
+    assert row["verdict"] == PASS
+    assert row["note"].startswith("body large (lines=") and row["note"].endswith("); references/ exists")
+
+    big = tmp_path / "big"
+    big.mkdir()
+    row = _rows(audit(_body_skill(big, words=2600)))["body-size-signal"]
+    assert row["verdict"] == JUDGMENT
+    assert row["row"] == "progressive disclosure (conditional)"
+    assert "and no references/; run the CRP test" in row["note"]
+    assert row["note"].endswith("size is a signal, not a verdict (Dec-11)")
+
+
+def test_tuning_the_body_limits_changes_body_size_signal(tmp_path):
+    quiet_dir = tmp_path / "quiet"
+    quiet_dir.mkdir()
+    path = _body_skill(quiet_dir)
+    assert _rows(audit(path))["body-size-signal"]["verdict"] == "n/a"
+    resolved = _tune(tmp_path, "thresholds:\n  body_max_lines: 3\n")
+    assert _rows(audit(path, resolved))["body-size-signal"]["verdict"] == JUDGMENT
+
+    resolved = _tune(tmp_path, "thresholds:\n  body_max_tokens: 5\n")
+    assert _rows(audit(path, resolved))["body-size-signal"]["verdict"] == JUDGMENT
+
+
+def test_body_size_signal_severity_decides_fail_or_judgment(tmp_path, monkeypatch):
+    def harden(cs):
+        for c in cs:
+            if c["id"] == "body-size-signal":
+                c["severity"] = "fail"
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", _write_shipped(tmp_path, harden))
+    other = tmp_path / "s"
+    other.mkdir()
+    assert _rows(audit(_body_skill(other, words=2600)))["body-size-signal"]["verdict"] == FAIL
+
+
+def test_count_rows_carry_the_counts_and_always_pass(tmp_path):
+    for words in (0, 2600):
+        d = tmp_path / f"w{words}"
+        d.mkdir()
+        rows = _rows(audit(_body_skill(d, words=words)))
+        assert rows["body-line-count"]["verdict"] == PASS
+        assert rows["body-token-count"]["verdict"] == PASS
+        assert rows["body-line-count"]["note"].isdigit()
+        assert rows["body-token-count"]["note"].isdigit()
+    assert int(rows["body-token-count"]["note"]) > audit_mod.THRESHOLDS["body_max_tokens"]
+
+
+def test_body_size_signal_reads_the_builtin_limits_and_owns_none():
+    ev = MECHANICAL_EVALUATORS["body-size-signal"]
+    assert ev.threshold is None
+    assert ev.reads_builtin_thresholds == ("body_max_lines", "body_max_tokens")
+    assert all(MECHANICAL_EVALUATORS[rid].threshold is None
+               and not MECHANICAL_EVALUATORS[rid].reads_builtin_thresholds
+               for rid in ("body-line-count", "body-token-count", "refs-one-hop-deep"))
+
+
+def test_rules_off_removes_each_body_row(tmp_path):
+    resolved = _tune(tmp_path, "rules:\n" + "".join(f"  {rid}: off\n" for rid in BODY_IDS))
+    rows = _rows(audit(_body_skill(tmp_path), resolved))
+    assert not set(BODY_IDS) & set(rows)
+    assert {"skill-type-valid", "refs-cited-exist"} <= set(rows)
+
+
+def test_body_knobs_stay_valid_when_the_shipped_layer_is_opted_out(tmp_path):
+    (_user_layer(tmp_path) / "config.yaml").write_text(
+        "rules:\n  body-size-signal: off\n  refs-one-hop-deep: off\n"
+        "thresholds:\n  body_max_lines: 9\n", encoding="utf-8")
+    r = sr.resolve(None, shipped_dir=None)
+    assert r.disabled_rules == {"body-size-signal", "refs-one-hop-deep"}
+    assert r.thresholds == {"body_max_lines": 9}
+
+
+def test_authored_id_repeating_a_body_criterion_raises_naming_both(tmp_path):
+    layer = _user_layer(tmp_path)
+    (layer / "SKILL-standards.md").write_text(_standards_md("""\
+        - id: refs-one-hop-deep
+          statement: Mine.
+          severity: info
+          keywords: [a, b, c]
+        """), encoding="utf-8")
+    with pytest.raises(sr.StandardsConfigError) as exc:
+        sr.resolve(None)
+    msg = str(exc.value)
+    assert str(SHIPPED_FILE) in msg and str(layer / "SKILL-standards.md") in msg
+
+
+def test_without_pyyaml_the_body_rows_are_deferred(tmp_path):
+    rows = _bare_rows(tmp_path, _body_skill(tmp_path))
+    labels = {
+        "body-line-count": "SKILL.md line count (deferred)",
+        "body-token-count": "SKILL.md token count (approx) (deferred)",
+        "body-size-signal": "progressive disclosure (conditional) (deferred)",
+        "refs-one-hop-deep": "references one-hop-deep (ADP) (deferred)",
+    }
+    for rid, label in labels.items():
+        assert rows[rid]["row"] == label
+        assert rows[rid]["verdict"] == JUDGMENT
+        assert "pyyaml unavailable" in rows[rid]["note"]
+    assert "refs-cited-exist" in rows

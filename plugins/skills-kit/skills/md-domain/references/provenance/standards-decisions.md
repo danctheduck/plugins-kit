@@ -610,4 +610,50 @@ claude_md:
         rows come from hard-coded criteria.
       origin: Surface, finding and follow-up above; milestone M6 wave 2 of the configurable-standards work.
       added: "2026-10-16"
+    - id: body_refs_criteria_shipped
+      keywords: [body-line-count, body-token-count, body-size-signal, refs-one-hop-deep, n/a outcome, evaluator outcome, tri-state, info severity, count rows, reads_builtin_thresholds, deferred row, no pyyaml, M6, shipped standards]
+      summary: "skills-kit 0.95.0 moves body-line-count, body-token-count, body-size-signal and refs-one-hop-deep out of audit.check_universal and rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria. An evaluator may report n/a: its outcome is True (pass), False (violated; severity decides fail or judgment) or None (n/a). Extends claude_md_criteria_shipped."
+      detail: |
+        Surface: four optional SKILL.md rows were hard-coded in check_universal
+        and catalogued in rule_catalog.RULES as layout and thresholds-signals
+        rules. Two of them (the counts) are informational, one reads the
+        built-in body limits, and one needs the skill directory.
+        Finding: an evaluator returned (label, passed: bool, note), which cannot
+        say "this criterion has a row but nothing to check". Two of today's rows
+        are n/a in ordinary cases: refs-one-hop-deep when the skill has no
+        references/ directory, and the progressive-disclosure row
+        (body-size-signal) while the body is within the limits. The applies
+        gate cannot carry that, because a gated criterion has no row at all and
+        the current output has an n/a row.
+        Rulings: (D1) body_max_lines and body_max_tokens stay built in;
+        body-size-signal names them in reads_builtin_thresholds and owns no
+        threshold, so one override moves it and claude-md-size-signal together.
+        (D3) body-line-count and body-token-count ship as mechanical criteria of
+        severity info that always pass and carry the count in the note; output is
+        unchanged and a user can switch either off with rules: {<id>: off}.
+        (3) Outcome type: MechanicalEvaluator.evaluate returns True (pass), False
+        (violated) or None (n/a). A violation keeps the severity mapping already
+        in place (fail severity -> fail, otherwise judgment-required), so
+        body-size-signal is severity judgment and refs-one-hop-deep is severity
+        fail. A fourth value was not added: pass, violation and n/a are the only
+        outcomes today's rows produce, and judgment-required is already what
+        severity maps a violation to. The eight existing evaluators return bools
+        and are untouched. (4) The four criteria follow skill-type-valid in the
+        shipped file, which is their old position (after the skill-type rows and
+        before refs-cited-exist, which stays hard-coded). (5) The catalog counts
+        become 32 optional, 11 inoffensive, 3 architectural.
+        Accepted regression: without pyyaml the shipped file cannot be read, so
+        the four rows are deferred judgment-required rows on a bare interpreter.
+        An undeclared nested reference is therefore not a FAIL there, the
+        progressive-disclosure row is judgment-required at any body size, and
+        the count rows carry no count. A run under the skills-kit plugin venv is
+        unchanged. The current no-pyyaml output of these ids could not be kept:
+        a deferred row needs the file's severity, which is the one thing that
+        cannot be read.
+        Follow-up: none for these ids. Verification: the golden corpus stayed
+        byte-identical, and the shipped-standards regression tests fail when a
+        criterion is removed from a copy of the shipped file while the rows come
+        from hard-coded code.
+      origin: Surface, finding and follow-up above; milestone M6 wave 3 of the configurable-standards work.
+      added: "2026-10-16"
 ```
