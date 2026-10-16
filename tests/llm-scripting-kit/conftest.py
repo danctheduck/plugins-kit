@@ -5,6 +5,12 @@ import sys
 
 import pytest
 
+# Entry points that call bootstrap_guard.reexec_under_plugin_venv() would
+# os.execv the pytest process into the plugin venv on a provisioned machine and
+# yield a false green. The skip variable makes the re-exec a no-op under tests;
+# see plugins/CLAUDE.md, "Test gotcha".
+os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
+
 PLUGIN_ROOT = os.path.normpath(
     os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, "plugins", "llm-scripting-kit")
 )

@@ -242,7 +242,10 @@ For each declaration with two or more entries, the skill runs
 
     "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <id>... --caller session [--project-root <root>] [--dispatchable transport] [--self <id>]
 
-(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe), and prints its output verbatim: the entries this machine can use or will be able to use, in pace
+(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe).
+The `${CLAUDE_BOOTSTRAP_DATA_ROOT:-...}` base is bash/zsh syntax: run the command from a Claude Code
+Bash session. PowerShell and cmd do not expand it, so there expand the base first -- the variable's
+value when it is set, else `$HOME/.claude/plugins/data`. The skill prints the command's output verbatim: the entries this machine can use or will be able to use, in pace
 order, the one marked `[default]`, and the rule text that says how to choose, how to announce
 the choice, and when to re-select. The skill follows that printed rule rather than restating
 it, so the rule you read in a review is the rule llm-scripting-kit applied. `--self` names the

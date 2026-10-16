@@ -264,6 +264,71 @@ def _default_runner(
     return proc.stdout, proc.stderr, proc.returncode
 
 
+# Cross-plugin edge to bootstrap_lib.claudx: REFUSE. The edge is reached only
+# under claudx (CLAUDE_PLUGIN_TEST set), the maintainer test harness. Without
+# the module the run cannot be contained -- the child would load the published
+# plugins against the redirected data root -- so it refuses before any process
+# starts instead of proceeding uncontained. Outside claudx nothing is imported.
+# bootstrap_lib.claudx first shipped in bootstrap 0.154.1.
+_CLAUDX_MIN_BOOTSTRAP = "0.154.1"
+_CLAUDX_OWNER = "bootstrap@plugins-kit"
+
+
+class ClaudxSupportError(ImportError):
+    """bootstrap_lib.claudx is absent or too old for a claudx run."""
+
+
+def _claudx_unavailable(exc: ImportError, symbol: str) -> ClaudxSupportError:
+    """Diagnose a failed ``from bootstrap_lib.claudx import <symbol>``.
+
+    ``bootstrap_lib`` not importable is ABSENT (install). ``bootstrap_lib``
+    importable but without the ``claudx`` module or without ``symbol`` is TOO
+    OLD or stale (update). ``symbol`` is the newest claudx symbol this module
+    uses.
+    """
+    head = (
+        "content-pipeline-kit cannot start a supervised `claude` session under claudx "
+        "(CLAUDE_PLUGIN_TEST is set), so the child could not be made a claudx "
+        "session. Nothing was started. "
+    )
+    name = getattr(exc, "name", None)
+    if isinstance(exc, ModuleNotFoundError) and name == "bootstrap_lib":
+        return ClaudxSupportError(
+            head
+            + "bootstrap_lib is not importable here. Run "
+            f"`claude plugin install {_CLAUDX_OWNER}` "
+            f"(bootstrap >= {_CLAUDX_MIN_BOOTSTRAP})."
+        )
+    if isinstance(exc, ModuleNotFoundError) and name == "bootstrap_lib.claudx":
+        found = "the installed bootstrap_lib has no claudx module"
+    else:
+        found = f"the installed bootstrap_lib.claudx has no {symbol} ({exc})"
+    return ClaudxSupportError(
+        head
+        + f"{found}. Run `claude plugin update {_CLAUDX_OWNER}` "
+        f"(bootstrap >= {_CLAUDX_MIN_BOOTSTRAP}) and restart the session."
+    )
+
+
+def _refuse_supervised_under_claudx(what: str, env: Optional[Mapping[str, str]]) -> None:
+    """Refuse a supervised ``claude`` session under claudx (``CLAUDE_PLUGIN_TEST``).
+
+    A ``--bg`` session and a respawn run under a background supervisor whose
+    environment inheritance and plugin flags are not established, so such a
+    session could load plugins without the claudx data-root redirect. Outside
+    claudx, where neither ``os.environ`` nor ``env`` sets ``CLAUDE_PLUGIN_TEST``,
+    nothing is imported and nothing changes. Raises
+    ``bootstrap_lib.claudx.ClaudxPropagationError`` before any process starts.
+    """
+    if not os.environ.get("CLAUDE_PLUGIN_TEST") and not (env or {}).get("CLAUDE_PLUGIN_TEST"):
+        return
+    try:
+        from bootstrap_lib.claudx import refuse_supervised
+    except ImportError as exc:
+        raise _claudx_unavailable(exc, "refuse_supervised") from exc
+    refuse_supervised(what, env)
+
+
 @dataclass
 class ClaudeCli:
     """Owns ``claude`` executable resolution and argv construction.
@@ -322,6 +387,7 @@ class ClaudeCli:
         ``--`` separator keeps a variadic flag such as ``--allowedTools`` from
         consuming the prompt, and a prompt starting with ``-`` from being read as
         a flag."""
+        _refuse_supervised_under_claudx("claude --bg", env)
         exe = self.resolve_executable()
         argv = [exe, "--bg", *extra_args, "--", prompt]
         return self._invoke(argv, env=env, cwd=cwd, timeout=timeout)
@@ -381,6 +447,7 @@ class ClaudeCli:
         env: Optional[Mapping[str, str]] = None,
         timeout: Optional[float] = None,
     ) -> Tuple[str, str, int]:
+        _refuse_supervised_under_claudx("claude respawn", env)
         return self._lifecycle("respawn", session_id, env=env, timeout=timeout)
 
     def version(

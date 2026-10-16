@@ -34,7 +34,7 @@ def test_stdout_has_no_carriage_return():
     # A real child process: in-process capture bypasses the text-mode
     # translation Windows applies to a real stdout pipe.
     env = dict(os.environ, PYTHONPATH=str(PLUGIN_ROOT.parent / "bootstrap"))
-    env["_BOOTSTRAP_GUARD_VENV_REEXEC"] = "1"
+    env["_BOOTSTRAP_GUARD_SKIP_REEXEC"] = "1"
     proc = subprocess.run(
         [sys.executable, str(SCRIPT), str(WORKFLOW)], capture_output=True, env=env
     )

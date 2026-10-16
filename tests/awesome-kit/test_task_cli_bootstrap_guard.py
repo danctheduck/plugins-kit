@@ -28,7 +28,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from bootstrap_guard import _REEXEC_GUARD_ENV, EXIT_BOOTSTRAP_MISSING
+from bootstrap_guard import _REEXEC_SKIP_ENV, EXIT_BOOTSTRAP_MISSING
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _TASK_SCRIPTS_DIR = (
@@ -56,7 +56,7 @@ def test_import_error_prints_underlying_exception_before_canonical_message(
     )
 
     env = os.environ.copy()
-    env[_REEXEC_GUARD_ENV] = "1"
+    env[_REEXEC_SKIP_ENV] = "1"
     # Keep this hermetic: no PYTHONPATH pointing at the real task_system/
     # skills_kit_lib, so nothing can accidentally resolve the real package
     # instead of the stub.

@@ -188,7 +188,7 @@ class TestBootstrapDependencyDiagnostics:
 
     def test_absent_bootstrap_reports_install_remedy(self, tmp_path):
         env = dict(os.environ)
-        env["_BOOTSTRAP_GUARD_VENV_REEXEC"] = "1"
+        env["_BOOTSTRAP_GUARD_SKIP_REEXEC"] = "1"
         env["PYTHONPATH"] = str(tmp_path)
 
         completed = self._run_prepare(env)
@@ -235,7 +235,7 @@ class TestBootstrapDependencyDiagnostics:
         (package.parent / "__init__.py").write_text("", encoding="utf-8")
         (package / "__init__.py").write_text("", encoding="utf-8")
         (package / "pipeline.py").write_text(f"raise {error}\n", encoding="utf-8")
-        env = dict(os.environ, _BOOTSTRAP_GUARD_VENV_REEXEC="1", PYTHONPATH=str(tmp_path))
+        env = dict(os.environ, _BOOTSTRAP_GUARD_SKIP_REEXEC="1", PYTHONPATH=str(tmp_path))
 
         completed = self._run_prepare(env)
 
@@ -265,7 +265,7 @@ class TestBootstrapDependencyDiagnostics:
             encoding="utf-8",
         )
         env = dict(os.environ)
-        env["_BOOTSTRAP_GUARD_VENV_REEXEC"] = "1"
+        env["_BOOTSTRAP_GUARD_SKIP_REEXEC"] = "1"
         env["PYTHONPATH"] = str(tmp_path)
 
         completed = self._run_prepare(env)

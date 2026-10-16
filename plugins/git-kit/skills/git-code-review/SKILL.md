@@ -185,8 +185,10 @@ technique_skill:
             - For each declaration with two or more entries, run
               `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <entry>... --caller session`
               (Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
-              (the venv path works from every shell; a bare name resolves only inside a Claude Code
-              Bash session) with each entry's `id` in
+              (the `${CLAUDE_BOOTSTRAP_DATA_ROOT:-...}` base is bash/zsh syntax, so run the command
+              from a Claude Code Bash session; PowerShell and cmd do not expand it, so expand the
+              base first -- the variable's value when it is set, else `$HOME/.claude/plugins/data`;
+              a bare name resolves only inside a Claude Code Bash session) with each entry's `id` in
               declared order, plus `--project-root <bundle.project_root>` when the bundle
               has one, plus `--dispatchable transport` when the reviewer is not
               `reviewer_a_claude_md_compliance` or `reviewer_c_introduced_code` (the lane

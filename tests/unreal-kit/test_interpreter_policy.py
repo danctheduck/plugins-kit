@@ -7,6 +7,10 @@ the plugin venv python instead of building a `uv run --with` overlay.
 (UE-side scripts -- apply_fixups.py, discover_redirectors.py -- run inside the
 Editor's embedded Python and must NOT re-exec.)
 
+U-L6 -- under a redirected bootstrap data root (CLAUDE_BOOTSTRAP_DATA_ROOT),
+ue-runner.cmd takes the plugin venv from that tree and exits 2 when it is
+missing, never falling back to the production venv.
+
 U9 -- no module shadowing between scripts/ and lib/.
 
 U4 -- the fix-up-redirectors SKILL.md lock-retry instructions must match what
@@ -102,6 +106,22 @@ class TestReexecPolicy:
         assert "BOOTSTRAP_PYTHON" in src.split("if not defined PY", 1)[-1]
         assert "no usable Python interpreter" in src
 
+    def test_ue_runner_cmd_text_honours_the_redirected_data_root(self):
+        """Command-structure pin, runnable on any host. The behaviour is
+        driven for real by TestUeRunnerCmdRedirect on Windows."""
+        src = (_PLUGIN_DIR / "skills/ue-python-api/scripts/ue-runner.cmd").read_text(encoding="utf-8")
+        code = "\n".join(l for l in src.splitlines() if not l.strip().startswith("::"))
+        production = 'set "VENV_PY=%USERPROFILE%\\.claude\\plugins\\data\\plugins-kit\\unreal-kit\\.venv\\Scripts\\python.exe"'
+        redirected = 'set "VENV_PY=!_DATA_ROOT!\\plugins-kit\\unreal-kit\\.venv\\Scripts\\python.exe"'
+        assert "if defined CLAUDE_BOOTSTRAP_DATA_ROOT" in code
+        assert redirected in code
+        assert 'if not exist "!VENV_PY!"' in code
+        assert "exit /b 2" in code
+        # The redirect overrides the production default and refuses before
+        # any interpreter is selected.
+        assert code.index(production) < code.index(redirected)
+        assert code.index("exit /b 2") < code.index('set "PY="')
+
     def test_host_entrypoints_run_guard_before_plugin_imports(self):
         """The re-exec guard is executable ordering, not a comment claim."""
         watched = {
@@ -191,6 +211,77 @@ class TestReexecPolicy:
                                  capture_output=True, text=True)
         assert missing.returncode != 0
         assert "requires bootstrap >= 0.120.0" in missing.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="ue-runner.cmd runs only under cmd.exe on Windows")
+class TestUeRunnerCmdRedirect:
+    """Run the real ue-runner.cmd, copied beside a stub ue_runner.py that prints
+    sys.prefix, against real venvs. USERPROFILE is a tmp home, so no real
+    ~/.claude is read; with no standalone Python there, the plugin venv is the
+    interpreter the launcher picks."""
+
+    @pytest.fixture(scope="class")
+    def venv_template(self, tmp_path_factory):
+        root = tmp_path_factory.mktemp("ue-venv-template") / ".venv"
+        subprocess.run(
+            [sys.executable, "-m", "venv", "--without-pip", str(root)],
+            check=True, capture_output=True, timeout=120,
+        )
+        return root
+
+    @staticmethod
+    def _venv(template: Path, dest: Path) -> Path:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(template, dest, symlinks=True)
+        return dest
+
+    def _run(self, tmp_path, redirect_root):
+        tools = tmp_path / "tools"
+        tools.mkdir(exist_ok=True)
+        shutil.copy2(_PLUGIN_DIR / "skills/ue-python-api/scripts/ue-runner.cmd", tools / "ue-runner.cmd")
+        (tools / "ue_runner.py").write_text("import sys\nprint(sys.prefix)\n", encoding="utf-8")
+        home = tmp_path / "home"
+        home.mkdir(exist_ok=True)
+        env = dict(os.environ)
+        for name in ("BOOTSTRAP_PYTHON", "BOOTSTRAP_PROJECT_PYTHON", "CLAUDE_BOOTSTRAP_DATA_ROOT"):
+            env.pop(name, None)
+        env["HOME"] = env["USERPROFILE"] = str(home)
+        if redirect_root is not None:
+            env["CLAUDE_BOOTSTRAP_DATA_ROOT"] = str(redirect_root)
+        return subprocess.run(
+            ["cmd.exe", "/c", str(tools / "ue-runner.cmd")],
+            env=env, capture_output=True, text=True, timeout=60,
+        )
+
+    def test_redirected_venv_is_used_when_present(self, tmp_path, venv_template):
+        redirect = tmp_path / "redirected-data"
+        self._venv(venv_template, redirect / "plugins-kit" / "unreal-kit" / ".venv")
+        # A production venv exists too; the redirected one must win.
+        self._venv(venv_template, tmp_path / "home" / ".claude" / "plugins" / "data"
+                   / "plugins-kit" / "unreal-kit" / ".venv")
+        run = self._run(tmp_path, redirect)
+        assert run.returncode == 0, run.stderr
+        chosen = Path(run.stdout.strip().splitlines()[-1]).resolve()
+        assert chosen == (redirect / "plugins-kit" / "unreal-kit" / ".venv").resolve()
+
+    def test_missing_redirected_venv_refuses_instead_of_using_production(self, tmp_path, venv_template):
+        redirect = tmp_path / "redirected-data"
+        redirect.mkdir()
+        production = self._venv(venv_template, tmp_path / "home" / ".claude" / "plugins" / "data"
+                                / "plugins-kit" / "unreal-kit" / ".venv")
+        assert production.exists()
+        run = self._run(tmp_path, redirect)
+        assert run.returncode == 2, (run.returncode, run.stdout, run.stderr)
+        assert "redirected unreal-kit venv is missing" in run.stderr
+        assert "Refusing to use the production venv" in run.stderr
+        assert run.stdout.strip() == ""
+
+    def test_without_redirect_the_production_venv_is_used(self, tmp_path, venv_template):
+        production = self._venv(venv_template, tmp_path / "home" / ".claude" / "plugins" / "data"
+                                / "plugins-kit" / "unreal-kit" / ".venv")
+        run = self._run(tmp_path, None)
+        assert run.returncode == 0, run.stderr
+        assert Path(run.stdout.strip().splitlines()[-1]).resolve() == production.resolve()
 
 
 class TestNoModuleShadowing:

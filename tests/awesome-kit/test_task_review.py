@@ -15,7 +15,7 @@ from html import unescape
 import pytest
 import yaml
 
-from bootstrap_guard import _REEXEC_GUARD_ENV
+from bootstrap_guard import _REEXEC_SKIP_ENV
 from task_system import discovery, listing, summary_ops
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -32,7 +32,7 @@ _TASK_CLI = (
 
 def run_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     env = os.environ.copy()
-    env[_REEXEC_GUARD_ENV] = "1"
+    env[_REEXEC_SKIP_ENV] = "1"
     env["PYTHONPATH"] = str(_REPO_ROOT / "plugins" / "skills-kit")
     return subprocess.run(
         [sys.executable, str(_TASK_CLI), *args],

@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from bootstrap_guard import _REEXEC_GUARD_ENV
+from bootstrap_guard import _REEXEC_SKIP_ENV
 from task_system import init as init_mod
 from task_system import validate as validate_mod
 from task_system.init import InitError, derive_stub_and_title, init_task
@@ -62,7 +62,7 @@ def run_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     working tree (pyyaml comes from the dev venv running pytest).
     """
     env = os.environ.copy()
-    env[_REEXEC_GUARD_ENV] = "1"
+    env[_REEXEC_SKIP_ENV] = "1"
     env["PYTHONPATH"] = str(_REPO_ROOT / "plugins" / "skills-kit")
     return subprocess.run(
         [sys.executable, str(_TASK_CLI), *args],

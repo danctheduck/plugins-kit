@@ -27,7 +27,9 @@ Escape 2 -- the cached script's stand-down was spelling-fragile.
 Escape 3 -- an inherited re-exec loop flag kept a child on the wrong interpreter.
     ``reexec_under_plugin_venv`` returned on ``_BOOTSTRAP_GUARD_VENV_REEXEC``
     before it looked at ``sys.prefix``. Fixed: the flag names the interpreter it
-    re-exec'd into and is trusted only for that interpreter.
+    re-exec'd into and is trusted only for that interpreter; the legacy value
+    "1" is untrusted too, and the test opt-out is the separate variable
+    ``_BOOTSTRAP_GUARD_SKIP_REEXEC``.
 Escape 5 -- a ``<PLUGIN>_ROOT`` pointing into the plugin cache reached a claudx
     session. Fixed: the engine's export and record, and the SessionStart
     prelude's re-emit, refuse such a value in a claudx session. Only the cache of
@@ -261,6 +263,7 @@ def test_stand_down_does_not_depend_on_how_the_cache_path_is_spelled(tmp_path):
 # --------------------------------------------------------------------------
 
 _LOOP_FLAG = "_BOOTSTRAP_GUARD_VENV_REEXEC"
+_SKIP_FLAG = "_BOOTSTRAP_GUARD_SKIP_REEXEC"
 
 
 def _run_guarded_consumer(tmp_path: Path, *, inherited_flag: "str | None"):
@@ -285,6 +288,9 @@ def _run_guarded_consumer(tmp_path: Path, *, inherited_flag: "str | None"):
     env = dict(os.environ)
     env["CLAUDE_BOOTSTRAP_DATA_ROOT"] = str(redirected)
     env.pop(_LOOP_FLAG, None)
+    # A full pytest run carries the skip variable from another directory's
+    # conftest; the child must make the real re-exec decision.
+    env.pop(_SKIP_FLAG, None)
     if inherited_flag is not None:
         env[_LOOP_FLAG] = inherited_flag
     res = subprocess.run(
@@ -333,6 +339,20 @@ def test_inherited_loop_flag_does_not_leave_a_child_on_the_wrong_interpreter(tmp
         f"the process stayed on sys.prefix={prefix!r} (exit {res.returncode}); "
         "reexec_under_plugin_venv returned on the flag before checking sys.prefix"
     )
+
+
+def test_an_inherited_legacy_1_flag_lands_on_the_redirected_venv(tmp_path):
+    """Escape 3, legacy value. An old-guard parent exports the loop flag as "1",
+    which the old guard treated as an opt-out and returned on, keeping the child
+    on the wrong interpreter. The loop flag now carries only a target path, so
+    the child re-execs into the redirected venv once and cannot loop."""
+    res, prefix, plugin_venv = _run_guarded_consumer(tmp_path, inherited_flag="1")
+    assert res.returncode == 0, res.stderr
+    assert _on_plugin_venv(prefix, plugin_venv), (
+        f"{_LOOP_FLAG}=1 was inherited, the redirected venv {plugin_venv} exists, and "
+        f"the process stayed on sys.prefix={prefix!r}; the legacy value still opts out"
+    )
+    assert "legacy" in res.stderr, res.stderr
 
 
 # --------------------------------------------------------------------------

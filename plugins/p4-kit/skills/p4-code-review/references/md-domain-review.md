@@ -84,6 +84,10 @@ use "Manual detect invocation" below. Locate the INSTALLED skills-kit plugin:
 - venvPython: skills-kit's provisioned venv, which lives in the version-independent DATA dir --
   `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/skills-kit/.venv/Scripts/python.exe` on Windows,
   `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/skills-kit/.venv/bin/python` on macOS/Linux.
+  The `${CLAUDE_BOOTSTRAP_DATA_ROOT:-...}` base is bash/zsh syntax: expand it in a Claude Code
+  Bash session and use the resulting absolute path as `<venvPython>`. PowerShell and cmd do not
+  expand it, so there expand the base first -- the variable's value when it is set, else
+  `$HOME/.claude/plugins/data`.
 
 **Version-coupling safety valve (three-tier fallback).** Do NOT guess when an entry point is
 missing, a documented args contract is not what this doc describes, or the installed lane predates

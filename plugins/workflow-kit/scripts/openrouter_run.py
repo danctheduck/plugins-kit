@@ -120,6 +120,24 @@ import os
 import sys
 from pathlib import Path
 
+# Run under workflow-kit's bootstrap-provisioned venv (openai lives there, and
+# the shared-libs .pth links llm_scripting_kit and bootstrap_lib onto it). The
+# interpreter that launched this script is caller-supplied (the compiled
+# workflow's ${inputs.workflowKitVenvPython}), and the Workflow tool expands
+# nothing in args, so this guard is the only runtime check that the interpreter
+# is the right one. Under a claudx session (CLAUDE_BOOTSTRAP_DATA_ROOT set) it
+# re-execs into the REDIRECTED venv and exits 2 when that venv is missing,
+# instead of running the installed release's libraries. The vendored,
+# stdlib-only guard sits next to this script; its directory is put on sys.path
+# explicitly so the import also resolves when this file is loaded by path.
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.append(_SCRIPT_DIR)
+
+from bootstrap_guard import reexec_under_plugin_venv  # noqa: E402
+
+reexec_under_plugin_venv("workflow-kit")
+
 #: The llm-scripting-kit release that shipped create_transport_backend, the
 #: newest symbol this runner uses (with default_declaration and the
 #: declaration module's run/NoUsableRoutingTarget).

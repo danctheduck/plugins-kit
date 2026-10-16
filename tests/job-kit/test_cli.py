@@ -86,7 +86,7 @@ def test_package_reports_missing_bootstrap_before_cli_import(tmp_path: Path) -> 
             "USERPROFILE": str(tmp_path / "home"),
             "PYTHONNOUSERSITE": "1",
             "PYTHONPATH": str(repo_root / "plugins" / "job-kit" / "lib"),
-            "_BOOTSTRAP_GUARD_VENV_REEXEC": "1",
+            "_BOOTSTRAP_GUARD_SKIP_REEXEC": "1",
         }
     )
     result = subprocess.run(
@@ -119,7 +119,7 @@ def test_package_import_succeeds_without_bootstrap_lib_present(tmp_path: Path) -
                     str(repo_root / "plugins" / "llm-scripting-kit" / "lib"),
                 )
             ),
-            "_BOOTSTRAP_GUARD_VENV_REEXEC": "1",
+            "_BOOTSTRAP_GUARD_SKIP_REEXEC": "1",
         }
     )
     result = subprocess.run(
@@ -150,7 +150,7 @@ def test_absent_llm_scripting_kit_names_the_install_remedy(tmp_path: Path) -> No
             "HOME": str(home),
             "PYTHONNOUSERSITE": "1",
             "PYTHONPATH": str(repo_root / "plugins" / "job-kit" / "lib"),
-            "_BOOTSTRAP_GUARD_VENV_REEXEC": "1",
+            "_BOOTSTRAP_GUARD_SKIP_REEXEC": "1",
         }
     )
     result = subprocess.run(
@@ -196,7 +196,7 @@ def test_stale_llm_scripting_kit_names_the_update_remedy(tmp_path: Path) -> None
                     str(repo_root / "plugins" / "job-kit" / "lib"),
                 )
             ),
-            "_BOOTSTRAP_GUARD_VENV_REEXEC": "1",
+            "_BOOTSTRAP_GUARD_SKIP_REEXEC": "1",
         }
     )
     result = subprocess.run(
@@ -228,6 +228,7 @@ def test_importing_package_does_not_reexec_under_an_arbitrary_interpreter(
     )
     environment = os.environ.copy()
     environment.pop("_BOOTSTRAP_GUARD_VENV_REEXEC", None)
+    environment.pop("_BOOTSTRAP_GUARD_SKIP_REEXEC", None)
     environment.pop("CLAUDE_BOOTSTRAP_DATA_ROOT", None)
     environment.update(
         {
@@ -266,7 +267,7 @@ def test_python_m_entrypoint_still_runs_the_cli(tmp_path: Path) -> None:
         {
             "HOME": str(tmp_path / "home"),
             "PYTHONNOUSERSITE": "1",
-            "_BOOTSTRAP_GUARD_VENV_REEXEC": "1",
+            "_BOOTSTRAP_GUARD_SKIP_REEXEC": "1",
             "PYTHONPATH": os.pathsep.join(
                 (
                     str(repo_root / "plugins" / "job-kit" / "lib"),
@@ -336,6 +337,7 @@ def test_package_reraises_deep_import_error_when_provisioned(
     (log / "bootstrap.log").write_text("provisioned\n", encoding="utf-8")
     environment = os.environ.copy()
     environment.pop("_BOOTSTRAP_GUARD_VENV_REEXEC", None)
+    environment.pop("_BOOTSTRAP_GUARD_SKIP_REEXEC", None)
     environment.pop("CLAUDE_BOOTSTRAP_DATA_ROOT", None)
     environment.update(
         {

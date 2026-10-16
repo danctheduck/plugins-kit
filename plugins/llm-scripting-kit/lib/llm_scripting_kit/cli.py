@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 from .account import AccountCheckError, validate_endpoint
 from .api_key import get_api_key
+from .bootstrap_guard import reexec_under_plugin_venv
 from .completion import (
     ERROR,
     TIMEOUT,
@@ -570,6 +571,24 @@ def _cmd_repair_json(schema_file: Path) -> int:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    if argv is None:
+        # The console-script and launcher path (an explicit argv is a library
+        # call, which stays in the caller's interpreter). Under a redirected
+        # data root this moves the process into the redirected plugin venv, or
+        # exits 2 when that venv is missing, instead of running whatever
+        # interpreter the entry happened to start under.
+        #
+        # reexec_under_plugin_venv re-executes ``[target, *sys.argv]`` and
+        # treats argv[0] as a script path, but argv[0] here is a console-script
+        # wrapper (an .exe on Windows) that Python cannot run as source. Hand it
+        # the module form instead, so the replacement runs
+        # ``python -m llm_scripting_kit.cli <args>``.
+        entry_argv = list(sys.argv)
+        sys.argv = ["-m", "llm_scripting_kit.cli", *entry_argv[1:]]
+        try:
+            reexec_under_plugin_venv("llm-scripting-kit")
+        finally:
+            sys.argv = entry_argv
     raw = list(sys.argv[1:] if argv is None else argv)
     if raw and raw[0] == "frontdoor":
         from .frontdoor import main as frontdoor_main  # noqa: PLC0415

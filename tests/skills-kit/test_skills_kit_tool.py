@@ -28,7 +28,7 @@ SKILL = REPO_ROOT / "plugins" / "skills-kit" / "skills" / "md-domain" / "SKILL.m
 
 
 def _run(tmp_path, *args):
-    env = dict(os.environ, _BOOTSTRAP_GUARD_VENV_REEXEC="1", PYTHONDONTWRITEBYTECODE="1")
+    env = dict(os.environ, _BOOTSTRAP_GUARD_SKIP_REEXEC="1", PYTHONDONTWRITEBYTECODE="1")
     return subprocess.run([sys.executable, str(TOOL), *args], cwd=tmp_path,
                           capture_output=True, text=True, env=env, timeout=120)
 

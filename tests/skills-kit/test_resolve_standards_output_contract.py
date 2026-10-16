@@ -35,7 +35,7 @@ def _env(config_dir) -> dict:
         "CLAUDE_CONFIG_DIR": str(config_dir),
         "PATH": "/usr/bin:/bin",
         "PYTHONPATH": str(REPO_ROOT / "plugins" / "bootstrap"),
-        "_BOOTSTRAP_GUARD_VENV_REEXEC": "1",
+        "_BOOTSTRAP_GUARD_SKIP_REEXEC": "1",
     }
 
 

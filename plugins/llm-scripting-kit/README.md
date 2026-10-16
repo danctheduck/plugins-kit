@@ -18,6 +18,21 @@ PowerShell, Git Bash, Codex, and a Claude Code Bash session. The marketplace
 segment `plugins-kit` is part of the contract; a marketplace rename changes it
 here and nowhere else.
 
+Under `claudx` (or any session that sets `CLAUDE_BOOTSTRAP_DATA_ROOT`), the
+production venv holds the installed release, not the working copy. Run the
+console script from the redirected data root instead, which a shell expands:
+
+```
+"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit
+```
+
+The messages the CLI and the bootstrap check print use this form while
+`CLAUDE_BOOTSTRAP_DATA_ROOT` is set (`constants.cli_command()`) and the
+contract path otherwise. The console script and
+`scripts/llm_scripting_kit_cli.py` also re-run themselves under the redirected
+venv's interpreter when started under another one, and exit 2 when that venv is
+missing; they never fall back to the production venv.
+
 A bare `llm-scripting-kit` resolves only where something has put a plugin
 `bin/` directory on PATH. Claude Code does that inside its own sessions, using
 the version-keyed plugin cache directory, so a bare name works there and fails

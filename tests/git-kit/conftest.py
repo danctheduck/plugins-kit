@@ -14,9 +14,9 @@ SCRIPTS_PATH = os.path.join(PLUGIN_ROOT, "scripts")
 
 # prepare_review.py calls bootstrap_guard.reexec_under_plugin_venv() at import
 # time. On a machine where git-kit's provisioned venv exists, that would
-# os.execv the pytest process into the plugin venv. Setting the loop-guard
-# env flag up front makes the re-exec a no-op under tests.
-os.environ.setdefault("_BOOTSTRAP_GUARD_VENV_REEXEC", "1")
+# os.execv the pytest process into the plugin venv. Setting the guard's skip
+# variable up front makes the re-exec a no-op under tests.
+os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 
 # Appended (not inserted at index 0) so p4-kit's identically-named scripts
 # keep winning their own suite's bare `import prepare_review`. git-kit's
