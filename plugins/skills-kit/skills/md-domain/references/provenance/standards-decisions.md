@@ -553,4 +553,61 @@ claude_md:
         skill-type-valid is removed from a copy of the shipped file.
       origin: Surface, finding and follow-up above; milestone M6 wave 1 of the configurable-standards work.
       added: "2026-10-16"
+    - id: claude_md_criteria_shipped
+      keywords: [claude-md-import-size, claude-md-size-signal, claude-md-record-floor, CLAUDE-md-standards.md, ClaudeMdContext, reads_builtin_thresholds, builtin threshold, import_max_lines, section, shipped file list, deferred row, no pyyaml, M6, shipped standards]
+      summary: "skills-kit 0.94.0 moves claude-md-import-size, claude-md-size-signal and claude-md-record-floor out of audit.py and rule_catalog.RULES into the shipped CLAUDE-md-standards.md as mechanical criteria. An evaluator reads a built-in threshold without declaring it (reads_builtin_thresholds); a criterion declares only a threshold it alone owns. Extends skill_type_criteria_shipped."
+      detail: |
+        Surface: three optional CLAUDE.md rows were hard-coded in
+        check_claude_md_defaults and audit_claude_md, and catalogued in
+        rule_catalog.RULES. The CLAUDE.md audit did not resolve standards at
+        all, so it never needed the shipped layer.
+        Finding: one of the three needs a limit no other rule reads
+        (import_max_lines), one needs limits the SKILL.md body-size-signal rule
+        also reads (body_max_lines, body_max_tokens), and one applies only when
+        the file carries a parsed claude_md: block. The import scan also feeds
+        the inoffensive claude-md-links-resolve rule, which reports a missing
+        import and stays hard-coded.
+        Rulings: (D1) Built-in thresholds stay built in. body_max_lines and
+        body_max_tokens remain in audit.THRESHOLDS, so a user override moves
+        the SKILL.md rule and the CLAUDE.md rule together. A criterion declares
+        only a threshold it alone owns. An evaluator names the built-in
+        thresholds it reads in MechanicalEvaluator.reads_builtin_thresholds,
+        needs no declaration for them, and receives a view holding only the
+        thresholds its record names (its owned one plus those), so an
+        undeclared read fails loudly. A criterion that declares a built-in
+        threshold is still rejected, even one its evaluator reads. (2)
+        import_max_lines moves from audit.THRESHOLDS into the
+        claude-md-import-size criterion (`threshold: {name: import_max_lines,
+        default: 50}`). The config key is unchanged: `thresholds:
+        {import_max_lines: <int>}` tunes it, and the key stays a valid knob when
+        the shipped layer is opted out. (3) A ClaudeMdContext (path, content,
+        body, parsed claude_md: mapping or None) is a second context type beside
+        SkillContext; the evaluator's applies_to names which one it receives.
+        SkillContext was not generalised because a skill has a frontmatter and a
+        directory and a CLAUDE.md has neither. (4) claude-md-record-floor gates
+        on `applies`: it has a row only when the parsed block is a mapping. (5)
+        MechanicalEvaluator.section places a row in the universal or the
+        yaml_contract list, so the floor keeps its position after the contract
+        rows and the other two keep theirs after the links and fences rows. (6)
+        mechanical_criteria(applies_to, resolved) replaces skill_md_criteria and
+        serves both file types. (7) standards_resolve requires a list of shipped
+        files, SKILL-standards.md and CLAUDE-md-standards.md; a missing one is a
+        StandardsConfigError for every SKILL.md and CLAUDE.md audit. (8) Labels,
+        notes, verdicts, positions and the claude-md-size-signal
+        judgment-not-fail outcome are unchanged; severity judgment maps a
+        failed evaluation to judgment-required.
+        Accepted regression: without pyyaml the shipped files cannot be read, so
+        claude-md-import-size and claude-md-size-signal become deferred
+        judgment-required rows on a bare interpreter. An import over the limit
+        is therefore not a FAIL there, and the size row carries none of its
+        counts. claude-md-record-floor has no deferred row in practice: the
+        claude_md: block it needs cannot be parsed without pyyaml, so its gate
+        rejects the document. A run under the skills-kit plugin venv is
+        unchanged.
+        Follow-up: none for these ids. Verification: the golden corpus stayed
+        byte-identical, and the shipped-standards regression tests fail when a
+        criterion is removed from a copy of the shipped CLAUDE-md file while the
+        rows come from hard-coded criteria.
+      origin: Surface, finding and follow-up above; milestone M6 wave 2 of the configurable-standards work.
+      added: "2026-10-16"
 ```

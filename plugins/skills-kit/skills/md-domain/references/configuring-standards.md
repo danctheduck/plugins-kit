@@ -37,12 +37,14 @@ every layer (a later layer appends, never replaces).
 `<user_dir>` is `$CLAUDE_CONFIG_DIR` when set, else `~/.claude` (the harness
 config directory).
 
-Layer 0 holds `SKILL-standards.md`, which declares the frontmatter-hygiene
-(description and skill-type) criteria every SKILL.md audit applies (see "Shipped standards criteria" in the
-catalog below). It is part of the install: when the file is missing, every
-SKILL.md audit stops with an error instead of skipping those rows. A plain
-`audit.py` run without `--config` applies layer 0 alone; `--config` and
-`scripts/resolve_standards.py` apply every layer.
+Layer 0 holds two files. `SKILL-standards.md` declares the frontmatter-hygiene
+(description and skill-type) criteria every SKILL.md audit applies.
+`CLAUDE-md-standards.md` declares the size and record-floor criteria every
+CLAUDE.md / AGENTS.md audit applies (see "Shipped standards criteria" in the
+catalog below). Both are part of the install: when either file is missing,
+every SKILL.md and CLAUDE.md audit stops with an error instead of skipping
+those rows. A plain `audit.py` run without `--config` applies layer 0 alone;
+`--config` and `scripts/resolve_standards.py` apply every layer.
 
 Durability rationale, one line each:
 
@@ -154,11 +156,15 @@ run proposes, not what an `audit` run reports. The two surfaces read the same
 coverage criterion" above.
 
 The shipped standards criteria have a table of their own. They are not
-catalog rules: the shipped `SKILL-standards.md` declares each one (statement,
-severity, and any threshold default), and a registered `audit.py` evaluator,
-keyed by the criterion id, performs the check. They take the same
-`rules: {<id>: off}` key, and a threshold one of them declares takes the same
-`thresholds:` key as a built-in threshold.
+catalog rules: the shipped `SKILL-standards.md` and `CLAUDE-md-standards.md`
+declare each one (statement, severity, and any threshold default), and a
+registered `audit.py` evaluator, keyed by the criterion id, performs the check.
+They take the same `rules: {<id>: off}` key, and a threshold one of them
+declares takes the same `thresholds:` key as a built-in threshold. A criterion
+declares only a threshold it alone owns (`desc_max_chars`, `import_max_lines`);
+its evaluator may also read a built-in threshold without declaring it, as
+`claude-md-size-signal` reads `body_max_lines` and `body_max_tokens`, so one
+override of a built-in threshold moves every rule that reads it.
 
 <!-- BEGIN GENERATED: rule-catalog (gen_standards_doc.py; SSOT: rule_catalog.py + audit.py THRESHOLDS) -->
 
@@ -181,14 +187,11 @@ through `audit-framework.yaml`.
 | `body-line-count` | Reports the SKILL.md body line count (informational count row). |
 | `body-token-count` | Reports the approximate SKILL.md body token count (informational count row). |
 | `body-size-signal` | An over-threshold body with no `references/` directory raises a progressive-disclosure signal (consumes `body_max_lines`, `body_max_tokens`). |
-| `claude-md-import-size` | Every `@import` target in a CLAUDE.md / AGENTS.md is at most `import_max_lines` lines. |
-| `claude-md-size-signal` | An over-threshold CLAUDE.md / AGENTS.md body raises a size judgment (consumes `body_max_lines`, `body_max_tokens`). |
 | `step-tracking` | A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation. |
 | `facts-floor` | A reference-skill declares at least one fact (nested in `reference_skill:` or as a top-level `facts:` unit). |
 | `facts-gotcha` | At least one fact carries a `gotchas` list. |
 | `facts-example` | At least one fact carries an `example` block. |
 | `caution-floor` | A technique-skill carries at least one per-technique gotcha or at least one `anti_patterns` record. |
-| `claude-md-record-floor` | A CLAUDE.md declares at least one record across the `insights` / `conventions` union. |
 | `ref-example-block` | A reference-skill body has an "Example" heading. |
 | `ref-gotcha-block` | A reference-skill body has a "Gotcha" heading. |
 | `ref-prohibited-discipline` | A reference-skill body omits discipline content (rule+counter, RED/GREEN/REFACTOR). |
@@ -225,6 +228,9 @@ source of each statement, severity and threshold default.
 
 | Criterion id | Subject | Severity | Statement |
 |--------------|---------|----------|-----------|
+| `claude-md-import-size` | `claude_md` | fail | Every `@import` target in a CLAUDE.md / AGENTS.md is at most `import_max_lines` lines. |
+| `claude-md-size-signal` | `claude_md` | judgment | A CLAUDE.md / AGENTS.md body stays within `body_max_lines` lines and `body_max_tokens` approximate tokens; an over-threshold body raises a judgment on whether its sections serve different reading tasks. |
+| `claude-md-record-floor` | `claude_md` | fail | A CLAUDE.md that carries a `claude_md:` block declares at least one record across the `insights` / `conventions` union. |
 | `desc-160-char` | `skill_md` | fail | The description frontmatter field is at most `desc_max_chars` characters. |
 | `desc-directive-form` | `skill_md` | fail | The description opens with "Use when..." or "Invoke when...". |
 | `desc-exclusion-clause` | `skill_md` | fail | The description carries a "Do NOT use for..." exclusion clause. |
@@ -262,7 +268,7 @@ declared by a shipped criterion takes its default from that criterion.
 | `body_max_lines` | 500 | `body-size-signal`, `claude-md-size-signal` |
 | `body_max_tokens` | 3000 | `body-size-signal`, `claude-md-size-signal` |
 | `mixed_min_score` | 2 | `mixed-type` |
-| `import_max_lines` | 50 | `claude-md-import-size` |
+| `import_max_lines` | 50 | `claude-md-import-size` (declared by the criterion) |
 | `desc_max_chars` | 160 | `desc-160-char` (declared by the criterion) |
 
 <!-- END GENERATED: rule-catalog -->
@@ -426,13 +432,13 @@ degrading to an empty config, and the message names the problem:
   criterion whose id has no registered evaluator raises an error. Declare it
   `enforcement: judgment` so the detect lane applies its statement.
 - **A bad threshold declaration.** A criterion `threshold:` that names a
-  threshold its evaluator does not read, that a non-mechanical criterion
-  declares, whose default is not a positive integer, that repeats a built-in
-  threshold, or that two criteria declare, raises an error naming the
-  criterion.
+  threshold its evaluator does not own, that a non-mechanical criterion
+  declares, whose default is not a positive integer, that names a built-in
+  threshold (even one its evaluator reads), or that two criteria declare,
+  raises an error naming the criterion.
 - **Shipped standards missing.** When `skills_kit_lib/defaults/standards/`
-  or its `SKILL-standards.md` is absent, resolution and every SKILL.md audit
-  exit 1 naming the path. The install is incomplete; reinstall or update the
+  or either of its `SKILL-standards.md` and `CLAUDE-md-standards.md` is absent,
+  resolution and every SKILL.md and CLAUDE.md audit exit 1 naming the path. The install is incomplete; reinstall or update the
   plugin.
 - **pyyaml unavailable.** Resolution raises an error naming the missing
   dependency and the skills-kit plugin venv to run under, and
@@ -442,7 +448,10 @@ degrading to an empty config, and the message names the problem:
   criterion that applies to the document as a deferred judgment-required row:
   the shipped file cannot be read, so neither its severity nor its threshold
   default is assumed. A `skill-type-valid` finding is therefore a deferred
-  row, not a FAIL, on an interpreter without pyyaml.
+  row, not a FAIL, on an interpreter without pyyaml; likewise
+  `claude-md-import-size` and `claude-md-size-signal` are deferred rows on a
+  CLAUDE.md, and `claude-md-record-floor` has no row because the `claude_md:`
+  block it needs cannot be parsed.
 - **A `--primitive` no lane consumes.** `scripts/resolve_standards.py
   --primitive code_directory`, or an unknown name, exits 2 with a usage error.
   No lane applies authored standards for that subject, so its list could only
@@ -461,4 +470,5 @@ degrading to an empty config, and the message names the problem:
 The rule-id catalog and threshold table above are generated; do not edit the
 marked region by hand. Their sources are `skills_kit_lib/rule_catalog.py`, the
 built-in `THRESHOLDS` in `skills_kit_lib/audit.py`, and the shipped
-`skills_kit_lib/defaults/standards/SKILL-standards.md`.
+`skills_kit_lib/defaults/standards/SKILL-standards.md` and
+`CLAUDE-md-standards.md`.

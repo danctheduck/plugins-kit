@@ -143,7 +143,7 @@ def test_absent_everything_returns_empty_defaults(tmp_path, monkeypatch):
     # Only the shipped layer resolves: no authored file, no override.
     assert _authored(r.standards_by_primitive) == {}
     assert {sf.layer for files in r.standards_by_primitive.values() for sf in files} == {"shipped"}
-    assert r.threshold_defaults == {"desc_max_chars": 160}
+    assert r.threshold_defaults == {"desc_max_chars": 160, "import_max_lines": 50}
 
 
 def test_user_layer_disable_flows_through(tmp_path, monkeypatch):

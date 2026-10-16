@@ -2,8 +2,10 @@
 mechanical evaluators that serve its criteria.
 
 desc-160-char, desc-directive-form, desc-exclusion-clause, skill-type-tag and
-skill-type-valid are criteria of the shipped SKILL-standards.md, evaluated by
-audit.MECHANICAL_EVALUATORS, and absent from rule_catalog.RULES. These tests pin
+skill-type-valid are criteria of the shipped SKILL-standards.md; claude-md-
+import-size, claude-md-size-signal and claude-md-record-floor are criteria of
+the shipped CLAUDE-md-standards.md. All eight are evaluated by
+audit.MECHANICAL_EVALUATORS and absent from rule_catalog.RULES. These tests pin
 that the file, not the code, decides which rows an audit emits (the
 red-on-revert tests drop a criterion from a copy of the file), and that every
 way the layer can be broken is loud.
@@ -30,12 +32,15 @@ from skills_kit_lib.markdown_heuristics import CANONICAL_TYPES
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = REPO_ROOT / "plugins" / "skills-kit"
-SHIPPED_FILE = PLUGIN / "skills_kit_lib" / "defaults" / "standards" / "SKILL-standards.md"
+SHIPPED_DIR = PLUGIN / "skills_kit_lib" / "defaults" / "standards"
+SHIPPED_FILE = SHIPPED_DIR / "SKILL-standards.md"
+CLAUDE_SHIPPED_FILE = SHIPPED_DIR / "CLAUDE-md-standards.md"
 REFERENCES_STANDARDS = PLUGIN / "skills" / "md-domain" / "references" / "standards"
 RESOLVE_CLI = PLUGIN / "scripts" / "resolve_standards.py"
 
 DESC_IDS = ["desc-160-char", "desc-directive-form", "desc-exclusion-clause"]
 SHIPPED_IDS = [*DESC_IDS, "skill-type-tag", "skill-type-valid"]
+CLAUDE_IDS = ["claude-md-import-size", "claude-md-size-signal", "claude-md-record-floor"]
 
 
 # ---------------------------------------------------------------------------
@@ -54,19 +59,23 @@ def _user_layer(tmp_path):
     return layer
 
 
-def _shipped_block():
-    text = SHIPPED_FILE.read_text(encoding="utf-8")
+def _shipped_block(path=SHIPPED_FILE):
+    text = path.read_text(encoding="utf-8")
     block = text.split("```yaml\n", 1)[1].split("```", 1)[0]
     return yaml.safe_load(block)
 
 
-def _write_shipped(tmp_path, mutate):
-    """Copy the shipped file into a tmp dir after mutating its block."""
-    data = _shipped_block()
-    mutate(data["standards_set"]["criteria"])
+def _write_shipped(tmp_path, mutate, which=SHIPPED_FILE):
+    """Copy the shipped directory into a tmp dir, mutating the block of one
+    file (SKILL by default); the other required file is copied verbatim."""
     d = tmp_path / "shipped"
     d.mkdir()
-    (d / "SKILL-standards.md").write_text(
+    for src in (SHIPPED_FILE, CLAUDE_SHIPPED_FILE):
+        if src != which:
+            shutil.copy(src, d / src.name)
+    data = _shipped_block(which)
+    mutate(data["standards_set"]["criteria"])
+    (d / which.name).write_text(
         "# Shipped copy\n\n```yaml\n" + yaml.safe_dump(data, sort_keys=False) + "```\n",
         encoding="utf-8",
     )
@@ -92,6 +101,31 @@ def _rows(report):
     return {r["rule"]: r for r in report["universal"]}
 
 
+def _all_claude_rows(report):
+    """Every row of a CLAUDE.md report, universal then yaml_contract."""
+    return {r["rule"]: r for r in [*report["universal"], *report["yaml_contract"]]}
+
+
+CLAUDE_BLOCK = (
+    "```yaml\nclaude_md:\n  _schema_version: \"1\"\n"
+    "  scope:\n    directory: x\n    covers: [a]\n    excludes: [b]\n"
+    "  conventions:\n    - rule: r\n      keywords: [k1, k2, k3]\n      why: w\n```\n"
+)
+
+
+def _claude_md(tmp_path, *, block=True, extra="", name="CLAUDE.md", lines=0):
+    """A CLAUDE.md with one existing @import; block=False omits claude_md:."""
+    d = tmp_path / "cm"
+    d.mkdir(exist_ok=True)
+    (d / "imp.md").write_text("line\n" * 8, encoding="utf-8")
+    p = d / name
+    p.write_text(
+        "# Notes\n\n@imp.md\n\n" + (CLAUDE_BLOCK if block else "") + extra + "word\n" * lines,
+        encoding="utf-8",
+    )
+    return p
+
+
 def _standards_md(criteria_yaml):
     return (
         "# Authored\n\n```yaml\nstandards_set:\n"
@@ -106,12 +140,13 @@ def _standards_md(criteria_yaml):
 # ---------------------------------------------------------------------------
 
 
-def test_the_five_ids_left_the_catalog_and_nothing_else_did():
-    for rid in SHIPPED_IDS:
+def test_the_eight_ids_left_the_catalog_and_nothing_else_did():
+    for rid in [*SHIPPED_IDS, *CLAUDE_IDS]:
         assert rid not in rule_catalog.RULES
     buckets = [b for b, _g, _d in rule_catalog.RULES.values()]
     assert (buckets.count("optional"), buckets.count("inoffensive"),
-            buckets.count("architectural")) == (39, 11, 3)
+            buckets.count("architectural")) == (36, 11, 3)
+    assert "import_max_lines" not in audit_mod.THRESHOLDS
 
 
 def test_shipped_file_declares_the_five_mechanical_criteria():
@@ -125,16 +160,36 @@ def test_shipped_file_declares_the_five_mechanical_criteria():
     assert "desc_max_chars" not in audit_mod.THRESHOLDS
 
 
+def test_shipped_claude_md_file_declares_the_three_mechanical_criteria():
+    criteria = _shipped_block(CLAUDE_SHIPPED_FILE)["standards_set"]["criteria"]
+    assert _shipped_block(CLAUDE_SHIPPED_FILE)["standards_set"]["applies_to"] == "claude_md"
+    assert [c["id"] for c in criteria] == CLAUDE_IDS
+    assert all(c["enforcement"] == "mechanical" for c in criteria)
+    assert {c["id"]: c["severity"] for c in criteria} == {
+        "claude-md-import-size": "fail",
+        "claude-md-size-signal": "judgment",
+        "claude-md-record-floor": "fail",
+    }
+    # The import limit is owned by its criterion; the body limits are built in
+    # and are declared by no criterion.
+    assert criteria[0]["threshold"] == {"name": "import_max_lines", "default": 50}
+    assert all("threshold" not in c for c in criteria[1:])
+    assert all(len(c["keywords"]) >= 3 for c in criteria)
+
+
 def test_registry_keys_are_exactly_the_shipped_mechanical_ids():
     """No evaluator without a shipped criterion, no criterion without one."""
-    assert list(MECHANICAL_EVALUATORS) == SHIPPED_IDS
+    assert list(MECHANICAL_EVALUATORS) == [*SHIPPED_IDS, *CLAUDE_IDS]
+    assert {ev.applies_to for rid, ev in MECHANICAL_EVALUATORS.items() if rid in CLAUDE_IDS} == {"claude_md"}
 
 
 def test_resolve_loads_the_shipped_layer_by_default():
     r = sr.resolve(None)
     files = r.standards_by_primitive["skill_md"]
     assert [(sf.layer, sf.path) for sf in files] == [("shipped", SHIPPED_FILE)]
-    assert r.threshold_defaults == {"desc_max_chars": 160}
+    cfiles = r.standards_by_primitive["claude_md"]
+    assert [(sf.layer, sf.path) for sf in cfiles] == [("shipped", CLAUDE_SHIPPED_FILE)]
+    assert r.threshold_defaults == {"desc_max_chars": 160, "import_max_lines": 50}
     assert sr.resolve(None, shipped_dir=None).standards_by_primitive == {}
 
 
@@ -321,15 +376,31 @@ def test_shipped_dir_without_skill_standards_file_raises(tmp_path, monkeypatch):
     assert "SKILL-standards.md" in str(exc.value)
 
 
-def test_claude_md_audit_does_not_need_the_shipped_layer(tmp_path, monkeypatch):
+@pytest.mark.parametrize("name", ["CLAUDE.md", "AGENTS.md"])
+def test_claude_md_audit_needs_the_shipped_layer(tmp_path, monkeypatch, name, capsys):
+    """A CLAUDE.md / AGENTS.md audit resolves the shipped claude_md criteria, so
+    a missing layer stops it loudly instead of dropping three rows."""
     monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", tmp_path / "absent")
     d = tmp_path / "proj"
     d.mkdir()
-    for name in ("CLAUDE.md", "AGENTS.md"):
-        sub = d / name.split(".")[0]
-        sub.mkdir()
-        (sub / name).write_text("# Notes\n\nSome guidance.\n", encoding="utf-8")
-        assert audit(sub / name).get("kind") == "claude_md"
+    (d / name).write_text("# Notes\n\nSome guidance.\n", encoding="utf-8")
+    with pytest.raises(sr.StandardsConfigError):
+        audit(d / name)
+    assert audit_mod.main([str(d / name)]) == 1
+    assert "absent" in capsys.readouterr().err
+
+
+def test_shipped_dir_without_the_claude_md_file_raises(tmp_path, monkeypatch):
+    d = tmp_path / "shipped"
+    d.mkdir()
+    shutil.copy(SHIPPED_FILE, d / SHIPPED_FILE.name)
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", d)
+    with pytest.raises(sr.StandardsConfigError) as exc:
+        sr.resolve(None)
+    assert "CLAUDE-md-standards.md" in str(exc.value)
+    skill = _skill(tmp_path)
+    with pytest.raises(sr.StandardsConfigError):
+        audit(skill)
 
 
 @pytest.mark.parametrize("doc", ["skill-standards.md", "coverage-standards.md"])
@@ -569,3 +640,209 @@ def test_without_pyyaml_a_missing_shipped_file_still_exits_1(tmp_path):
     ))
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "shipped standards file missing" in proc.stderr
+
+
+# ---------------------------------------------------------------------------
+# the CLAUDE.md criteria (M6 wave 2)
+# ---------------------------------------------------------------------------
+
+
+def test_claude_md_rows_keep_their_labels_notes_and_positions(tmp_path):
+    """The three rows, exactly: labels, notes, verdicts, and which list holds
+    them. The golden corpus pins the same rows end to end."""
+    path = _claude_md(tmp_path, lines=0)
+    report = audit(path)
+    universal = [(r["rule"], r["row"], r["verdict"]) for r in report["universal"]]
+    assert universal == [
+        ("claude-md-links-resolve", "relative markdown links resolve", PASS),
+        ("claude-md-fences-closed", "code fences closed", PASS),
+        ("claude-md-import-size", "@imports <= 50 lines", PASS),
+        ("claude-md-size-signal", "body size signal", PASS),
+    ]
+    assert _rows(report)["claude-md-size-signal"]["note"].startswith("lines=")
+    floor = report["yaml_contract"][-1]
+    assert floor == {
+        "row": "yaml: >=1 record across insights/conventions (union floor)",
+        "verdict": PASS,
+        "note": "0 insight(s), 1 convention(s)",
+        "rule": "claude-md-record-floor",
+    }
+
+
+@pytest.mark.parametrize("rid", CLAUDE_IDS)
+def test_removing_a_claude_md_criterion_drops_only_its_row(tmp_path, monkeypatch, rid):
+    """Red on revert: with the criterion hard-coded in audit_claude_md again,
+    editing the shipped file changes nothing and this test fails."""
+    path = _claude_md(tmp_path)
+    baseline = audit(path)
+    assert rid in _all_claude_rows(baseline)
+
+    def drop(cs):
+        cs[:] = [c for c in cs if c["id"] != rid]
+
+    shipped = _write_shipped(tmp_path, drop, which=CLAUDE_SHIPPED_FILE)
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", shipped)
+    report = audit(path)
+
+    expected = {key: [r for r in baseline[key] if r["rule"] != rid]
+                for key in ("universal", "yaml_contract")}
+    assert {key: report[key] for key in expected} == expected
+    assert [r["rule"] for r in baseline["universal"] + baseline["yaml_contract"]].count(rid) == 1
+
+
+def test_record_floor_has_no_row_without_a_claude_md_block(tmp_path):
+    with_block = _all_claude_rows(audit(_claude_md(tmp_path, block=True)))
+    assert "claude-md-record-floor" in with_block
+    other = tmp_path / "other"
+    other.mkdir()
+    without = _all_claude_rows(audit(_claude_md(other, block=False)))
+    assert "claude-md-record-floor" not in without
+    # The other two criteria have a row either way.
+    assert {"claude-md-import-size", "claude-md-size-signal"} <= set(without)
+
+
+def test_empty_claude_md_block_fails_the_record_floor(tmp_path):
+    empty = ("```yaml\nclaude_md:\n  _schema_version: \"1\"\n"
+             "  scope:\n    directory: x\n    covers: [a]\n    excludes: [b]\n```\n")
+    d = tmp_path / "e"
+    d.mkdir()
+    (d / "CLAUDE.md").write_text("# T\n\n" + empty, encoding="utf-8")
+    row = _all_claude_rows(audit(d / "CLAUDE.md"))["claude-md-record-floor"]
+    assert row["verdict"] == FAIL
+    assert "neither insights nor conventions" in row["note"]
+
+
+def test_import_threshold_is_owned_by_its_criterion_and_tunable_by_config(tmp_path):
+    path = _claude_md(tmp_path)  # imp.md has 8 lines
+    assert _rows(audit(path))["claude-md-import-size"]["verdict"] == PASS
+    (_user_layer(tmp_path) / "config.yaml").write_text(
+        "thresholds:\n  import_max_lines: 5\n", encoding="utf-8")
+    row = _rows(audit(path, sr.resolve(None)))["claude-md-import-size"]
+    assert row["row"] == "@imports <= 5 lines"
+    assert row["verdict"] == FAIL
+    assert "imp.md has 8 lines" in row["note"]
+
+
+def test_a_criterion_may_not_declare_a_builtin_threshold_the_evaluator_reads(tmp_path):
+    """claude-md-size-signal READS body_max_lines; declaring it is still wrong."""
+    def declare(cs):
+        for c in cs:
+            if c["id"] == "claude-md-size-signal":
+                c["threshold"] = {"name": "body_max_lines", "default": 400}
+
+    d = _write_shipped(tmp_path, declare, which=CLAUDE_SHIPPED_FILE)
+    with pytest.raises(sr.StandardsConfigError, match="built-in threshold"):
+        sr.resolve(None, shipped_dir=d)
+    # The shipped file declares no threshold for it, and it still evaluates.
+    assert "body_max_lines" in MECHANICAL_EVALUATORS["claude-md-size-signal"].reads_builtin_thresholds
+    assert "body_max_lines" not in sr.resolve(None).threshold_defaults
+
+
+def test_tuning_body_max_lines_moves_both_the_skill_and_claude_md_signal(tmp_path):
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    skill = _skill(skill_dir)
+    cm = _claude_md(tmp_path, lines=3)
+    quiet_skill = _rows(audit(skill))["body-size-signal"]
+    quiet_cm = _rows(audit(cm))["claude-md-size-signal"]
+    assert (quiet_skill["verdict"], quiet_cm["verdict"]) == ("n/a", PASS)
+
+    (_user_layer(tmp_path) / "config.yaml").write_text(
+        "thresholds:\n  body_max_lines: 2\n", encoding="utf-8")
+    resolved = sr.resolve(None)
+    assert _rows(audit(skill, resolved))["body-size-signal"]["verdict"] == JUDGMENT
+    row = _rows(audit(cm, resolved))["claude-md-size-signal"]
+    assert row["verdict"] == JUDGMENT
+    assert "size-signal judgment" in row["note"]
+
+
+def test_an_evaluator_reads_only_the_thresholds_its_record_names():
+    size = MECHANICAL_EVALUATORS["claude-md-size-signal"]
+    every = {**audit_mod.THRESHOLDS, "import_max_lines": 50, "desc_max_chars": 160}
+    assert size.threshold_view(every) == {
+        "body_max_lines": every["body_max_lines"], "body_max_tokens": every["body_max_tokens"]}
+    assert MECHANICAL_EVALUATORS["claude-md-import-size"].threshold_view(every) == {"import_max_lines": 50}
+    assert MECHANICAL_EVALUATORS["desc-directive-form"].threshold_view(every) == {}
+    with pytest.raises(ValueError, match="not built-in thresholds"):
+        dataclasses.replace(size, reads_builtin_thresholds=("import_max_lines",))
+
+
+def test_rules_off_removes_each_claude_md_row(tmp_path):
+    (_user_layer(tmp_path) / "config.yaml").write_text(
+        "rules:\n  claude-md-import-size: off\n  claude-md-size-signal: off\n"
+        "  claude-md-record-floor: off\n", encoding="utf-8")
+    rows = _all_claude_rows(audit(_claude_md(tmp_path), sr.resolve(None)))
+    assert not set(CLAUDE_IDS) & set(rows)
+    assert "claude-md-links-resolve" in rows
+
+
+def test_claude_md_knobs_stay_valid_when_the_shipped_layer_is_opted_out(tmp_path):
+    (_user_layer(tmp_path) / "config.yaml").write_text(
+        "rules:\n  claude-md-record-floor: off\nthresholds:\n  import_max_lines: 9\n",
+        encoding="utf-8")
+    r = sr.resolve(None, shipped_dir=None)
+    assert r.disabled_rules == {"claude-md-record-floor"}
+    assert r.thresholds == {"import_max_lines": 9}
+
+
+def test_authored_id_repeating_a_claude_md_criterion_raises_naming_both(tmp_path):
+    layer = _user_layer(tmp_path)
+    (layer / "CLAUDE-md-standards.md").write_text(_standards_md("""\
+        - id: claude-md-size-signal
+          statement: Mine.
+          severity: info
+          keywords: [a, b, c]
+        """).replace("skill_md", "claude_md"), encoding="utf-8")
+    with pytest.raises(sr.StandardsConfigError) as exc:
+        sr.resolve(None)
+    msg = str(exc.value)
+    assert str(CLAUDE_SHIPPED_FILE) in msg and str(layer / "CLAUDE-md-standards.md") in msg
+
+
+def test_missing_claude_md_shipped_file_exits_1_for_claude_md(tmp_path, monkeypatch, capsys):
+    d = tmp_path / "shipped"
+    d.mkdir()
+    shutil.copy(SHIPPED_FILE, d / SHIPPED_FILE.name)
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", d)
+    assert audit_mod.main([str(_claude_md(tmp_path))]) == 1
+    assert "CLAUDE-md-standards.md" in capsys.readouterr().err
+
+
+# no pyyaml: the CLAUDE.md rows are deferred like the SKILL rows
+
+
+def _bare_claude_rows(tmp_path, path):
+    proc = _bare(tmp_path, (
+        "import json\nfrom skills_kit_lib.audit import audit\n"
+        f"r = audit(__import__('pathlib').Path({str(path)!r}))\n"
+        "print(json.dumps([*r['universal'], *r['yaml_contract']]))\n"
+    ))
+    assert proc.returncode == 0, proc.stderr
+    return {r["rule"]: r for r in json.loads(proc.stdout)}
+
+
+def test_without_pyyaml_the_claude_md_criteria_are_deferred_rows(tmp_path):
+    rows = _bare_claude_rows(tmp_path, _claude_md(tmp_path))
+    assert rows["claude-md-import-size"]["verdict"] == JUDGMENT
+    assert rows["claude-md-import-size"]["row"] == "@imports <= import_max_lines lines (deferred)"
+    assert rows["claude-md-size-signal"]["verdict"] == JUDGMENT
+    assert rows["claude-md-size-signal"]["row"] == "body size signal (deferred)"
+    assert "50" not in rows["claude-md-import-size"]["row"]
+    # The block cannot be parsed without pyyaml, so the floor has no row to defer.
+    assert "claude-md-record-floor" not in rows
+    assert rows["claude-md-links-resolve"]["verdict"] == PASS
+
+
+def test_without_pyyaml_a_missing_claude_md_shipped_file_exits_1(tmp_path):
+    path = _claude_md(tmp_path)
+    d = tmp_path / "shipped"
+    d.mkdir()
+    shutil.copy(SHIPPED_FILE, d / SHIPPED_FILE.name)
+    proc = _bare(tmp_path, (
+        "from pathlib import Path\nfrom skills_kit_lib import standards_resolve as sr\n"
+        f"sr.SHIPPED_STANDARDS_DIR = Path({str(d)!r})\n"
+        "from skills_kit_lib import audit\n"
+        f"raise SystemExit(audit.main([{str(path)!r}]))\n"
+    ))
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "CLAUDE-md-standards.md" in proc.stderr

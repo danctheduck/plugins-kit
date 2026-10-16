@@ -22,7 +22,7 @@ CLAUDE_MD_SCHEMA = {
         "insights": {"type": "list", "required": False, "min_len": 1,
                      "note": "optional as a KEY: a conventions-only CLAUDE.md is valid. The "
                              "non-empty floor is the insights/conventions UNION, enforced as "
-                             "a document-level check in audit.py (check_claude_md_record_floor) "
+                             "the shipped criterion claude-md-record-floor (audit.py evaluator) "
                              "-- an empty block still fails. When present, min 1 record.",
                      "items": {"keys": {
             "id": {"type": "string", "required": True},

@@ -107,10 +107,11 @@ claude_md:
           bucket / description.
         - skills_kit_lib/standards_resolve.py -- self-contained (stdlib+pyyaml,
           no bootstrap_lib) resolver of the layered standards config.
-        - skills_kit_lib/defaults/standards/SKILL-standards.md -- layer 0, the
-          shipped standards (must exist): the mechanical frontmatter-hygiene
-          criteria (description and skill-type), evaluated by
-          audit.MECHANICAL_EVALUATORS.
+        - skills_kit_lib/defaults/standards/SKILL-standards.md and
+          CLAUDE-md-standards.md -- layer 0, the shipped standards (both must
+          exist): the mechanical frontmatter-hygiene criteria (description and
+          skill-type) for SKILL.md, and the size and record-floor criteria for
+          CLAUDE.md / AGENTS.md, evaluated by audit.MECHANICAL_EVALUATORS.
         - Layer model, config.yaml format, thresholds, rule catalog, and error
           behavior: skills/md-domain/references/configuring-standards.md.
 

@@ -161,8 +161,8 @@ claude_md:
         mis-pointed member fail the audit instead of dangling silently.
       added: "2026-05-31"
     - id: asset_and_floor_document_checks
-      keywords: [check_asset_dependencies_resolve, check_claude_md_record_floor, asset_dependencies, tools tests, union floor, document-level check, path resolution]
-      summary: "Two document-level checks added 2026-07-13 (steam-analysis stress test): check_asset_dependencies_resolve resolves every declared asset_dependencies path (top-level or nested in any skill-type unit) AND every domain_skill tools[].tests path against the skill dir then the nearest project root (markers: .git/.hg/.svn/.p4config.txt), FAILing per unresolved path; check_claude_md_record_floor enforces >=1 record across the claude_md insights/conventions union (the schema no longer requires insights as a key)."
+      keywords: [check_asset_dependencies_resolve, claude-md-record-floor, asset_dependencies, tools tests, union floor, document-level check, path resolution]
+      summary: "Two document-level checks added 2026-07-13 (steam-analysis stress test): check_asset_dependencies_resolve resolves every declared asset_dependencies path (top-level or nested in any skill-type unit) AND every domain_skill tools[].tests path against the skill dir then the nearest project root (markers: .git/.hg/.svn/.p4config.txt), FAILing per unresolved path; the shipped criterion claude-md-record-floor (an evaluator in audit.MECHANICAL_EVALUATORS) enforces >=1 record across the claude_md insights/conventions union (the schema no longer requires insights as a key)."
       detail: |
         Both follow the established convention: cross-key/cross-source rules live in
         audit.py after the walker, not in the schema engine. Asset resolution strips a
@@ -221,27 +221,36 @@ claude_md:
       origin: explicit-skill-context plan, unit SC4 (decision SC-D9).
       added: "2026-09-30"
     - id: shipped_standards_criteria_have_evaluators
-      keywords: [shipped standards, defaults/standards, SKILL-standards.md, MECHANICAL_EVALUATORS, mechanical criterion, evaluator registry, threshold_defaults, resolve_shipped, desc-160-char, skill-type-valid, SkillContext, applies gate, deferred row]
+      keywords: [shipped standards, defaults/standards, SKILL-standards.md, CLAUDE-md-standards.md, MECHANICAL_EVALUATORS, mechanical criterion, evaluator registry, threshold_defaults, resolve_shipped, desc-160-char, skill-type-valid, claude-md-import-size, SkillContext, ClaudeMdContext, applies gate, reads_builtin_thresholds, deferred row]
       summary: "A rule that moves out of rule_catalog.RULES into the shipped standards layer (defaults/standards/*-standards.md) keeps only its check in code: a MechanicalEvaluator registered in audit.MECHANICAL_EVALUATORS under the criterion id. Statement, severity and any threshold default live in the standards file."
       detail: |
-        To move another rule: add the criterion to the shipped file with
+        To move another rule: add the criterion to the shipped file for its
+        file type (SKILL-standards.md or CLAUDE-md-standards.md) with
         enforcement: mechanical (and `threshold: {name, default}` when the
-        check reads a limit), register the evaluator with the same id (its
-        `evaluate` takes a SkillContext of frontmatter, body and skill dir, and
-        its `applies` gate decides whether the criterion has a row for that
-        document at all), delete the RULES entry (a criterion id may not repeat
-        a catalog id), and run scripts/gen_standards_doc.py. standards_resolve raises when a
-        mechanical criterion has no evaluator, when the evaluator and the
-        criterion disagree about the threshold, and when an id repeats.
-        audit() resolves after the CLAUDE.md / AGENTS.md dispatch: with no
-        `resolved` it applies resolve_shipped(), and without pyyaml it checks
-        that the shipped file exists and emits one deferred row per registered
-        evaluator whose `applies` gate accepts the document. check_universal
-        takes skill_criteria as a required keyword, so a direct caller states
-        which criteria it evaluates. Provenance:
+        check reads a limit only that criterion owns), register the evaluator
+        with the same id (its `evaluate` takes a SkillContext of frontmatter,
+        body and skill dir for skill_md, or a ClaudeMdContext of path, content,
+        body and parsed claude_md block for claude_md; its `applies` gate
+        decides whether the criterion has a row for that document at all; its
+        `reads_builtin_thresholds` names built-in thresholds it reads without
+        declaring them; its `section` places the row in the universal or the
+        yaml_contract list), delete the RULES entry (a criterion id may not
+        repeat a catalog id), and run scripts/gen_standards_doc.py.
+        standards_resolve raises when a mechanical criterion has no evaluator,
+        when the evaluator and the criterion disagree about the threshold, when
+        a criterion declares a built-in threshold, and when an id repeats.
+        An evaluator receives only the thresholds its record names.
+        audit() and audit_claude_md resolve through
+        mechanical_criteria(applies_to, resolved): with no `resolved` it
+        applies resolve_shipped(), and without pyyaml it checks that every
+        required shipped file exists and emits one deferred row per registered
+        evaluator of that file type whose `applies` gate accepts the document.
+        check_universal takes skill_criteria as a required keyword, so a direct
+        caller states which criteria it evaluates. Provenance:
         ../skills/md-domain/references/provenance/standards-decisions.md,
-        shipped_standards_layer_enabled and skill_type_criteria_shipped. Pinned
-        by tests/skills-kit/test_shipped_standards.py.
+        shipped_standards_layer_enabled, skill_type_criteria_shipped and
+        claude_md_criteria_shipped. Pinned by
+        tests/skills-kit/test_shipped_standards.py.
       origin: skills-kit 0.92.0, milestone M5 of the configurable-standards work.
       added: "2026-10-16"
   conventions:

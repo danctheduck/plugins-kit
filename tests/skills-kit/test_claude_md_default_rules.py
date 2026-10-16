@@ -1,8 +1,11 @@
 """Default rules for CLAUDE.md / AGENTS.md: universal rows that run with or
 without a claude_md: block (claude-md-links-resolve, claude-md-fences-closed,
 claude-md-import-size, claude-md-size-signal), resolved-config handling, and
-the evidence pack's use of the same audit."""
+the evidence pack's use of the same audit. claude-md-import-size and
+claude-md-size-signal are criteria of the shipped CLAUDE-md-standards.md;
+resolved-config tests build a ResolvedStandards from the shipped layer."""
 
+import dataclasses
 import importlib.util
 from pathlib import Path
 
@@ -10,8 +13,15 @@ import pytest
 
 from skills_kit_lib.audit import FAIL, JUDGMENT, NA, PASS, THRESHOLDS, audit
 from skills_kit_lib.standards_resolve import (
-    ResolvedStandards, StandardsConfigError, _validate_and_extract,
+    StandardsConfigError, _validate_and_extract, resolve_shipped,
 )
+
+IMPORT_MAX = resolve_shipped().threshold_defaults["import_max_lines"]
+
+
+def _resolved(**overrides):
+    """The shipped layer with config overrides, as resolve() would return it."""
+    return dataclasses.replace(resolve_shipped(), **overrides)
 
 
 def _by_rule(report):
@@ -80,7 +90,7 @@ def test_unclosed_outer_fence_with_inner_shorter_fence_fails(tmp_path):
 
 
 def test_import_over_limit_fails(tmp_path):
-    (tmp_path / "big.md").write_text("line\n" * (THRESHOLDS["import_max_lines"] + 1))
+    (tmp_path / "big.md").write_text("line\n" * (IMPORT_MAX + 1))
     (tmp_path / "small.md").write_text("line\n" * 3)
     md = _write(tmp_path, "@big.md\n@small.md\n")
     rows = _by_rule(audit(md))
@@ -90,7 +100,7 @@ def test_import_over_limit_fails(tmp_path):
 
 
 def test_import_at_limit_passes(tmp_path):
-    (tmp_path / "ok.md").write_text("line\n" * THRESHOLDS["import_max_lines"])
+    (tmp_path / "ok.md").write_text("line\n" * IMPORT_MAX)
     md = _write(tmp_path, "@ok.md\n")
     assert _by_rule(audit(md))["claude-md-import-size"]["verdict"] == PASS
 
@@ -110,20 +120,21 @@ def test_size_over_threshold_is_judgment_not_fail(tmp_path):
 
 def test_resolved_threshold_applies_to_claude_md(tmp_path):
     md = _write(tmp_path, "word\n" * 10)
-    resolved = ResolvedStandards(disabled_rules=set(), thresholds={"body_max_lines": 5})
+    resolved = _resolved(thresholds={"body_max_lines": 5})
     assert _by_rule(audit(md, resolved))["claude-md-size-signal"]["verdict"] == JUDGMENT
     sub = tmp_path / "sub"
     sub.mkdir()
     (sub / "big.md").write_text("l\n" * 6)
     md2 = _write(sub, "@big.md\n", "AGENTS.md")
-    resolved = ResolvedStandards(disabled_rules=set(), thresholds={"import_max_lines": 5})
-    assert _by_rule(audit(md2, resolved))["claude-md-import-size"]["verdict"] == FAIL
+    resolved = _resolved(thresholds={"import_max_lines": 5})
+    row = _by_rule(audit(md2, resolved))["claude-md-import-size"]
+    assert row["verdict"] == FAIL
+    assert row["row"] == "@imports <= 5 lines"
 
 
 def test_disabling_optional_rule_removes_its_row(tmp_path):
     md = _write(tmp_path, "word\n")
-    resolved = ResolvedStandards(
-        disabled_rules={"claude-md-import-size", "claude-md-size-signal"}, thresholds={})
+    resolved = _resolved(disabled_rules={"claude-md-import-size", "claude-md-size-signal"})
     rules = set(_by_rule(audit(md, resolved)))
     assert "claude-md-import-size" not in rules
     assert "claude-md-size-signal" not in rules

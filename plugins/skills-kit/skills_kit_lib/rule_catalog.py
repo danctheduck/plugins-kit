@@ -21,7 +21,10 @@ field, it carries the judgment criteria an agent applies inside a workflow lane
 
 Criteria declared by the shipped standards layer (defaults/standards/) are not
 catalogued here: the shipped file is their source, and the resolver rejects a
-criterion id that repeats a catalog id.
+criterion id that repeats a catalog id. Eight ids live there: desc-160-char,
+desc-directive-form, desc-exclusion-clause, skill-type-tag and skill-type-valid
+(SKILL-standards.md), and claude-md-import-size, claude-md-size-signal and
+claude-md-record-floor (CLAUDE-md-standards.md).
 
 This module is the single source consumed by the standards resolver (for the
 reject-architectural check) and rendered into the configuring-standards.md
@@ -55,10 +58,13 @@ RULES: dict[str, tuple[str, str, str]] = {
     "mixed-type": ("architectural", "contract", "A SKILL.md declares exactly one skill-type root -- no drift across two type contracts (consumes `mixed_min_score`)."),
     "cross-block-drift": ("architectural", "contract", "Multiple YAML blocks in one document do not disagree about the document's type."),
     # -- optional: description hygiene ------------------------------------
-    # desc-160-char, desc-directive-form, desc-exclusion-clause, skill-type-tag
-    # and skill-type-valid are not here: they are criteria of the shipped
-    # standards layer (defaults/standards/SKILL-standards.md), evaluated by
-    # audit.MECHANICAL_EVALUATORS. A criterion id may not repeat a catalog id.
+    # The eight shipped-criterion ids are not here: desc-160-char,
+    # desc-directive-form, desc-exclusion-clause, skill-type-tag and
+    # skill-type-valid (defaults/standards/SKILL-standards.md), and
+    # claude-md-import-size, claude-md-size-signal and claude-md-record-floor
+    # (defaults/standards/CLAUDE-md-standards.md). They are criteria of the
+    # shipped standards layer, evaluated by audit.MECHANICAL_EVALUATORS. A
+    # criterion id may not repeat a catalog id.
     # -- optional: layout ------------------------------------------------
     # Tunability decided 2026-07-29 (md-domain fold): a project may
     # legitimately cluster a large reference set into subdirectories when
@@ -68,15 +74,12 @@ RULES: dict[str, tuple[str, str, str]] = {
     "body-line-count": ("optional", "thresholds-signals", "Reports the SKILL.md body line count (informational count row)."),
     "body-token-count": ("optional", "thresholds-signals", "Reports the approximate SKILL.md body token count (informational count row)."),
     "body-size-signal": ("optional", "thresholds-signals", "An over-threshold body with no `references/` directory raises a progressive-disclosure signal (consumes `body_max_lines`, `body_max_tokens`)."),
-    "claude-md-import-size": ("optional", "thresholds-signals", "Every `@import` target in a CLAUDE.md / AGENTS.md is at most `import_max_lines` lines."),
-    "claude-md-size-signal": ("optional", "thresholds-signals", "An over-threshold CLAUDE.md / AGENTS.md body raises a size judgment (consumes `body_max_lines`, `body_max_tokens`)."),
     # -- optional: record floors ------------------------------------------
     "step-tracking": ("optional", "record-floors", "A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation."),
     "facts-floor": ("optional", "record-floors", "A reference-skill declares at least one fact (nested in `reference_skill:` or as a top-level `facts:` unit)."),
     "facts-gotcha": ("optional", "record-floors", "At least one fact carries a `gotchas` list."),
     "facts-example": ("optional", "record-floors", "At least one fact carries an `example` block."),
     "caution-floor": ("optional", "record-floors", "A technique-skill carries at least one per-technique gotcha or at least one `anti_patterns` record."),
-    "claude-md-record-floor": ("optional", "record-floors", "A CLAUDE.md declares at least one record across the `insights` / `conventions` union."),
     # -- optional: legacy per-type heuristic rows -------------------------
     "ref-example-block": ("optional", "legacy-heuristics", 'A reference-skill body has an "Example" heading.'),
     "ref-gotcha-block": ("optional", "legacy-heuristics", 'A reference-skill body has a "Gotcha" heading.'),
@@ -125,13 +128,14 @@ BUCKET_NAMES = ("architectural", "optional", "inoffensive")
 # threshold name -> the rule id(s) that consume it. Values (defaults) live in
 # audit.py THRESHOLDS; this mapping is the doc-facing "Consumed by" column. A
 # threshold declared by a standards criterion is not listed: the criterion that
-# declares it is its consumer.
+# declares it is its consumer. A shipped criterion's evaluator may consume a
+# built-in threshold without declaring it (MechanicalEvaluator.
+# reads_builtin_thresholds); it is listed here as a consumer.
 THRESHOLD_CONSUMERS: dict[str, str] = {
     "name_max_chars": "`name-length`",
     "body_max_lines": "`body-size-signal`, `claude-md-size-signal`",
     "body_max_tokens": "`body-size-signal`, `claude-md-size-signal`",
     "mixed_min_score": "`mixed-type`",
-    "import_max_lines": "`claude-md-import-size`",
 }
 
 
