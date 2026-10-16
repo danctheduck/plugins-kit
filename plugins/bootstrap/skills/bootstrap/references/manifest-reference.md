@@ -559,7 +559,8 @@ add fields to, or override fields of, a profile a lower layer already declared.
 
 **Profile name.** `^[a-z0-9][a-z0-9_-]{0,31}$` -- lower-case letters, digits,
 `-` or `_`, 1-32 characters. `none` is reserved (it means "the base manifest,
-no profile") and cannot name a profile.
+no profile") and `unset` is reserved (the cleared selection, below); neither
+can name a profile.
 
 **A profile entry's fields:**
 
@@ -619,6 +620,90 @@ local sibling) declares `profiles`, the selection is written to
 Git (an `info/exclude` rule, the same mechanism `agent_skills_link` uses for
 its own generated link), because it is a per-machine choice like every other
 `bootstrap.local.json` value.
+
+**Reserved `profile: "unset"`.** `bootstrap profile clear --all` writes
+`"unset"` to the project-local file. It means "nothing selected" (status
+`unselected`) and, being the highest local layer, masks a `profile` left in
+`~/.claude/bootstrap.local.json`. It is a stored state, never a selectable
+name: `profile set` and `profile apply` refuse it.
+
+**`profile_prompt`.** A boolean in the project's TRACKED
+`<project>/.claude/bootstrap.json`. `false` stops bootstrap's built-in profile
+prompt for that project, for a team that runs its own profile setup (it can
+drive `bootstrap profile choices` / `apply`). It affects only the prompt:
+declared profiles, a recorded selection and tier handling still apply. Read
+from any other layer it is ignored with a warning naming the file, because it
+would switch the prompt off for every project. A non-boolean is ignored with a
+warning. `profile_prompt` is stripped from the effective manifest.
+
+### Plugin tiers
+
+A `plugins[]` entry in a profile body (or the base manifest) may carry a tier.
+Tiers act only while a profile is `selected`; in every other status a tiered
+entry behaves as `install: "manual"`: kept up to date, never installed, never
+removed.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `tier` | string | `required`, `recommended` or `not_recommended` |
+| `why_install` | string | One line: the reason to install. Required for `recommended` and `not_recommended` |
+| `why_skip` | string | One line: the reason not to install. Required for `recommended` and `not_recommended` |
+
+The why lines must hold printable ASCII, at most 200 characters; they are
+shown to the user when the question is asked.
+
+- `required`: installed at local scope on every pass when absent, never asked.
+- `recommended`: asked only when not installed. A yes installs it at local
+  scope; a no leaves it uninstalled. An answered plugin is not asked again.
+- `not_recommended`: never installed. Asked only when installed. A yes keeps
+  it; a no uninstalls it.
+
+An entry with `enabled: false` is never installed by a tier.
+
+**Authoring rule: tiered entries are `install: "manual"`.** A tiered entry
+must declare `install: "manual"` (and a `ref`); anything else is a lint error.
+An engine that predates tiers ignores `tier` and the why fields, so a
+`manual` entry is never installed or removed by it. The tier-aware engine
+ignores the authored `install` value and decides the mode and scope itself
+(`auto` at `local` scope when it installs).
+
+**`plugin_choices`.** The recorded answers, written by `bootstrap profile
+apply` into `<project>/.claude/bootstrap.local.json` and honored only there
+(any other layer is ignored with a warning). Shape:
+
+```json
+{
+  "profile": "designer",
+  "plugin_choices": {
+    "profile": "designer",
+    "answers": {
+      "mkt:plugin": {"want": false, "decided": "2026-10-16", "scope": "user"}
+    }
+  }
+}
+```
+
+`want` is a boolean; `decided` is the answer date; `scope: "user"` appears
+only on a `want: false` answer the user confirmed for a user-scope install.
+The answers are bound to the profile named in `plugin_choices.profile`. Any
+write that changes the selection, or removes it, drops `plugin_choices` in the
+same write, so switching away and back never revives earlier answers;
+re-writing the same profile keeps them. A malformed record is ignored with a
+warning, and the user is asked again.
+
+**Uninstall semantics.** A `want: false` answer on an installed
+`not_recommended` plugin is acted on every pass without further confirmation:
+- `local` scope installs for this project are uninstalled.
+- `user` scope installs are uninstalled only when the answer carries
+  `scope: "user"`; otherwise they are reported as unsatisfied.
+- `project` scope installs (enabled by the tracked `.claude/settings.json`)
+  are never removed; they are reported as unsatisfied.
+- Duplicate records of one target collapse to one uninstall.
+- Unsatisfied removals are reported on every pass until the inventory agrees.
+  Satisfaction is never recorded; each pass recomputes from the installed
+  inventory. A failed uninstall is a pass failure and recurs next pass.
+- An unreadable inventory for a plugin is a failure for that plugin, never
+  taken to mean "not installed".
 
 ## Variable Expansion
 

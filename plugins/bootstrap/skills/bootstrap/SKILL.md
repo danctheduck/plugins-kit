@@ -424,7 +424,8 @@ reference_skill:
       summary: >-
         A profile is a named bundle of manifest content under a `profiles` object;
         `profile` selects one, honored only from the two bootstrap.local.json layers.
-      keywords: [profile, profiles, bootstrap profile, engineer profile, designer profile, extends, profile inheritance, profile chain, profile selection, no_profiles, unselected, none profile, unknown profile, invalid profile, profile prompt, AskUserQuestion profile, switch profile, bootstrap profile set, bootstrap profile clear, attended session, once per session, profile status, needs_typed_choice, profile_listing, typed choice, too many profiles]
+        Plugin entries may carry a tier whose recorded answers bootstrap acts on.
+      keywords: [plugin tier, tier, recommended, not_recommended, required, why_install, why_skip, plugin_choices, profile apply, profile choices, profile clear --all, unset, profile_prompt, capabilities, uninstall plugin, profile, bootstrap profile, engineer profile, designer profile, extends, profile inheritance, profile chain, profile selection, no_profiles, unselected, none profile, unknown profile, invalid profile, profile prompt, AskUserQuestion profile, switch profile, bootstrap profile set, bootstrap profile clear, attended session, once per session, profile status, needs_typed_choice, profile_listing, typed choice, too many profiles]
       detail: |
         `profiles` (an object keyed by profile name) may be declared in any of the
         four layered bootstrap.json files and deep-merges across them like every
@@ -459,15 +460,34 @@ reference_skill:
         declared profiles, the question names none of them and instead offers a
         typed-choice option; the full list is printed to the user beforehand.
         Switching a profile, at any time, changes only what a FUTURE bootstrap
-        pass provisions; it never uninstalls or removes anything a previous
-        profile set up.
+        pass provisions. Nothing a previous profile set up is removed, except
+        a plugin the user answered no to (below).
+
+        Plugin tiers: a `plugins[]` entry may declare `tier` (`required`,
+        `recommended`, `not_recommended`) with `why_install` and `why_skip`
+        lines, and must be authored `install: "manual"` so an older engine never
+        acts on it. Only a selected profile activates tiers. `recommended`
+        plugins are asked when uninstalled; `not_recommended` plugins are asked
+        when installed. Answers are recorded per project under `plugin_choices`
+        in the project bootstrap.local.json, bound to the profile and dropped
+        when the selection changes. `bootstrap profile choices --for NAME`
+        previews the questions, `profile apply` records the profile and answers
+        and runs a pass, `profile clear --all` sets `profile: "unset"` (reserved;
+        never selectable) and drops the answers without a pass. A tracked
+        `profile_prompt: false` in the project bootstrap.json turns the built-in
+        profile prompt off for that project. Details: references/bootstrap-cli.md
+        (verbs, JSON, exit codes) and references/manifest-reference.md (fields,
+        uninstall scopes).
       gotchas:
         - A `profiles` declaration error (a bad name, a self/unknown/cyclic
           `extends`) must be fixed in the manifest that declares it, but never
           blocks the base manifest from provisioning.
         - Switching profiles is additive going forward, not a reset -- tools, PATH
           entries, and config a previous profile added stay in place even after a
-          different profile (or `none`) is selected.
+          different profile (or `none`) is selected. The one removal is that bootstrap
+          uninstalls an installed `not_recommended` plugin the user answered no
+          to (local scope; user scope only with a confirmed answer; project scope
+          is reported, never removed).
     - id: python_interpreter
       summary: >-
         Invoke Python through BOOTSTRAP_PYTHON / BOOTSTRAP_PROJECT_PYTHON, never bare
