@@ -85,8 +85,8 @@ def test_bucket_values_are_only_the_three_allowed_strings():
 
 def test_helpers_agree_with_catalog():
     assert rule_catalog.is_architectural("yaml-contract") is True
-    assert rule_catalog.is_architectural("skill-type-tag") is False
+    assert rule_catalog.is_architectural("refs-one-hop-deep") is False
     assert rule_catalog.is_architectural("nonexistent-rule") is False
     optional = rule_catalog.optional_rule_ids()
-    assert "skill-type-tag" in optional
+    assert "refs-one-hop-deep" in optional
     assert all(rule_catalog.BUCKETS[rid] == "optional" for rid in optional)

@@ -139,8 +139,8 @@ standards_set:
       keywords: [gotcha provenance, incident, measurement]
 ```
 
-The description-hygiene criteria (`desc-160-char`, `desc-directive-form`,
-`desc-exclusion-clause`) are not an example to copy: the shipped layer already
+The frontmatter-hygiene criteria (`desc-160-char`, `desc-directive-form`,
+`desc-exclusion-clause`, `skill-type-tag`, `skill-type-valid`) are not an example to copy: the shipped layer already
 declares them, so repeating one of those ids in an authored file is an error.
 Switch one off with `rules: {<id>: off}`, or tune `desc_max_chars` with
 `thresholds:`.

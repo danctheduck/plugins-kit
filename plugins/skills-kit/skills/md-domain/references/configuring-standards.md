@@ -12,7 +12,7 @@ Three tiers of opinion, one rule per row in the audit output:
 - **Architectural** -- the structural spine (the YAML type contract, mixed-type
   and cross-block drift). Never configurable. Extensible only through the
   `audit-framework.yaml` registry, not through this configuration surface.
-- **Optional** -- the tunable opinions (description hygiene, size signals,
+- **Optional** -- the tunable opinions (frontmatter hygiene, size signals,
   record floors, the per-type heuristic rows). Each carries a stable id you can
   disable, and some consume a tunable threshold.
 - **Inoffensive** -- mechanical integrity checks (frontmatter and name presence
@@ -37,8 +37,8 @@ every layer (a later layer appends, never replaces).
 `<user_dir>` is `$CLAUDE_CONFIG_DIR` when set, else `~/.claude` (the harness
 config directory).
 
-Layer 0 holds `SKILL-standards.md`, which declares the description-hygiene
-criteria every SKILL.md audit applies (see "Shipped standards criteria" in the
+Layer 0 holds `SKILL-standards.md`, which declares the frontmatter-hygiene
+(description and skill-type) criteria every SKILL.md audit applies (see "Shipped standards criteria" in the
 catalog below). It is part of the install: when the file is missing, every
 SKILL.md audit stops with an error instead of skipping those rows. A plain
 `audit.py` run without `--config` applies layer 0 alone; `--config` and
@@ -177,8 +177,6 @@ through `audit-framework.yaml`.
 
 | Rule id | Meaning |
 |---------|---------|
-| `skill-type-tag` | A `skill-type` advisory tag is present in frontmatter (else the agent infers the type). |
-| `skill-type-valid` | The `skill-type` value is one of the canonical skill types. |
 | `refs-one-hop-deep` | `references/` is one hop deep, except that a nested reference file counts as one hop when SKILL.md's `index.references[]` declares that file's own relative path or its containing directory. |
 | `body-line-count` | Reports the SKILL.md body line count (informational count row). |
 | `body-token-count` | Reports the approximate SKILL.md body token count (informational count row). |
@@ -230,6 +228,8 @@ source of each statement, severity and threshold default.
 | `desc-160-char` | `skill_md` | fail | The description frontmatter field is at most `desc_max_chars` characters. |
 | `desc-directive-form` | `skill_md` | fail | The description opens with "Use when..." or "Invoke when...". |
 | `desc-exclusion-clause` | `skill_md` | fail | The description carries a "Do NOT use for..." exclusion clause. |
+| `skill-type-tag` | `skill_md` | judgment | A `skill-type` advisory tag is present in frontmatter (else the agent infers the type). |
+| `skill-type-valid` | `skill_md` | fail | The `skill-type` value is one of the canonical skill types. |
 
 ### Inoffensive -- no knob
 
@@ -439,8 +439,10 @@ degrading to an empty config, and the message names the problem:
   `scripts/resolve_standards.py` exits 1. It does not fall back to defaults:
   an unread config would look identical to an empty one. The audit without
   `--config` still runs in its contract-staged state, and reports each shipped
-  criterion as a deferred judgment-required row: the shipped file cannot be
-  read, so neither its severity nor its threshold default is assumed.
+  criterion that applies to the document as a deferred judgment-required row:
+  the shipped file cannot be read, so neither its severity nor its threshold
+  default is assumed. A `skill-type-valid` finding is therefore a deferred
+  row, not a FAIL, on an interpreter without pyyaml.
 - **A `--primitive` no lane consumes.** `scripts/resolve_standards.py
   --primitive code_directory`, or an unknown name, exits 2 with a usage error.
   No lane applies authored standards for that subject, so its list could only

@@ -520,4 +520,37 @@ claude_md:
         criterion is removed from a copy of the shipped file.
       origin: Surface, finding and follow-up above; milestone M5 of the configurable-standards work.
       added: "2026-10-16"
+    - id: skill_type_criteria_shipped
+      keywords: [skill-type-tag, skill-type-valid, SkillContext, applies gate, MechanicalEvaluator, evaluator context, frontmatter hygiene, deferred row, no pyyaml, M6, shipped standards]
+      summary: "skills-kit 0.93.0 moves skill-type-tag and skill-type-valid out of audit.check_universal and rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria. An evaluator now receives a SkillContext (frontmatter, body, skill dir) and carries an applies gate that decides whether the criterion has a row for the document. Extends shipped_standards_layer_enabled."
+      detail: |
+        Surface: the two skill-type rows were hard-coded in check_universal and
+        catalogued in rule_catalog.RULES as optional description-hygiene rules.
+        The shipped layer evaluated only criteria that read the description
+        string, so they stayed behind when the description rows moved.
+        Finding: the two checks depend on which frontmatter keys exist, not on
+        one value. skill-type-tag has a row only while the tag is absent;
+        skill-type-valid has a row only while it is present. A criterion that is
+        always evaluated cannot express that.
+        Rulings: (1) MechanicalEvaluator.evaluate takes a SkillContext and the
+        effective thresholds; the description evaluators read the description
+        from the context. (2) MechanicalEvaluator.applies(SkillContext) -> bool
+        gates the row. It runs in resolved and deferred modes, reads no
+        threshold, and a criterion it rejects produces no row. (3) The criteria
+        rows are emitted right after the description row whether the
+        description is present or absent, so a SKILL.md without a description
+        still gets its skill-type row. (4) The statements, severities (tag:
+        judgment, valid: fail) and keywords live in the shipped file; the row
+        labels, notes and verdicts are unchanged from the hard-coded block. (5)
+        The catalog counts become 39 optional, 11 inoffensive, 3 architectural.
+        Accepted regression: without pyyaml the shipped file cannot be read, so
+        both rows are deferred judgment-required rows. skill-type-valid on an
+        invalid value is therefore judgment-required, not a FAIL, on a bare
+        interpreter, and the absent-tag row carries the "(deferred)" label. A
+        run under the skills-kit plugin venv is unchanged.
+        Follow-up: none for these ids. Verification: the golden corpus stayed
+        byte-identical, and the shipped-standards regression test fails when
+        skill-type-valid is removed from a copy of the shipped file.
+      origin: Surface, finding and follow-up above; milestone M6 wave 1 of the configurable-standards work.
+      added: "2026-10-16"
 ```

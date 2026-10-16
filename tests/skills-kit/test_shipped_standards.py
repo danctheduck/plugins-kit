@@ -1,11 +1,12 @@
 """The shipped standards layer (skills_kit_lib/defaults/standards/) and the
 mechanical evaluators that serve its criteria.
 
-desc-160-char, desc-directive-form and desc-exclusion-clause are criteria of
-the shipped SKILL-standards.md, evaluated by audit.MECHANICAL_EVALUATORS, and
-absent from rule_catalog.RULES. These tests pin that the file, not the code,
-decides which rows an audit emits (the red-on-revert test drops a criterion
-from a copy of the file), and that every way the layer can be broken is loud.
+desc-160-char, desc-directive-form, desc-exclusion-clause, skill-type-tag and
+skill-type-valid are criteria of the shipped SKILL-standards.md, evaluated by
+audit.MECHANICAL_EVALUATORS, and absent from rule_catalog.RULES. These tests pin
+that the file, not the code, decides which rows an audit emits (the
+red-on-revert tests drop a criterion from a copy of the file), and that every
+way the layer can be broken is loud.
 """
 
 import dataclasses
@@ -25,6 +26,7 @@ from skills_kit_lib import audit as audit_mod
 from skills_kit_lib import rule_catalog
 from skills_kit_lib import standards_resolve as sr
 from skills_kit_lib.audit import FAIL, JUDGMENT, MECHANICAL_EVALUATORS, PASS, audit
+from skills_kit_lib.markdown_heuristics import CANONICAL_TYPES
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = REPO_ROOT / "plugins" / "skills-kit"
@@ -32,7 +34,8 @@ SHIPPED_FILE = PLUGIN / "skills_kit_lib" / "defaults" / "standards" / "SKILL-sta
 REFERENCES_STANDARDS = PLUGIN / "skills" / "md-domain" / "references" / "standards"
 RESOLVE_CLI = PLUGIN / "scripts" / "resolve_standards.py"
 
-SHIPPED_IDS = ["desc-160-char", "desc-directive-form", "desc-exclusion-clause"]
+DESC_IDS = ["desc-160-char", "desc-directive-form", "desc-exclusion-clause"]
+SHIPPED_IDS = [*DESC_IDS, "skill-type-tag", "skill-type-valid"]
 
 
 # ---------------------------------------------------------------------------
@@ -70,12 +73,15 @@ def _write_shipped(tmp_path, mutate):
     return d
 
 
-def _skill(tmp_path, description="Use when doing X. Do NOT use for Y."):
+def _skill(tmp_path, description="Use when doing X. Do NOT use for Y.", skill_type="reference-skill"):
+    """A SKILL.md fixture; description=None or skill_type=None omits that field."""
     d = tmp_path / "subject"
     d.mkdir()
     p = d / "SKILL.md"
+    desc_line = "" if description is None else f"description: {description}\n"
+    type_line = "" if skill_type is None else f"skill-type: {skill_type}\n"
     p.write_text(
-        f"---\nname: subject\ndescription: {description}\nskill-type: reference-skill\n---\n"
+        f"---\nname: subject\n{desc_line}{type_line}---\n"
         "# Subject\n\n## Example\n\nfoo\n\n## Gotcha\n\nbar\n",
         encoding="utf-8",
     )
@@ -96,25 +102,26 @@ def _standards_md(criteria_yaml):
 
 
 # ---------------------------------------------------------------------------
-# where the three criteria live
+# where the five criteria live
 # ---------------------------------------------------------------------------
 
 
-def test_the_three_ids_left_the_catalog_and_nothing_else_did():
+def test_the_five_ids_left_the_catalog_and_nothing_else_did():
     for rid in SHIPPED_IDS:
         assert rid not in rule_catalog.RULES
-    assert "skill-type-tag" in rule_catalog.RULES
-    assert "skill-type-valid" in rule_catalog.RULES
     buckets = [b for b, _g, _d in rule_catalog.RULES.values()]
     assert (buckets.count("optional"), buckets.count("inoffensive"),
-            buckets.count("architectural")) == (41, 11, 3)
+            buckets.count("architectural")) == (39, 11, 3)
 
 
-def test_shipped_file_declares_the_three_mechanical_criteria():
+def test_shipped_file_declares_the_five_mechanical_criteria():
     criteria = _shipped_block()["standards_set"]["criteria"]
     assert [c["id"] for c in criteria] == SHIPPED_IDS
     assert all(c["enforcement"] == "mechanical" for c in criteria)
     assert criteria[0]["threshold"] == {"name": "desc_max_chars", "default": 160}
+    assert {c["id"]: c["severity"] for c in criteria[3:]} == {
+        "skill-type-tag": "judgment", "skill-type-valid": "fail"}
+    assert all(len(c["keywords"]) >= 3 for c in criteria)
     assert "desc_max_chars" not in audit_mod.THRESHOLDS
 
 
@@ -136,10 +143,26 @@ def test_resolve_loads_the_shipped_layer_by_default():
 # ---------------------------------------------------------------------------
 
 
+def test_removing_skill_type_valid_from_the_shipped_file_drops_only_its_row(tmp_path, monkeypatch):
+    """Red on revert: with the extraction undone (the skill-type block back in
+    check_universal), the row survives the file edit and this test fails."""
+    path = _skill(tmp_path)
+    baseline = audit(path)
+    assert "skill-type-valid" in _rows(baseline)
+
+    shipped = _write_shipped(
+        tmp_path, lambda cs: cs.__setitem__(slice(None), [c for c in cs if c["id"] != "skill-type-valid"]))
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", shipped)
+    report = audit(path)
+
+    expected = [r for r in baseline["universal"] if r["rule"] != "skill-type-valid"]
+    assert report["universal"] == expected
+
+
 def test_removing_a_criterion_from_the_shipped_file_drops_only_its_row(tmp_path, monkeypatch):
     path = _skill(tmp_path)
     baseline = audit(path)
-    assert set(SHIPPED_IDS) <= set(_rows(baseline))
+    assert set(DESC_IDS) <= set(_rows(baseline))
 
     def drop_exclusion(cs):
         cs[:] = [c for c in cs if c["id"] != "desc-exclusion-clause"]
@@ -155,7 +178,45 @@ def test_removing_a_criterion_from_the_shipped_file_drops_only_its_row(tmp_path,
 def test_rows_sit_right_after_desc_present_in_file_order(tmp_path):
     rules = [r["rule"] for r in audit(_skill(tmp_path))["universal"]]
     i = rules.index("desc-present")
-    assert rules[i + 1:i + 4] == SHIPPED_IDS
+    assert rules[i + 1:i + 5] == [*DESC_IDS, "skill-type-valid"]
+    assert "skill-type-tag" not in rules
+
+
+def test_each_skill_type_row_appears_only_when_it_applies(tmp_path):
+    """Exact label, note and verdict of the two skill-type rows."""
+    tag = _rows(audit(_skill(tmp_path, skill_type=None)))
+    assert "skill-type-valid" not in tag
+    assert tag["skill-type-tag"] == {
+        "row": "skill-type advisory tag",
+        "verdict": JUDGMENT,
+        "note": "no skill-type frontmatter; agent infers type from content",
+        "rule": "skill-type-tag",
+    }
+
+    ok_dir = tmp_path / "ok"
+    ok_dir.mkdir()
+    ok = _rows(audit(_skill(ok_dir)))
+    assert "skill-type-tag" not in ok
+    assert ok["skill-type-valid"] == {
+        "row": "skill-type value valid", "verdict": PASS,
+        "note": "reference-skill", "rule": "skill-type-valid"}
+
+    bad_dir = tmp_path / "bad"
+    bad_dir.mkdir()
+    bad = _rows(audit(_skill(bad_dir, skill_type="bogus-skill")))
+    assert "skill-type-tag" not in bad
+    row = bad["skill-type-valid"]
+    assert (row["row"], row["verdict"]) == ("skill-type value valid", FAIL)
+    assert row["note"] == f"got 'bogus-skill', expected one of {sorted(CANONICAL_TYPES)}"
+
+
+def test_skill_type_row_is_emitted_when_the_description_is_absent(tmp_path):
+    rows = audit(_skill(tmp_path, description=None))["universal"]
+    rules = [r["rule"] for r in rows]
+    i = rules.index("desc-present")
+    assert rows[i]["verdict"] == FAIL
+    assert rules[i + 1] == "skill-type-valid"
+    assert not set(DESC_IDS) & set(rules)
 
 
 def test_non_fail_severity_reports_judgment_not_fail(tmp_path, monkeypatch):
@@ -172,6 +233,36 @@ def test_non_fail_severity_reports_judgment_not_fail(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # configuration
 # ---------------------------------------------------------------------------
+
+
+def test_skill_type_valid_below_fail_severity_reports_judgment(tmp_path, monkeypatch):
+    def soften(cs):
+        for c in cs:
+            if c["id"] == "skill-type-valid":
+                c["severity"] = "info"
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", _write_shipped(tmp_path, soften))
+    rows = _rows(audit(_skill(tmp_path, skill_type="bogus-skill")))
+    assert rows["skill-type-valid"]["verdict"] == JUDGMENT
+
+
+def test_rules_off_removes_a_skill_type_row(tmp_path):
+    (_user_layer(tmp_path) / "config.yaml").write_text(
+        "rules:\n  skill-type-tag: off\n  skill-type-valid: off\n", encoding="utf-8")
+    resolved = sr.resolve(None)
+    assert resolved.disabled_rules == {"skill-type-tag", "skill-type-valid"}
+    untagged = _rows(audit(_skill(tmp_path, skill_type=None), resolved))
+    assert "skill-type-tag" not in untagged
+    other = tmp_path / "other"
+    other.mkdir()
+    assert "skill-type-valid" not in _rows(audit(_skill(other), resolved))
+    assert "desc-160-char" in untagged
+
+
+def test_skill_type_knobs_stay_valid_when_the_shipped_layer_is_opted_out(tmp_path):
+    (_user_layer(tmp_path) / "config.yaml").write_text(
+        "rules:\n  skill-type-valid: off\n  skill-type-tag: off\n", encoding="utf-8")
+    r = sr.resolve(None, shipped_dir=None)
+    assert r.disabled_rules == {"skill-type-valid", "skill-type-tag"}
 
 
 def test_rules_off_removes_the_row(tmp_path):
@@ -277,6 +368,20 @@ def test_authored_id_repeating_a_shipped_criterion_raises_naming_both(tmp_path):
     layer = _user_layer(tmp_path)
     (layer / "SKILL-standards.md").write_text(_standards_md("""\
         - id: desc-160-char
+          statement: Mine.
+          severity: info
+          keywords: [a, b, c]
+        """), encoding="utf-8")
+    with pytest.raises(sr.StandardsConfigError) as exc:
+        sr.resolve(None)
+    msg = str(exc.value)
+    assert str(SHIPPED_FILE) in msg and str(layer / "SKILL-standards.md") in msg
+
+
+def test_authored_id_repeating_skill_type_tag_raises_naming_both(tmp_path):
+    layer = _user_layer(tmp_path)
+    (layer / "SKILL-standards.md").write_text(_standards_md("""\
+        - id: skill-type-tag
           statement: Mine.
           severity: info
           keywords: [a, b, c]
@@ -428,18 +533,30 @@ def _bare(tmp_path, code):
                           capture_output=True, text=True, env=env, timeout=60)
 
 
-def test_without_pyyaml_the_rows_are_deferred(tmp_path):
-    path = _skill(tmp_path)
+def _bare_rows(tmp_path, path):
     proc = _bare(tmp_path, (
         "import json\nfrom skills_kit_lib.audit import audit\n"
         f"print(json.dumps(audit(__import__('pathlib').Path({str(path)!r}))['universal']))\n"
     ))
     assert proc.returncode == 0, proc.stderr
-    rows = {r["rule"]: r for r in json.loads(proc.stdout)}
-    for rid in SHIPPED_IDS:
+    return {r["rule"]: r for r in json.loads(proc.stdout)}
+
+
+def test_without_pyyaml_the_rows_are_deferred(tmp_path):
+    rows = _bare_rows(tmp_path, _skill(tmp_path))
+    for rid in [*DESC_IDS, "skill-type-valid"]:
         assert rows[rid]["verdict"] == JUDGMENT
         assert "(deferred)" in rows[rid]["row"]
         assert "160" not in rows[rid]["row"]
+    assert rows["skill-type-valid"]["row"] == "skill-type value valid (deferred)"
+    assert "skill-type-tag" not in rows
+
+
+def test_without_pyyaml_an_untagged_skill_gets_only_the_deferred_tag_row(tmp_path):
+    rows = _bare_rows(tmp_path, _skill(tmp_path, skill_type=None))
+    assert rows["skill-type-tag"]["verdict"] == JUDGMENT
+    assert rows["skill-type-tag"]["row"] == "skill-type advisory tag (deferred)"
+    assert "skill-type-valid" not in rows
 
 
 def test_without_pyyaml_a_missing_shipped_file_still_exits_1(tmp_path):

@@ -55,12 +55,10 @@ RULES: dict[str, tuple[str, str, str]] = {
     "mixed-type": ("architectural", "contract", "A SKILL.md declares exactly one skill-type root -- no drift across two type contracts (consumes `mixed_min_score`)."),
     "cross-block-drift": ("architectural", "contract", "Multiple YAML blocks in one document do not disagree about the document's type."),
     # -- optional: description hygiene ------------------------------------
-    # desc-160-char, desc-directive-form and desc-exclusion-clause are not
-    # here: they are criteria of the shipped standards layer
-    # (defaults/standards/SKILL-standards.md), evaluated by
+    # desc-160-char, desc-directive-form, desc-exclusion-clause, skill-type-tag
+    # and skill-type-valid are not here: they are criteria of the shipped
+    # standards layer (defaults/standards/SKILL-standards.md), evaluated by
     # audit.MECHANICAL_EVALUATORS. A criterion id may not repeat a catalog id.
-    "skill-type-tag": ("optional", "description-hygiene", "A `skill-type` advisory tag is present in frontmatter (else the agent infers the type)."),
-    "skill-type-valid": ("optional", "description-hygiene", "The `skill-type` value is one of the canonical skill types."),
     # -- optional: layout ------------------------------------------------
     # Tunability decided 2026-07-29 (md-domain fold): a project may
     # legitimately cluster a large reference set into subdirectories when

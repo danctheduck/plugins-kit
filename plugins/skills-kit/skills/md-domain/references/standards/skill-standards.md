@@ -85,6 +85,12 @@ layer tunes it with `thresholds: {desc_max_chars: <int>}` or switches a
 criterion off with `rules: {<id>: off}` (`../configuring-standards.md`).
 `condition` and `cost_justified` are judgment.
 
+The frontmatter `skill-type` tag has two shipped criteria of the same kind in
+the same file. `skill-type-tag` (judgment) reports a row only when the tag is
+absent: the agent then infers the type from content. `skill-type-valid` (fail)
+reports a row only when the tag is present, and fails a value outside the
+canonical skill types. Each switches off with `rules: {<id>: off}`.
+
 ### 2.2 Schemas are floors, not ceilings
 
 The per-type YAML schemas validate the required minimum: which keys must be
@@ -688,7 +694,7 @@ the same file.
 
 | Criterion id | Standard | Severity | Detection |
 |---|---|---|---|
-| `required_frontmatter` | Required frontmatter fields present and well-formed: `name`, `description`, a valid `skill-type`; name conforms to the lowercase-hyphen pattern. | FAIL | Mechanical, `audit.py` universal-rules section. Missing or malformed frontmatter blocks all downstream analysis. |
+| `required_frontmatter` | Required frontmatter fields present and well-formed: `name`, `description`, a valid `skill-type`; name conforms to the lowercase-hyphen pattern. | FAIL | Mechanical, `audit.py` universal-rules section; the `skill-type` part runs through the shipped criteria `skill-type-tag` (a missing tag is judgment-required) and `skill-type-valid` (an invalid value is a FAIL). Missing or malformed frontmatter blocks all downstream analysis. |
 | `description_quality` | 2.1 -- directive form ("Use when..." / "Invoke when..."), a "Do NOT use for..." exclusion clause contrasting neighbors, at most `desc_max_chars` (default 160) characters. | FAIL | Mechanical, `audit.py`, through the shipped criteria `desc-directive-form`, `desc-exclusion-clause` and `desc-160-char` (`skills_kit_lib/defaults/standards/SKILL-standards.md`). Vague or under-specified descriptions fail to route when the model picks among skills. |
 | `yaml_contract_block` | The body carries a fenced yaml block with the declared skill-type's root key, and it validates against that type's schema (section 6 / the registry). | FAIL | Mechanical schema validator. Captures missing required keys, wrong types, forbidden cross-type keys, contract-floor violations. |
 | `mixed_type_signal` | 5.1 -- exactly one canonical contract root key appears in the body YAML. | FAIL | Mechanical `detect_mixed_type_yaml`. Becomes a judgment finding when the orientation-summary exception applies. |

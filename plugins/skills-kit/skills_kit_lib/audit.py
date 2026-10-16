@@ -90,6 +90,15 @@ class CheckResult:
 
 
 @dataclass(frozen=True)
+class SkillContext:
+    """The parsed SKILL.md a mechanical skill_md evaluator reads."""
+
+    fm: Frontmatter
+    body: Body
+    skill_dir: Path
+
+
+@dataclass(frozen=True)
 class MechanicalEvaluator:
     """The code half of one `enforcement: mechanical` standards criterion.
 
@@ -102,31 +111,61 @@ class MechanicalEvaluator:
       default; standards_resolve rejects any other declaration.
     - deferred_row: the row label emitted when pyyaml is unavailable and the
       criterion cannot be read. It names the threshold, never a default.
-    - evaluate: (description, effective thresholds) -> (row label, passed, note).
+    - applies: SkillContext -> whether the criterion has a row for this
+      document at all. It is checked in both resolved and deferred modes and
+      reads no threshold.
+    - evaluate: (SkillContext, effective thresholds) -> (row label, passed, note).
     """
 
     applies_to: str
     threshold: str | None
     deferred_row: str
-    evaluate: Callable[[str, dict[str, int]], tuple[str, bool, str]]
+    applies: Callable[[SkillContext], bool]
+    evaluate: Callable[[SkillContext, dict[str, int]], tuple[str, bool, str]]
 
 
-def _eval_desc_length(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
+def _has_description(ctx: SkillContext) -> bool:
+    return "description" in ctx.fm.fields
+
+
+def _eval_desc_length(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    desc = ctx.fm.fields["description"]
     limit = th["desc_max_chars"]
     return f"description <= {limit} chars", len(desc) <= limit, f"len={len(desc)}"
 
 
-def _eval_desc_directive(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
-    desc_lc = desc.lower().lstrip()
+def _eval_desc_directive(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    desc_lc = ctx.fm.fields["description"].lower().lstrip()
     directive = desc_lc.startswith("use when") or desc_lc.startswith("invoke when")
     note = "" if directive else "description should open with 'Use when...' or 'Invoke when...'"
     return "directive form ('Use when...' / 'Invoke when...')", directive, note
 
 
-def _eval_desc_exclusion(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
+def _eval_desc_exclusion(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    desc = ctx.fm.fields["description"]
     excl = bool(re.search(r"\bdo not use\b|\bdon'?t use\b", desc, re.IGNORECASE))
     note = "" if excl else "no 'do not use' phrase in description"
     return "exclusion clause (Do NOT use for...)", excl, note
+
+
+def _lacks_skill_type(ctx: SkillContext) -> bool:
+    return "skill-type" not in ctx.fm.fields
+
+
+def _has_skill_type(ctx: SkillContext) -> bool:
+    return "skill-type" in ctx.fm.fields
+
+
+def _eval_skill_type_tag(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    # Applies only while the tag is absent, so this row is never a pass.
+    return "skill-type advisory tag", False, "no skill-type frontmatter; agent infers type from content"
+
+
+def _eval_skill_type_valid(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    val = ctx.fm.fields["skill-type"]
+    if val in CANONICAL_TYPES:
+        return "skill-type value valid", True, val
+    return "skill-type value valid", False, f"got '{val}', expected one of {sorted(CANONICAL_TYPES)}"
 
 
 #: criterion id -> its evaluator. The registry of every id an
@@ -137,15 +176,23 @@ def _eval_desc_exclusion(desc: str, th: dict[str, int]) -> tuple[str, bool, str]
 MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
     "desc-160-char": MechanicalEvaluator(
         "skill_md", "desc_max_chars",
-        "description <= desc_max_chars chars (deferred)", _eval_desc_length,
+        "description <= desc_max_chars chars (deferred)", _has_description, _eval_desc_length,
     ),
     "desc-directive-form": MechanicalEvaluator(
         "skill_md", None,
-        "directive form ('Use when...' / 'Invoke when...') (deferred)", _eval_desc_directive,
+        "directive form ('Use when...' / 'Invoke when...') (deferred)", _has_description, _eval_desc_directive,
     ),
     "desc-exclusion-clause": MechanicalEvaluator(
         "skill_md", None,
-        "exclusion clause (Do NOT use for...) (deferred)", _eval_desc_exclusion,
+        "exclusion clause (Do NOT use for...) (deferred)", _has_description, _eval_desc_exclusion,
+    ),
+    "skill-type-tag": MechanicalEvaluator(
+        "skill_md", None,
+        "skill-type advisory tag (deferred)", _lacks_skill_type, _eval_skill_type_tag,
+    ),
+    "skill-type-valid": MechanicalEvaluator(
+        "skill_md", None,
+        "skill-type value valid (deferred)", _has_skill_type, _eval_skill_type_valid,
     ),
 }
 
@@ -163,10 +210,12 @@ class SkillCriterion:
     severity: str | None
 
 
-def _skill_criterion_rows(desc: str, criteria: Sequence[SkillCriterion], th: dict[str, int]) -> list[CheckResult]:
+def _skill_criterion_rows(ctx: SkillContext, criteria: Sequence[SkillCriterion], th: dict[str, int]) -> list[CheckResult]:
     rows: list[CheckResult] = []
     for crit in criteria:
         evaluator = MECHANICAL_EVALUATORS[crit.id]
+        if not evaluator.applies(ctx):
+            continue
         if crit.severity is None:
             rows.append(CheckResult(
                 evaluator.deferred_row,
@@ -177,7 +226,7 @@ def _skill_criterion_rows(desc: str, criteria: Sequence[SkillCriterion], th: dic
                 rule=crit.id,
             ))
             continue
-        label, passed, note = evaluator.evaluate(desc, th)
+        label, passed, note = evaluator.evaluate(ctx, th)
         if passed:
             verdict = PASS
         elif crit.severity == "fail":
@@ -208,9 +257,10 @@ def check_universal(
     """The universal SKILL.md rows.
 
     skill_criteria is required: the mechanical skill_md standards criteria to
-    evaluate right after the description-present row, in order (see
-    skill_md_criteria). An empty sequence evaluates none -- a caller passes it
-    explicitly, never by omission.
+    evaluate right after the description row (present or absent), in order
+    (see skill_md_criteria); each evaluator's `applies` gate decides whether it
+    has a row for this document. An empty sequence evaluates none -- a caller
+    passes it explicitly, never by omission.
     """
     th = thresholds if thresholds is not None else THRESHOLDS
     out: list[CheckResult] = []
@@ -218,6 +268,7 @@ def check_universal(
         out.append(CheckResult("frontmatter present", FAIL, "no leading --- block", rule="frontmatter-present"))
         return out
     out.append(CheckResult("frontmatter present", PASS, rule="frontmatter-present"))
+    ctx = SkillContext(fm, body, skill_dir)
 
     if "name" not in fm.fields:
         out.append(CheckResult("frontmatter.name present", FAIL, rule="name-present"))
@@ -241,28 +292,8 @@ def check_universal(
     if "description" not in fm.fields:
         out.append(CheckResult("frontmatter.description present", FAIL, rule="desc-present"))
     else:
-        desc = fm.fields["description"]
         out.append(CheckResult("frontmatter.description present", PASS, rule="desc-present"))
-        out.extend(_skill_criterion_rows(desc, skill_criteria, th))
-
-    if "skill-type" not in fm.fields:
-        out.append(CheckResult(
-            "skill-type advisory tag",
-            JUDGMENT,
-            "no skill-type frontmatter; agent infers type from content",
-            rule="skill-type-tag",
-        ))
-    else:
-        val = fm.fields["skill-type"]
-        if val in CANONICAL_TYPES:
-            out.append(CheckResult("skill-type value valid", PASS, val, rule="skill-type-valid"))
-        else:
-            out.append(CheckResult(
-                "skill-type value valid",
-                FAIL,
-                f"got '{val}', expected one of {sorted(CANONICAL_TYPES)}",
-                rule="skill-type-valid",
-            ))
+    out.extend(_skill_criterion_rows(ctx, skill_criteria, th))
 
     out.append(CheckResult("SKILL.md line count", PASS, str(body.lines), rule="body-line-count"))
     out.append(CheckResult("SKILL.md token count (approx)", PASS, str(body.tokens_approx), rule="body-token-count"))

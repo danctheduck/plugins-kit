@@ -1,6 +1,7 @@
 # Shipped SKILL.md standards
 
-The description-hygiene criteria skills-kit ships for every SKILL.md. This file
+The frontmatter-hygiene criteria (description and skill-type) skills-kit
+ships for every SKILL.md. This file
 is layer 0 of the standards configuration: `standards_resolve.resolve()` reads
 it before the user and project layers, and every SKILL.md audit applies the
 criteria below. It must exist; when it is missing, the audit stops with an error
@@ -19,13 +20,17 @@ opinion:
 - `thresholds: {desc_max_chars: <positive int>}` replaces the length limit that
   `desc-160-char` declares below.
 
+Two criteria apply only to some documents: `skill-type-tag` reports a row only
+when the SKILL.md carries no `skill-type` frontmatter, and `skill-type-valid`
+only when it does. The evaluator's `applies` gate decides this, not the file.
+
 An authored standards file may not declare a criterion with one of these ids:
 a criterion id repeated anywhere in the resolved layers is an error.
 
 ```yaml
 standards_set:
   _schema_version: "1"
-  identity: Shipped description-hygiene standards for the frontmatter description of every SKILL.md.
+  identity: Shipped frontmatter-hygiene standards (description and skill-type) for every SKILL.md.
   applies_to: skill_md
   criteria:
     - id: desc-160-char
@@ -45,5 +50,15 @@ standards_set:
       statement: The description carries a "Do NOT use for..." exclusion clause.
       severity: fail
       keywords: [exclusion clause, do not use for, description scope, description hygiene]
+      enforcement: mechanical
+    - id: skill-type-tag
+      statement: A `skill-type` advisory tag is present in frontmatter (else the agent infers the type).
+      severity: judgment
+      keywords: [skill-type tag, advisory tag, skill type frontmatter, frontmatter hygiene]
+      enforcement: mechanical
+    - id: skill-type-valid
+      statement: The `skill-type` value is one of the canonical skill types.
+      severity: fail
+      keywords: [skill-type value, canonical skill types, skill type validity, frontmatter hygiene]
       enforcement: mechanical
 ```

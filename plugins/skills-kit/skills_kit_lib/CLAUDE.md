@@ -221,24 +221,27 @@ claude_md:
       origin: explicit-skill-context plan, unit SC4 (decision SC-D9).
       added: "2026-09-30"
     - id: shipped_standards_criteria_have_evaluators
-      keywords: [shipped standards, defaults/standards, SKILL-standards.md, MECHANICAL_EVALUATORS, mechanical criterion, evaluator registry, threshold_defaults, resolve_shipped, desc-160-char, deferred row]
+      keywords: [shipped standards, defaults/standards, SKILL-standards.md, MECHANICAL_EVALUATORS, mechanical criterion, evaluator registry, threshold_defaults, resolve_shipped, desc-160-char, skill-type-valid, SkillContext, applies gate, deferred row]
       summary: "A rule that moves out of rule_catalog.RULES into the shipped standards layer (defaults/standards/*-standards.md) keeps only its check in code: a MechanicalEvaluator registered in audit.MECHANICAL_EVALUATORS under the criterion id. Statement, severity and any threshold default live in the standards file."
       detail: |
         To move another rule: add the criterion to the shipped file with
         enforcement: mechanical (and `threshold: {name, default}` when the
-        check reads a limit), register the evaluator with the same id, delete
-        the RULES entry (a criterion id may not repeat a catalog id), and run
-        scripts/gen_standards_doc.py. standards_resolve raises when a
+        check reads a limit), register the evaluator with the same id (its
+        `evaluate` takes a SkillContext of frontmatter, body and skill dir, and
+        its `applies` gate decides whether the criterion has a row for that
+        document at all), delete the RULES entry (a criterion id may not repeat
+        a catalog id), and run scripts/gen_standards_doc.py. standards_resolve raises when a
         mechanical criterion has no evaluator, when the evaluator and the
         criterion disagree about the threshold, and when an id repeats.
         audit() resolves after the CLAUDE.md / AGENTS.md dispatch: with no
         `resolved` it applies resolve_shipped(), and without pyyaml it checks
         that the shipped file exists and emits one deferred row per registered
-        evaluator. check_universal takes skill_criteria as a required keyword,
-        so a direct caller states which criteria it evaluates. Provenance:
+        evaluator whose `applies` gate accepts the document. check_universal
+        takes skill_criteria as a required keyword, so a direct caller states
+        which criteria it evaluates. Provenance:
         ../skills/md-domain/references/provenance/standards-decisions.md,
-        shipped_standards_layer_enabled. Pinned by
-        tests/skills-kit/test_shipped_standards.py.
+        shipped_standards_layer_enabled and skill_type_criteria_shipped. Pinned
+        by tests/skills-kit/test_shipped_standards.py.
       origin: skills-kit 0.92.0, milestone M5 of the configurable-standards work.
       added: "2026-10-16"
   conventions:

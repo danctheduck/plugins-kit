@@ -108,8 +108,9 @@ claude_md:
         - skills_kit_lib/standards_resolve.py -- self-contained (stdlib+pyyaml,
           no bootstrap_lib) resolver of the layered standards config.
         - skills_kit_lib/defaults/standards/SKILL-standards.md -- layer 0, the
-          shipped standards (must exist): the mechanical description-hygiene
-          criteria, evaluated by audit.MECHANICAL_EVALUATORS.
+          shipped standards (must exist): the mechanical frontmatter-hygiene
+          criteria (description and skill-type), evaluated by
+          audit.MECHANICAL_EVALUATORS.
         - Layer model, config.yaml format, thresholds, rule catalog, and error
           behavior: skills/md-domain/references/configuring-standards.md.
 
