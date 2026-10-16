@@ -7,8 +7,10 @@ configuration for the artifact type they audit:
 
   - the disabled optional-rule/criterion ids and threshold overrides (threaded
     into the detect lanes as `disabledCriteria` and used by audit.py --config);
-  - the applicable *-standards.md file paths per file-type primitive
-    (threaded per-file as `standardsPaths`).
+  - the applicable user- and project-authored *-standards.md file paths per
+    file-type primitive (threaded per-file as `standardsPaths`). The shipped
+    layer's files are resolved and validated but never listed: their criteria
+    are mechanical, evaluated by audit.py.
 
 Usage:
     python resolve_standards.py --project-root <dir> [--primitive <name> ...]
@@ -135,11 +137,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"resolve_standards: lane_models: {exc}", file=sys.stderr)
         return 1
 
-    by_primitive = resolved.standards_by_primitive
+    # The `standards` map carries USER-AUTHORED files only: the detect lanes
+    # apply each listed file's criteria from its statements, while the shipped
+    # layer's criteria are mechanical and evaluated by audit.py. Listing a
+    # shipped file here would have the detect lane apply them a second time.
+    by_primitive = {
+        prim: [sf for sf in files if sf.layer != "shipped"]
+        for prim, files in resolved.standards_by_primitive.items()
+    }
     if args.primitive:
         wanted = args.primitive
     else:
-        wanted = sorted(by_primitive)
+        wanted = sorted(prim for prim, files in by_primitive.items() if files)
     standards = {
         prim: [str(sf.path) for sf in by_primitive.get(prim, [])]
         for prim in wanted

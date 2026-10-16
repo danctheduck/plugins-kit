@@ -10,7 +10,7 @@ strings.
 import yaml
 
 from skills_kit_lib import rule_catalog
-from skills_kit_lib.audit import THRESHOLDS, audit
+from skills_kit_lib.audit import MECHANICAL_EVALUATORS, THRESHOLDS, audit
 
 
 # The audit report shape: four surfaces carrying CheckResult dicts. universal,
@@ -61,14 +61,15 @@ def test_every_emitted_rule_is_catalogued(tmp_path, minimal_reference_skill, min
         for r in _all_rows(report):
             seen.add(r["rule"])
     assert seen, "no rule ids observed"
-    uncatalogued = seen - set(rule_catalog.BUCKETS)
+    # A shipped standards criterion is evaluated by a registered evaluator and
+    # is deliberately absent from the catalog (its file is its source).
+    uncatalogued = seen - set(rule_catalog.BUCKETS) - set(MECHANICAL_EVALUATORS)
     assert not uncatalogued, f"rule ids missing from rule_catalog.BUCKETS: {sorted(uncatalogued)}"
 
 
 def test_thresholds_have_expected_keys_and_values():
     assert THRESHOLDS == {
         "name_max_chars": 64,
-        "desc_max_chars": 160,
         "body_max_lines": 500,
         "body_max_tokens": 3000,
         "mixed_min_score": 2,
@@ -84,8 +85,8 @@ def test_bucket_values_are_only_the_three_allowed_strings():
 
 def test_helpers_agree_with_catalog():
     assert rule_catalog.is_architectural("yaml-contract") is True
-    assert rule_catalog.is_architectural("desc-160-char") is False
+    assert rule_catalog.is_architectural("skill-type-tag") is False
     assert rule_catalog.is_architectural("nonexistent-rule") is False
     optional = rule_catalog.optional_rule_ids()
-    assert "desc-160-char" in optional
+    assert "skill-type-tag" in optional
     assert all(rule_catalog.BUCKETS[rid] == "optional" for rid in optional)

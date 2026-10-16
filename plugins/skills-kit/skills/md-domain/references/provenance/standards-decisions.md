@@ -370,6 +370,9 @@ claude_md:
         sets and remove `code_directory` from `APPLIES_TO_NOT_CONSUMED`. The
         0.86.0 widening of `applies_to` was narrowed for authored sets in
         0.87.0.
+        Superseded note: "`shipped_dir` remains unused" stopped being true in
+        skills-kit 0.92.0, which enables it on a dedicated directory rather
+        than through either prerequisite; see shipped_standards_layer_enabled.
         Verification was behavioural, not a prompt-string assertion: the same
         fixture assessed with the criterion enabled returned COVERAGE-ASSESSED
         with no candidates, and with the id disabled returned GAPS-FOUND with the
@@ -451,7 +454,9 @@ claude_md:
         *-standards.md layer file exists on disk, because narrowing then
         silently ignores a configured admitted_endpoints. It returns the empty
         admission, with no message, only when no layer file exists. Every other
-        caller stops.
+        caller stops, except the audit's shipped-layer path, which degrades to
+        deferred judgment-required rows (see shipped_standards_layer_enabled,
+        ruling 5).
         (4) `--primitive code_directory`. The answer was always `[]`, because
         authored code_directory sets are rejected at load. A --primitive in
         APPLIES_TO_NOT_CONSUMED, or an unknown name, is a usage error.
@@ -466,4 +471,53 @@ claude_md:
         md-domain-review.md references).
       origin: Surface, finding and follow-up above; user ruling 2026-10-02.
       added: "2026-10-02"
+    - id: shipped_standards_layer_enabled
+      keywords: [shipped_dir enabled, layer 0, SHIPPED_STANDARDS_DIR, defaults/standards, SKILL-standards.md, MECHANICAL_EVALUATORS, desc-160-char, desc_max_chars, criterion-declared threshold, duplicate criterion id, mechanical without evaluator, M5]
+      summary: "skills-kit 0.92.0 enables resolve()'s shipped_dir on a dedicated directory, skills_kit_lib/defaults/standards/, holding only SKILL-standards.md. desc-160-char, desc-directive-form and desc-exclusion-clause moved out of rule_catalog.RULES into that file as mechanical criteria evaluated by audit.MECHANICAL_EVALUATORS; the 160 default moved into the criterion. Supersedes \"shipped_dir remains unused\" in coverage_criteria_configurable_by_id."
+      detail: |
+        Surface: the three description-hygiene rows were hard-coded in
+        audit.check_universal, with the 160 limit in audit.THRESHOLDS and the
+        statements in rule_catalog.RULES. The schema already allowed
+        `enforcement: mechanical`, but nothing evaluated an authored mechanical
+        criterion, so the standards file was not the source of truth its owner
+        doc claimed.
+        Finding: coverage_criteria_configurable_by_id showed pointing
+        shipped_dir at references/standards/ is fatal (documents without a
+        standards_set block; coverage-standards.md's code_directory). A
+        dedicated directory holding only SKILL-standards.md avoids both causes
+        without narrowing the glob, which would silently skip a user file that
+        lost its block. The directory sits inside skills_kit_lib/ because
+        bootstrap's shared_libs step copies only that package, the same reason
+        defaults/lane_models.yaml lives there.
+        Rulings (orchestrator D0-D2 plus a cross-check's amendments):
+        (1) resolve() defaults shipped_dir to SHIPPED_STANDARDS_DIR; None opts
+        out; a missing directory or SKILL-standards.md raises, and every SKILL.md
+        audit exits 1. (2) The default lives in the criterion
+        (`threshold: {name: desc_max_chars, default: 160}`); overrides are
+        validated against audit.THRESHOLDS plus criterion-declared thresholds;
+        a declaration that is malformed, not the one its evaluator reads, on a
+        non-mechanical criterion, equal to a built-in threshold, or declared
+        twice raises. (3) A criterion id repeated within a list, across files,
+        layers or subjects, or equal to any rule_catalog id raises, naming both
+        sources. (4) A mechanical criterion with no registered evaluator
+        raises. (5) Without pyyaml the audit verifies the shipped file exists
+        and emits one deferred judgment-required row per registered evaluator,
+        assuming no severity or default; --config stays loud. Standards are
+        resolved only after the CLAUDE.md / AGENTS.md dispatch. (6) A plain
+        audit (no --config) applies the shipped layer alone, so its output
+        depends on the install only. (7) resolve_standards.py keeps shipped
+        files out of its `standards` map, so the detect lanes do not apply the
+        mechanical criteria a second time; emit_audit_jobs opts out with
+        shipped_dir=None; evidence_pack propagates a configuration or
+        shipped-file error and degrades only on a missing pyyaml.
+        A consequence of (7): with the shipped layer opted out, a config that
+        disables desc-160-char or tunes desc_max_chars must still resolve, so
+        every registered evaluator's id and threshold name is accepted as a
+        knob whether or not its layer was read.
+        Follow-up: skill-type-tag and skill-type-valid stay in the catalog;
+        they are the next candidates. Verification: the golden corpus stayed
+        byte-identical, and the shipped-standards regression test fails when a
+        criterion is removed from a copy of the shipped file.
+      origin: Surface, finding and follow-up above; milestone M5 of the configurable-standards work.
+      added: "2026-10-16"
 ```

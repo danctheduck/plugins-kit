@@ -19,7 +19,8 @@ claude_md:
       - checks (owner_doc validation and other corpus-level rules)
       - audit / classify / tag (per-skill CLI utilities, invoked via `python -m skills_kit_lib.<module>`)
       - no stdlib-only YAML parsing (dependency posture lives in the parent CLAUDE.md)
-      - rule_catalog / standards_resolve (the optional-rule catalog and the layered user/project standards resolver)
+      - rule_catalog / standards_resolve (the optional-rule catalog and the layered shipped/user/project standards resolver)
+      - defaults/standards (the shipped standards layer) and audit.MECHANICAL_EVALUATORS (its evaluators)
       - schemas/standards (the standards_set portable unit)
       - dirwalk (the shared depth-limited cwd-downward directory walk used by the audit discover scripts)
     excludes:
@@ -219,6 +220,27 @@ claude_md:
         and tests/skills-kit/test_skills_kit_bootstrap_manifest.py.
       origin: explicit-skill-context plan, unit SC4 (decision SC-D9).
       added: "2026-09-30"
+    - id: shipped_standards_criteria_have_evaluators
+      keywords: [shipped standards, defaults/standards, SKILL-standards.md, MECHANICAL_EVALUATORS, mechanical criterion, evaluator registry, threshold_defaults, resolve_shipped, desc-160-char, deferred row]
+      summary: "A rule that moves out of rule_catalog.RULES into the shipped standards layer (defaults/standards/*-standards.md) keeps only its check in code: a MechanicalEvaluator registered in audit.MECHANICAL_EVALUATORS under the criterion id. Statement, severity and any threshold default live in the standards file."
+      detail: |
+        To move another rule: add the criterion to the shipped file with
+        enforcement: mechanical (and `threshold: {name, default}` when the
+        check reads a limit), register the evaluator with the same id, delete
+        the RULES entry (a criterion id may not repeat a catalog id), and run
+        scripts/gen_standards_doc.py. standards_resolve raises when a
+        mechanical criterion has no evaluator, when the evaluator and the
+        criterion disagree about the threshold, and when an id repeats.
+        audit() resolves after the CLAUDE.md / AGENTS.md dispatch: with no
+        `resolved` it applies resolve_shipped(), and without pyyaml it checks
+        that the shipped file exists and emits one deferred row per registered
+        evaluator. check_universal takes skill_criteria as a required keyword,
+        so a direct caller states which criteria it evaluates. Provenance:
+        ../skills/md-domain/references/provenance/standards-decisions.md,
+        shipped_standards_layer_enabled. Pinned by
+        tests/skills-kit/test_shipped_standards.py.
+      origin: skills-kit 0.92.0, milestone M5 of the configurable-standards work.
+      added: "2026-10-16"
   conventions:
     - rule: When extending heuristics, modify markdown_heuristics.py first; audit.py and classify.py both import from there.
       keywords: [SSOT, markdown_heuristics, helper extraction, drift]

@@ -42,7 +42,8 @@ def _make(tmp_path, *, words: int, references: bool):
     body_text = HEADER + " ".join(f"word{i}" for i in range(words)) + "\n"
     fm = parse_frontmatter(body_text)
     body = parse_body(body_text)
-    return check_universal(fm, body, skill_dir)
+    # The shipped description criteria are irrelevant to this row.
+    return check_universal(fm, body, skill_dir, skill_criteria=())
 
 
 def test_small_body_is_na(tmp_path):

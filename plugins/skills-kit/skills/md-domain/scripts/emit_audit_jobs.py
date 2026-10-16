@@ -240,7 +240,11 @@ def resolve_admitted_endpoints(project_root: Path | None) -> frozenset[str]:
     except ImportError:
         return frozenset()
     try:
-        resolved = standards_resolve.resolve(project_root)
+        # shipped_dir=None: this reads the adapters block only, so it opts out
+        # of the shipped standards layer explicitly; its criterion ids and
+        # thresholds stay valid config knobs (standards_resolve accepts every
+        # registered evaluator's id and threshold).
+        resolved = standards_resolve.resolve(project_root, shipped_dir=None)
     except standards_resolve.StandardsUnavailableError:
         if standards_resolve.existing_layer_files(project_root):
             raise

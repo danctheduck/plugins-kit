@@ -28,7 +28,7 @@ every layer (a later layer appends, never replaces).
 
 | # | Location | Kind | Durability |
 |---|----------|------|------------|
-| 0 | shipped defaults (inside the plugin) | config + standards | the reference set; ships with the plugin |
+| 0 | `skills_kit_lib/defaults/standards/` (inside the plugin) | shipped standards | ships with the plugin; must exist |
 | 1 | `<user_dir>/skills-kit/config.yaml` + `*-standards.md` | config + standards | version-controlled in the user's `~/.claude` repo -> fleet-wide |
 | 2 | `<user_dir>/skills-kit/config.local.yaml` | config only | gitignored per-machine overlay |
 | 3 | `<project>/.claude/skills-kit/config.yaml` + `*-standards.md` | config + standards | committed to the project -> team-wide |
@@ -36,6 +36,13 @@ every layer (a later layer appends, never replaces).
 
 `<user_dir>` is `$CLAUDE_CONFIG_DIR` when set, else `~/.claude` (the harness
 config directory).
+
+Layer 0 holds `SKILL-standards.md`, which declares the description-hygiene
+criteria every SKILL.md audit applies (see "Shipped standards criteria" in the
+catalog below). It is part of the install: when the file is missing, every
+SKILL.md audit stops with an error instead of skipping those rows. A plain
+`audit.py` run without `--config` applies layer 0 alone; `--config` and
+`scripts/resolve_standards.py` apply every layer.
 
 Durability rationale, one line each:
 
@@ -146,6 +153,13 @@ run proposes, not what an `audit` run reports. The two surfaces read the same
 `rules:` block and the same id namespace -- see "Worked example: disable a
 coverage criterion" above.
 
+The shipped standards criteria have a table of their own. They are not
+catalog rules: the shipped `SKILL-standards.md` declares each one (statement,
+severity, and any threshold default), and a registered `audit.py` evaluator,
+keyed by the criterion id, performs the check. They take the same
+`rules: {<id>: off}` key, and a threshold one of them declares takes the same
+`thresholds:` key as a built-in threshold.
+
 <!-- BEGIN GENERATED: rule-catalog (gen_standards_doc.py; SSOT: rule_catalog.py + audit.py THRESHOLDS) -->
 
 ### Architectural -- never configurable
@@ -163,9 +177,6 @@ through `audit-framework.yaml`.
 
 | Rule id | Meaning |
 |---------|---------|
-| `desc-160-char` | The description frontmatter field is at most `desc_max_chars` characters. |
-| `desc-directive-form` | The description opens with "Use when..." or "Invoke when...". |
-| `desc-exclusion-clause` | The description carries a "Do NOT use for..." exclusion clause. |
 | `skill-type-tag` | A `skill-type` advisory tag is present in frontmatter (else the agent infers the type). |
 | `skill-type-valid` | The `skill-type` value is one of the canonical skill types. |
 | `refs-one-hop-deep` | `references/` is one hop deep, except that a nested reference file counts as one hop when SKILL.md's `index.references[]` declares that file's own relative path or its containing directory. |
@@ -208,6 +219,18 @@ through `audit-framework.yaml`.
 | `evidence-floor` | CV-7: every candidate cites a file and line observed in source; a convention needs two or more instances or one authoritative source. |
 | `present-content-not-re-audited` | CV-8: coverage judges absent facts only and never evaluates content already present. |
 
+### Optional -- shipped standards criteria, disableable via `rules: {<id>: off}`
+
+Declared in the shipped standards layer, `skills_kit_lib/defaults/standards/`,
+and evaluated by a registered `audit.py` evaluator. The standards file is the
+source of each statement, severity and threshold default.
+
+| Criterion id | Subject | Severity | Statement |
+|--------------|---------|----------|-----------|
+| `desc-160-char` | `skill_md` | fail | The description frontmatter field is at most `desc_max_chars` characters. |
+| `desc-directive-form` | `skill_md` | fail | The description opens with "Use when..." or "Invoke when...". |
+| `desc-exclusion-clause` | `skill_md` | fail | The description carries a "Do NOT use for..." exclusion clause. |
+
 ### Inoffensive -- no knob
 
 Mechanical integrity checks. The razor: disabling one could never make a correct
@@ -230,16 +253,17 @@ document, so they carry no config knob.
 ## Thresholds
 
 Six named thresholds carry the numeric limits some rules apply. Override any of
-them in `thresholds:`; an override must be a positive integer.
+them in `thresholds:`; an override must be a positive integer. A threshold
+declared by a shipped criterion takes its default from that criterion.
 
 | Threshold | Default | Consumed by |
 |-----------|---------|-------------|
 | `name_max_chars` | 64 | `name-length` |
-| `desc_max_chars` | 160 | `desc-160-char` |
 | `body_max_lines` | 500 | `body-size-signal`, `claude-md-size-signal` |
 | `body_max_tokens` | 3000 | `body-size-signal`, `claude-md-size-signal` |
 | `mixed_min_score` | 2 | `mixed-type` |
 | `import_max_lines` | 50 | `claude-md-import-size` |
+| `desc_max_chars` | 160 | `desc-160-char` (declared by the criterion) |
 
 <!-- END GENERATED: rule-catalog -->
 
@@ -328,7 +352,11 @@ behaviour, disable a shipped criterion with `rules: {<id>: off}`. Standards
 files live in a layer directory (user or
 project, not the gitignored `config.local.yaml` overlay) and union across every
 layer. Each criterion carries a stable `id`, a `statement`, a `severity`, and a
-keyword cluster. For the full block schema, the severity and enforcement
+keyword cluster. A criterion id is unique across every resolved layer, the
+shipped one included, and may not repeat a built-in rule id. The
+`standards` map that `scripts/resolve_standards.py` prints lists user- and
+project-authored files only: the shipped layer's criteria are mechanical, and
+`audit.py` evaluates them. For the full block schema, the severity and enforcement
 semantics, and a complete example, see
 [authoring-standards.md](authoring-standards.md).
 
@@ -390,11 +418,29 @@ degrading to an empty config, and the message names the problem:
 - **An invalid standards file.** A `*-standards.md` whose `standards_set:` block
   is missing or fails schema validation raises an error naming the path and the
   validation failure.
+- **A repeated criterion id.** A criterion id that appears twice in one
+  `criteria:` list, in two files, in two layers, or under two subjects, or that
+  equals a built-in rule id (including a shipped criterion such as
+  `desc-160-char`), raises an error naming both sources.
+- **A mechanical criterion nothing evaluates.** `enforcement: mechanical` on a
+  criterion whose id has no registered evaluator raises an error. Declare it
+  `enforcement: judgment` so the detect lane applies its statement.
+- **A bad threshold declaration.** A criterion `threshold:` that names a
+  threshold its evaluator does not read, that a non-mechanical criterion
+  declares, whose default is not a positive integer, that repeats a built-in
+  threshold, or that two criteria declare, raises an error naming the
+  criterion.
+- **Shipped standards missing.** When `skills_kit_lib/defaults/standards/`
+  or its `SKILL-standards.md` is absent, resolution and every SKILL.md audit
+  exit 1 naming the path. The install is incomplete; reinstall or update the
+  plugin.
 - **pyyaml unavailable.** Resolution raises an error naming the missing
   dependency and the skills-kit plugin venv to run under, and
   `scripts/resolve_standards.py` exits 1. It does not fall back to defaults:
-  an unread config would look identical to an empty one. (The audit's own
-  contract-staged state, without `--config`, is unaffected.)
+  an unread config would look identical to an empty one. The audit without
+  `--config` still runs in its contract-staged state, and reports each shipped
+  criterion as a deferred judgment-required row: the shipped file cannot be
+  read, so neither its severity nor its threshold default is assumed.
 - **A `--primitive` no lane consumes.** `scripts/resolve_standards.py
   --primitive code_directory`, or an unknown name, exits 2 with a usage error.
   No lane applies authored standards for that subject, so its list could only
@@ -411,4 +457,6 @@ degrading to an empty config, and the message names the problem:
 ## Source of truth
 
 The rule-id catalog and threshold table above are generated; do not edit the
-marked region by hand.
+marked region by hand. Their sources are `skills_kit_lib/rule_catalog.py`, the
+built-in `THRESHOLDS` in `skills_kit_lib/audit.py`, and the shipped
+`skills_kit_lib/defaults/standards/SKILL-standards.md`.

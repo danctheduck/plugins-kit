@@ -107,6 +107,9 @@ claude_md:
           bucket / description.
         - skills_kit_lib/standards_resolve.py -- self-contained (stdlib+pyyaml,
           no bootstrap_lib) resolver of the layered standards config.
+        - skills_kit_lib/defaults/standards/SKILL-standards.md -- layer 0, the
+          shipped standards (must exist): the mechanical description-hygiene
+          criteria, evaluated by audit.MECHANICAL_EVALUATORS.
         - Layer model, config.yaml format, thresholds, rule catalog, and error
           behavior: skills/md-domain/references/configuring-standards.md.
 
@@ -241,7 +244,8 @@ claude_md:
         - The md-domain lane scripts (scripts/discover_*.py, references_audit.py,
           report.py) are stdlib-only entry points invoked by the lanes themselves.
         - Outside the venv (bare system Python): audit.py runs but reports
-          judgment-required on the YAML contract row. classify.py and tag.py operate
+          judgment-required on the YAML contract row and on each shipped
+          standards criterion row (deferred). classify.py and tag.py operate
           on frontmatter and a regex-detected YAML root key; they do not need pyyaml.
           material.py does not degrade: without bootstrap_lib or pyyaml it prints a
           diagnosis and exits 3. Neither do resolve_standards.py and

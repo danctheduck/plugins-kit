@@ -1,6 +1,9 @@
 """Regenerate the generated section of configuring-standards.md from its
 single sources of truth: skills_kit_lib/rule_catalog.py (rule ids, buckets,
-descriptions) and skills_kit_lib/audit.py THRESHOLDS (threshold defaults).
+descriptions), skills_kit_lib/audit.py THRESHOLDS (built-in threshold
+defaults), and the shipped standards layer skills_kit_lib/defaults/standards/
+(shipped criteria and the thresholds they declare). Reading the shipped layer
+needs pyyaml, so run it under the repo's dev environment.
 
     uv run python plugins/skills-kit/scripts/gen_standards_doc.py          # rewrite in place
     uv run python plugins/skills-kit/scripts/gen_standards_doc.py --check  # exit 1 on drift, no writes
@@ -20,6 +23,7 @@ sys.path.insert(0, str(PLUGIN_ROOT))
 
 from skills_kit_lib import rule_catalog  # noqa: E402
 from skills_kit_lib.audit import THRESHOLDS  # noqa: E402
+from skills_kit_lib.standards_resolve import resolve_shipped  # noqa: E402
 
 DOC = PLUGIN_ROOT / "skills" / "md-domain" / "references" / "configuring-standards.md"
 
@@ -41,7 +45,30 @@ def _rows(bucket: str) -> list[str]:
     ]
 
 
+def _shipped():
+    """(criterion rows, threshold rows) from the shipped standards layer."""
+    shipped = resolve_shipped()
+    criteria: list[str] = []
+    consumers: dict[str, str] = {}
+    for files in shipped.standards_by_primitive.values():
+        for sf in files:
+            for c in sf.criteria:
+                criteria.append(
+                    f"| `{c['id']}` | `{sf.applies_to}` | {c['severity']} | {c['statement']} |"
+                )
+                th = c.get("threshold")
+                if th:
+                    consumers[th["name"]] = f"`{c['id']}`"
+    thresholds = [
+        f"| `{name}` | {default} | {consumers[name]} (declared by the criterion) |"
+        for name, default in shipped.threshold_defaults.items()
+    ]
+    return criteria, thresholds
+
+
 def render() -> str:
+    shipped_criteria, shipped_thresholds = _shipped()
+    total = len(THRESHOLDS) + len(shipped_thresholds)
     lines: list[str] = [BEGIN_MARK, ""]
 
     lines += [
@@ -60,6 +87,16 @@ def render() -> str:
         "|---------|---------|",
         *_rows("optional"),
         "",
+        "### Optional -- shipped standards criteria, disableable via `rules: {<id>: off}`",
+        "",
+        "Declared in the shipped standards layer, `skills_kit_lib/defaults/standards/`,",
+        "and evaluated by a registered `audit.py` evaluator. The standards file is the",
+        "source of each statement, severity and threshold default.",
+        "",
+        "| Criterion id | Subject | Severity | Statement |",
+        "|--------------|---------|----------|-----------|",
+        *shipped_criteria,
+        "",
         "### Inoffensive -- no knob",
         "",
         "Mechanical integrity checks. The razor: disabling one could never make a correct",
@@ -71,9 +108,10 @@ def render() -> str:
         "",
         "## Thresholds",
         "",
-        f"{_NUMBER_WORDS.get(len(THRESHOLDS), str(len(THRESHOLDS)))} named thresholds"
+        f"{_NUMBER_WORDS.get(total, str(total))} named thresholds"
         " carry the numeric limits some rules apply. Override any of",
-        "them in `thresholds:`; an override must be a positive integer.",
+        "them in `thresholds:`; an override must be a positive integer. A threshold",
+        "declared by a shipped criterion takes its default from that criterion.",
         "",
         "| Threshold | Default | Consumed by |",
         "|-----------|---------|-------------|",
@@ -81,6 +119,7 @@ def render() -> str:
             f"| `{name}` | {THRESHOLDS[name]} | {rule_catalog.THRESHOLD_CONSUMERS[name]} |"
             for name in THRESHOLDS
         ],
+        *shipped_thresholds,
         "",
         END_MARK,
     ]

@@ -76,6 +76,15 @@ five rules. These are checked first (after the mixed-type check).
 | `cost_justified` | Cost-justified. | Every skill load is tokens and a tool-call boundary. A trigger that fires on topical adjacency ("...for any Python work...", "...whenever you read code...") burns tool calls without bringing value. |
 | `exclusion_clause` | Exclusion clause present: append a "Do NOT use for..." clause. | Positive triggers alone do not bound activation; the exclusion is what keeps adjacent skills from triggering each other's loads. |
 
+`length`, `form` and `exclusion_clause` are checked mechanically. They are the
+shipped standards criteria `desc-160-char`, `desc-directive-form` and
+`desc-exclusion-clause`, declared in
+`skills_kit_lib/defaults/standards/SKILL-standards.md` and evaluated by
+`audit.py`. The 160-character limit is that file's `desc_max_chars` default; a
+layer tunes it with `thresholds: {desc_max_chars: <int>}` or switches a
+criterion off with `rules: {<id>: off}` (`../configuring-standards.md`).
+`condition` and `cost_justified` are judgment.
+
 ### 2.2 Schemas are floors, not ceilings
 
 The per-type YAML schemas validate the required minimum: which keys must be
@@ -680,7 +689,7 @@ the same file.
 | Criterion id | Standard | Severity | Detection |
 |---|---|---|---|
 | `required_frontmatter` | Required frontmatter fields present and well-formed: `name`, `description`, a valid `skill-type`; name conforms to the lowercase-hyphen pattern. | FAIL | Mechanical, `audit.py` universal-rules section. Missing or malformed frontmatter blocks all downstream analysis. |
-| `description_quality` | 2.1 -- directive form ("Use when..." / "Invoke when..."), a "Do NOT use for..." exclusion clause contrasting neighbors, <=160 characters. | FAIL | Mechanical, `audit.py`. Vague or under-specified descriptions fail to route when the model picks among skills. |
+| `description_quality` | 2.1 -- directive form ("Use when..." / "Invoke when..."), a "Do NOT use for..." exclusion clause contrasting neighbors, at most `desc_max_chars` (default 160) characters. | FAIL | Mechanical, `audit.py`, through the shipped criteria `desc-directive-form`, `desc-exclusion-clause` and `desc-160-char` (`skills_kit_lib/defaults/standards/SKILL-standards.md`). Vague or under-specified descriptions fail to route when the model picks among skills. |
 | `yaml_contract_block` | The body carries a fenced yaml block with the declared skill-type's root key, and it validates against that type's schema (section 6 / the registry). | FAIL | Mechanical schema validator. Captures missing required keys, wrong types, forbidden cross-type keys, contract-floor violations. |
 | `mixed_type_signal` | 5.1 -- exactly one canonical contract root key appears in the body YAML. | FAIL | Mechanical `detect_mixed_type_yaml`. Becomes a judgment finding when the orientation-summary exception applies. |
 | `ccp_placement` | 3 / CCP -- SKILL.md content belongs there only when it changes with the skill's contract. Project-convention content belongs in the co-located CLAUDE.md. | JUDGMENT | Judgment per `cohesion-principles` `per_artifact_role.skill_md.audit_rules`: does this content change with the skill's contract or with project conventions? |

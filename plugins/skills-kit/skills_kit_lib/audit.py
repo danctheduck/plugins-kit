@@ -19,7 +19,7 @@ import sys
 from urllib.parse import unquote
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Sequence
 
 from .document_walker import (
     extract_claude_md_unit,
@@ -66,12 +66,14 @@ FAIL = "fail"
 JUDGMENT = "judgment-required"
 NA = "n/a"
 
-# Centralized threshold literals. Each is referenced by lookup below (and, from
-# M2 on, overlaid by resolved standards config) rather than being hard-coded at
-# the check site.
+# Centralized threshold literals for the rules audit.py hard-codes. Each is
+# referenced by lookup below (and overlaid by resolved standards config) rather
+# than being hard-coded at the check site. A threshold a SHIPPED STANDARDS
+# CRITERION consumes is not listed here: its default lives in that criterion's
+# `threshold:` declaration (skills_kit_lib/defaults/standards/), and
+# standards_resolve reports it as ResolvedStandards.threshold_defaults.
 THRESHOLDS = {
     "name_max_chars": 64,
-    "desc_max_chars": 160,
     "body_max_lines": 500,
     "body_max_tokens": 3000,
     "mixed_min_score": 2,
@@ -85,6 +87,105 @@ class CheckResult:
     verdict: str
     note: str = ""
     rule: str = ""
+
+
+@dataclass(frozen=True)
+class MechanicalEvaluator:
+    """The code half of one `enforcement: mechanical` standards criterion.
+
+    The criterion (id, statement, severity, threshold default) lives in a
+    standards file; this record carries only what code must supply:
+
+    - applies_to: the file-type primitive whose audit runs the evaluator.
+    - threshold: the threshold name the evaluator reads from the effective
+      thresholds, or None. The criterion must declare exactly this name with a
+      default; standards_resolve rejects any other declaration.
+    - deferred_row: the row label emitted when pyyaml is unavailable and the
+      criterion cannot be read. It names the threshold, never a default.
+    - evaluate: (description, effective thresholds) -> (row label, passed, note).
+    """
+
+    applies_to: str
+    threshold: str | None
+    deferred_row: str
+    evaluate: Callable[[str, dict[str, int]], tuple[str, bool, str]]
+
+
+def _eval_desc_length(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
+    limit = th["desc_max_chars"]
+    return f"description <= {limit} chars", len(desc) <= limit, f"len={len(desc)}"
+
+
+def _eval_desc_directive(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
+    desc_lc = desc.lower().lstrip()
+    directive = desc_lc.startswith("use when") or desc_lc.startswith("invoke when")
+    note = "" if directive else "description should open with 'Use when...' or 'Invoke when...'"
+    return "directive form ('Use when...' / 'Invoke when...')", directive, note
+
+
+def _eval_desc_exclusion(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
+    excl = bool(re.search(r"\bdo not use\b|\bdon'?t use\b", desc, re.IGNORECASE))
+    note = "" if excl else "no 'do not use' phrase in description"
+    return "exclusion clause (Do NOT use for...)", excl, note
+
+
+#: criterion id -> its evaluator. The registry of every id an
+#: `enforcement: mechanical` criterion may carry: standards_resolve rejects a
+#: mechanical criterion whose id is not a key here. Declaration order is the
+#: deferred-row order when pyyaml is unavailable; with pyyaml the rows follow
+#: the standards file's criterion order.
+MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
+    "desc-160-char": MechanicalEvaluator(
+        "skill_md", "desc_max_chars",
+        "description <= desc_max_chars chars (deferred)", _eval_desc_length,
+    ),
+    "desc-directive-form": MechanicalEvaluator(
+        "skill_md", None,
+        "directive form ('Use when...' / 'Invoke when...') (deferred)", _eval_desc_directive,
+    ),
+    "desc-exclusion-clause": MechanicalEvaluator(
+        "skill_md", None,
+        "exclusion clause (Do NOT use for...) (deferred)", _eval_desc_exclusion,
+    ),
+}
+
+
+@dataclass(frozen=True)
+class SkillCriterion:
+    """One mechanical skill_md criterion check_universal evaluates.
+
+    severity is the criterion's declared severity (fail | info | judgment), or
+    None when the criterion could not be read (no pyyaml): the row is then a
+    deferred judgment-required row.
+    """
+
+    id: str
+    severity: str | None
+
+
+def _skill_criterion_rows(desc: str, criteria: Sequence[SkillCriterion], th: dict[str, int]) -> list[CheckResult]:
+    rows: list[CheckResult] = []
+    for crit in criteria:
+        evaluator = MECHANICAL_EVALUATORS[crit.id]
+        if crit.severity is None:
+            rows.append(CheckResult(
+                evaluator.deferred_row,
+                JUDGMENT,
+                "pyyaml unavailable: the shipped standards file cannot be read, so this "
+                "criterion's severity and threshold are unresolved; run under the "
+                "skills-kit plugin venv to evaluate it",
+                rule=crit.id,
+            ))
+            continue
+        label, passed, note = evaluator.evaluate(desc, th)
+        if passed:
+            verdict = PASS
+        elif crit.severity == "fail":
+            verdict = FAIL
+        else:
+            verdict = JUDGMENT
+        rows.append(CheckResult(label, verdict, note, rule=crit.id))
+    return rows
 
 
 def has_identity_sentence(body_text: str) -> bool:
@@ -101,7 +202,16 @@ def check_universal(
     body: Body,
     skill_dir: Path,
     thresholds: dict[str, int] | None = None,
+    *,
+    skill_criteria: Sequence[SkillCriterion],
 ) -> list[CheckResult]:
+    """The universal SKILL.md rows.
+
+    skill_criteria is required: the mechanical skill_md standards criteria to
+    evaluate right after the description-present row, in order (see
+    skill_md_criteria). An empty sequence evaluates none -- a caller passes it
+    explicitly, never by omission.
+    """
     th = thresholds if thresholds is not None else THRESHOLDS
     out: list[CheckResult] = []
     if fm is None:
@@ -133,27 +243,7 @@ def check_universal(
     else:
         desc = fm.fields["description"]
         out.append(CheckResult("frontmatter.description present", PASS, rule="desc-present"))
-        out.append(CheckResult(
-            f"description <= {th['desc_max_chars']} chars",
-            PASS if len(desc) <= th["desc_max_chars"] else FAIL,
-            f"len={len(desc)}",
-            rule="desc-160-char",
-        ))
-        desc_lc = desc.lower().lstrip()
-        directive = desc_lc.startswith("use when") or desc_lc.startswith("invoke when")
-        out.append(CheckResult(
-            "directive form ('Use when...' / 'Invoke when...')",
-            PASS if directive else FAIL,
-            "description should open with 'Use when...' or 'Invoke when...'" if not directive else "",
-            rule="desc-directive-form",
-        ))
-        excl = bool(re.search(r"\bdo not use\b|\bdon'?t use\b", desc, re.IGNORECASE))
-        out.append(CheckResult(
-            "exclusion clause (Do NOT use for...)",
-            PASS if excl else FAIL,
-            "no 'do not use' phrase in description" if not excl else "",
-            rule="desc-exclusion-clause",
-        ))
+        out.extend(_skill_criterion_rows(desc, skill_criteria, th))
 
     if "skill-type" not in fm.fields:
         out.append(CheckResult(
@@ -1197,6 +1287,45 @@ def audit_claude_md(
     }
 
 
+def skill_md_criteria(
+    resolved: "ResolvedStandards | None",
+) -> tuple[list[SkillCriterion], dict[str, int]]:
+    """The mechanical skill_md criteria to evaluate, and their threshold defaults.
+
+    - resolved given: its skill_md standards files, in layer then file order,
+      keeping each `enforcement: mechanical` criterion (standards_resolve has
+      already rejected any without a registered evaluator).
+    - resolved None, pyyaml available: the shipped layer alone
+      (standards_resolve.resolve_shipped), so a plain audit stays deterministic
+      and ignores user and project layers.
+    - resolved None, no pyyaml: the shipped file cannot be parsed. Its presence
+      is still verified, and each registered skill_md evaluator yields a
+      deferred row; no criterion default is assumed.
+
+    A missing or invalid shipped standards file raises StandardsConfigError.
+    Returns (criteria, criterion-declared threshold defaults).
+    """
+    from . import standards_resolve
+
+    if resolved is None:
+        if not standards_resolve.HAVE_YAML:
+            standards_resolve.require_shipped_standards()
+            deferred = [
+                SkillCriterion(rid, None)
+                for rid, ev in MECHANICAL_EVALUATORS.items()
+                if ev.applies_to == "skill_md"
+            ]
+            return deferred, {}
+        resolved = standards_resolve.resolve_shipped()
+    criteria = [
+        SkillCriterion(c["id"], c["severity"])
+        for sf in resolved.standards_by_primitive.get("skill_md", [])
+        for c in sf.criteria
+        if c.get("enforcement") == "mechanical"
+    ]
+    return criteria, dict(resolved.threshold_defaults)
+
+
 def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> dict[str, Any]:
     if not skill_md_path.exists():
         return {"error": f"file not found: {skill_md_path}"}
@@ -1213,9 +1342,14 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
 
     skill_dir = skill_md_path.parent
 
-    # Effective thresholds: audit defaults overlaid by any resolved overrides.
-    # The module-level THRESHOLDS dict is never mutated (this run only).
-    th = {**THRESHOLDS, **(resolved.thresholds if resolved else {})}
+    # Resolved only after the CLAUDE.md / AGENTS.md dispatch above: an
+    # instruction-file audit never needs the skill_md standards layer.
+    skill_criteria, criterion_defaults = skill_md_criteria(resolved)
+
+    # Effective thresholds: audit defaults, then criterion-declared defaults,
+    # overlaid by any resolved overrides. The module-level THRESHOLDS dict is
+    # never mutated (this run only).
+    th = {**THRESHOLDS, **criterion_defaults, **(resolved.thresholds if resolved else {})}
 
     # mode="full" (real YAML parse) resolves folded/multi-line description
     # blocks and quoted values correctly; mode="light" (same-line regex) is
@@ -1224,7 +1358,7 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
     fm = parse_frontmatter(content, mode="full" if HAVE_YAML else "light")
     body = parse_body(content)
 
-    universal = check_universal(fm, body, skill_dir, th)
+    universal = check_universal(fm, body, skill_dir, th, skill_criteria=skill_criteria)
     universal.extend(check_references_reachable_from_skill_md(body.text, skill_dir))
     declared_type = fm.fields.get("skill-type") if fm else None
 
@@ -1405,7 +1539,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"audit --config: {exc}", file=sys.stderr)
             return 1
 
-    report = audit(Path(args.path), resolved)
+    from . import standards_resolve
+
+    try:
+        report = audit(Path(args.path), resolved)
+    except standards_resolve.StandardsConfigError as exc:
+        # A missing or invalid shipped standards layer stops the run: an audit
+        # that skipped those criteria would read exactly like one that passed.
+        print(f"audit: {exc}", file=sys.stderr)
+        return 1
     if "error" in report:
         print(report["error"], file=sys.stderr)
         return 1

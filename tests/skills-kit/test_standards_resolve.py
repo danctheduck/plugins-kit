@@ -8,6 +8,7 @@ guards, malformed-config loudness, standards-file parsing + grouping, and the
 audit-side disable/threshold-override behavior are each pinned.
 """
 
+import dataclasses
 import json
 import os
 import re
@@ -24,6 +25,7 @@ from skills_kit_lib.standards_resolve import (
     ResolvedStandards,
     StandardsConfigError,
     resolve,
+    resolve_shipped,
 )
 from skills_kit_lib.audit import audit
 
@@ -54,25 +56,43 @@ def _write_yaml(path, data):
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
-_VALID_STANDARDS_MD = textwrap.dedent(
-    """\
-    # SKILL standards
+def _authored(standards_by_primitive):
+    """The user- and project-layer files only (the shipped layer always resolves)."""
+    return {
+        prim: [sf for sf in files if sf.layer != "shipped"]
+        for prim, files in standards_by_primitive.items()
+        if any(sf.layer != "shipped" for sf in files)
+    }
 
-    Prose for a human reader.
 
-    ```yaml
-    standards_set:
-      identity: Optional description-hygiene standards for SKILL.md files.
-      applies_to: skill_md
-      criteria:
-        - id: desc-160-char
-          statement: The description frontmatter field is at most 160 characters.
-          severity: fail
-          keywords: [description length, 160 char, hygiene]
-          enforcement: mechanical
-    ```
+def _standards_md(criterion_id="body-names-its-trigger"):
+    """An authored judgment standards file declaring one criterion id.
+
+    The id must not repeat a shipped criterion (desc-160-char and its siblings)
+    or a rule_catalog id: a repeated id is a StandardsConfigError.
     """
-)
+    return textwrap.dedent(
+        f"""\
+        # SKILL standards
+
+        Prose for a human reader.
+
+        ```yaml
+        standards_set:
+          identity: A project-authored standard for SKILL.md files.
+          applies_to: skill_md
+          criteria:
+            - id: {criterion_id}
+              statement: The SKILL.md body names the situation that triggers it.
+              severity: fail
+              keywords: [trigger, situation, body]
+              enforcement: judgment
+        ```
+        """
+    )
+
+
+_VALID_STANDARDS_MD = _standards_md()
 
 
 def _write_skill(tmp_path, fixture, name="example-skill", description=None):
@@ -120,7 +140,10 @@ def test_absent_everything_returns_empty_defaults(tmp_path, monkeypatch):
     assert isinstance(r, ResolvedStandards)
     assert r.disabled_rules == set()
     assert r.thresholds == {}
-    assert r.standards_by_primitive == {}
+    # Only the shipped layer resolves: no authored file, no override.
+    assert _authored(r.standards_by_primitive) == {}
+    assert {sf.layer for files in r.standards_by_primitive.values() for sf in files} == {"shipped"}
+    assert r.threshold_defaults == {"desc_max_chars": 160}
 
 
 def test_user_layer_disable_flows_through(tmp_path, monkeypatch):
@@ -229,23 +252,40 @@ def test_valid_standards_file_parsed_and_grouped(tmp_path, monkeypatch):
     md = layer / "SKILL-standards.md"
     md.write_text(_VALID_STANDARDS_MD, encoding="utf-8")
     r = resolve(None)
-    assert "skill_md" in r.standards_by_primitive
-    files = r.standards_by_primitive["skill_md"]
+    authored = _authored(r.standards_by_primitive)
+    assert "skill_md" in authored
+    files = authored["skill_md"]
     assert len(files) == 1
     sf = files[0]
     assert sf.path == md
     assert sf.applies_to == "skill_md"
-    assert sf.criteria and sf.criteria[0]["id"] == "desc-160-char"
+    assert sf.layer == "user"
+    assert sf.criteria and sf.criteria[0]["id"] == "body-names-its-trigger"
 
 
 def test_standards_files_union_across_layers(tmp_path, monkeypatch):
     user_layer = _user_layer(tmp_path, monkeypatch)
+    (user_layer / "SKILL-standards.md").write_text(_standards_md("user-opinion"), encoding="utf-8")
+    project_root, proj_layer = _project_layer(tmp_path)
+    (proj_layer / "SKILL-standards.md").write_text(_standards_md("team-opinion"), encoding="utf-8")
+    r = resolve(project_root)
+    # Both layers append under skill_md -- union, not replace -- after the
+    # shipped layer.
+    files = r.standards_by_primitive["skill_md"]
+    assert [sf.layer for sf in files] == ["shipped", "user", "project"]
+
+
+def test_same_criterion_id_in_two_layers_raises_naming_both(tmp_path, monkeypatch):
+    user_layer = _user_layer(tmp_path, monkeypatch)
     (user_layer / "SKILL-standards.md").write_text(_VALID_STANDARDS_MD, encoding="utf-8")
     project_root, proj_layer = _project_layer(tmp_path)
     (proj_layer / "SKILL-standards.md").write_text(_VALID_STANDARDS_MD, encoding="utf-8")
-    r = resolve(project_root)
-    # Both layers append under skill_md -- union, not replace.
-    assert len(r.standards_by_primitive["skill_md"]) == 2
+    with pytest.raises(StandardsConfigError) as exc:
+        resolve(project_root)
+    msg = str(exc.value)
+    assert "body-names-its-trigger" in msg
+    assert str(user_layer / "SKILL-standards.md") in msg
+    assert str(proj_layer / "SKILL-standards.md") in msg
 
 
 def test_invalid_standards_file_raises(tmp_path, monkeypatch):
@@ -295,7 +335,7 @@ _AUTHORED_CRITERION_STANDARDS_MD = textwrap.dedent(
           statement: A SKILL.md body carries no emoji.
           severity: fail
           keywords: [emoji, glyph, ascii]
-          enforcement: mechanical
+          enforcement: judgment
     ```
     """
 )
@@ -332,7 +372,7 @@ def test_audit_drops_disabled_optional_rule(tmp_path, minimal_reference_skill):
     baseline = audit(path)
     assert _find_row(baseline, "desc-160-char") is not None
 
-    resolved = ResolvedStandards(disabled_rules={"desc-160-char"})
+    resolved = dataclasses.replace(resolve_shipped(), disabled_rules={"desc-160-char"})
     report = audit(path, resolved)
     # The disabled optional row is gone...
     assert _find_row(report, "desc-160-char") is None
@@ -350,7 +390,7 @@ def test_audit_threshold_override_changes_desc_verdict(tmp_path, minimal_referen
     assert _find_row(baseline, "desc-160-char")["verdict"] == "pass"
 
     # Lower desc_max_chars below the description length -> the same row fails.
-    resolved = ResolvedStandards(thresholds={"desc_max_chars": 20})
+    resolved = dataclasses.replace(resolve_shipped(), thresholds={"desc_max_chars": 20})
     report = audit(path, resolved)
     assert _find_row(report, "desc-160-char")["verdict"] == "fail"
 
