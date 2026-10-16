@@ -496,7 +496,13 @@ the shim was written to find); then the plugin venv by its version-independent
 `~/.claude/plugins/data/<marketplace>/<plugin>/.venv/` path. POSIX shims fall
 back to `python3`, then `python`; `.cmd` shims fall back to `python.exe`. The
 absolute-path preference avoids the Windows Store stub when the preferred
-interpreter exists, but the PATH fallback can still resolve it. The
+interpreter exists, but the PATH fallback can still resolve it. A shim that
+names a plugin venv (job-kit, llm-scripting-kit) honours one redirect: when
+`CLAUDE_BOOTSTRAP_DATA_ROOT` is set (a claude-plugin-test session) and
+`$CLAUDE_BOOTSTRAP_DATA_ROOT/plugins-kit/<plugin>/.venv/` holds the
+interpreter, that venv is the first candidate. With the variable unset, or
+that interpreter absent, resolution is unchanged. Guard:
+`tests/repo-scripts/test_launcher_shim_data_root_redirect.py`. The
 `bin/qwen3*-server` scripts are outside this exception -- they invoke
 `model-server.sh`, not Python.
 

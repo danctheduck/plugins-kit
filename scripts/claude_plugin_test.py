@@ -134,6 +134,19 @@ def _write_registry(selected, marketplace: str) -> None:
         json.dumps({"version": 2, "plugins": plugins}, indent=2) + "\n", encoding="utf-8")
 
 
+def _session_env(env: dict, data_root: Path, marketplace: str) -> dict:
+    """The environment of the launched session, layered over ``env``.
+
+    CLAUDE_PLUGIN_TEST_MARKETPLACE names the marketplace this session loads from
+    the working copy. Bootstrap refuses a <PLUGIN>_ROOT inside that marketplace's
+    plugin cache (CLAUDE_PLUGIN_TEST) and keeps one under any other marketplace.
+    """
+    env["CLAUDE_BOOTSTRAP_DATA_ROOT"] = str(data_root)
+    env["CLAUDE_PLUGIN_TEST"] = "1"
+    env["CLAUDE_PLUGIN_TEST_MARKETPLACE"] = marketplace
+    return env
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--project-dir", default=os.getcwd(),
@@ -185,9 +198,7 @@ def main() -> int:
         cmd += ["--plugin-dir", str(directory)]
     cmd += args.claude_args
 
-    env = dict(os.environ)
-    env["CLAUDE_BOOTSTRAP_DATA_ROOT"] = str(data_root)
-    env["CLAUDE_PLUGIN_TEST"] = "1"
+    env = _session_env(dict(os.environ), data_root, marketplace)
 
     print(f"plugins: {len(selected)} from {PLUGINS_DIR}", file=sys.stderr)
     print(f"data root: {data_root}", file=sys.stderr)

@@ -19,8 +19,8 @@ reimplements execution.
 Plugin-venv interpreter (NOT `uv run python`, which resolves the venv from cwd
 and breaks from a foreign project root):
 
-- Windows: `~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/Scripts/python.exe`
-- macOS/Linux: `~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/bin/python`
+- Windows: `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/Scripts/python.exe`
+- macOS/Linux: `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/bin/python`
 
 ```yaml
 domain_skill:

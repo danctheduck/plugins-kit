@@ -13,7 +13,7 @@ cd plugins/skills-kit            # dev tree; or the plugin's install path
 python -m skills_kit_lib.audit <path-to-SKILL.md>
 ```
 
-The bootstrap-provisioned venv lives at `~/.claude/plugins/data/plugins-kit/skills-kit/.venv` (use its `bin/python` / `Scripts/python.exe` from any cwd). A bare system Python also works for the first three: `audit` degrades to the contract-staged state without pyyaml; `classify` and `tag` fall back to regex detection. `material` does not degrade: it needs bootstrap's `bootstrap_lib` and pyyaml, and without either it prints a diagnosis and exits 3. Run it through the launcher, which re-executes under the plugin venv that has both.
+The bootstrap-provisioned venv lives at `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/skills-kit/.venv` (use its `bin/python` / `Scripts/python.exe` from any cwd). A bare system Python also works for the first three: `audit` degrades to the contract-staged state without pyyaml; `classify` and `tag` fall back to regex detection. `material` does not degrade: it needs bootstrap's `bootstrap_lib` and pyyaml, and without either it prints a diagnosis and exits 3. Run it through the launcher, which re-executes under the plugin venv that has both.
 
 ## audit (skills_kit_lib/audit.py)
 

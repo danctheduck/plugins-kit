@@ -25,7 +25,7 @@ The bootstrap engine has two distinct setup phases:
 1. **Self-setup** (step 3): Engine prerequisites — tools, PATH entries, an optional Windows Python-stub check, and venv — declared in `config.json` under `self_setup`. These make the engine itself runnable (e.g. uv, git, PyYAML). Processed before any `bootstrap.json`. The Python-stub check is Windows-only and fires only when a `python.exe` matching one of the configured `stub_markers` (default: `WindowsApps`) is the first hit on PATH ahead of the bootstrap-installed standalone Python; on failure it writes a self-elevating `fix_python_path.bat` to the user's Desktop and adds a fix-all entry asking the user to run it as administrator. On non-Windows machines and on Windows machines without the problem, it's silent.
 2. **Plugin bootstrap** (step 4): Ecosystem management — marketplaces and plugins — declared in each plugin's `bootstrap.json`. The engine auto-discovers which installed plugins need bootstrapping by scanning for `bootstrap.json` in each plugin's install path (resolved from `plugins/installed_plugins.json`, **falling back to the cache layout** — see below).
 
-   **Registry-v2 fallback** (`plugin_resolve.discover_cache_plugins`, added 0.47.0): newer Claude Code keeps `installed_plugins.json` at `{"version": 2, "plugins": {}}` for marketplace installs — enablement lives in settings `enabledPlugins` and the code in `~/.claude/plugins/cache/<mkt>/<plugin>/<version>/`. Observed live 2026-07-16: after wiping `~/.claude/plugins`, all plugins re-synced and ran but the registry stayed empty, so the engine provisioned nothing but bootstrap itself. For any *enabled* ref the registry doesn't record, discovery synthesizes the entry from the cache (highest version dir = the code Claude Code loads); registry entries always take precedence. The enablement filter comes from `_load_enabled_refs` (settings `enabledPlugins` + registry); with no enablement source at all the fallback stays off — never provision blindly. The harvest has the same fallback (`harvest._cache_installed_bootstrap`) for reading bootstrap's installed version.
+   **Registry-v2 fallback** (`plugin_resolve.discover_cache_plugins`, added 0.47.0): Claude Code registry v2 keeps `installed_plugins.json` at `{"version": 2, "plugins": {}}` for marketplace installs -- enablement lives in settings `enabledPlugins` and the code in `~/.claude/plugins/cache/<mkt>/<plugin>/<version>/`. Observed live 2026-07-16: after wiping `~/.claude/plugins`, all plugins re-synced and ran but the registry stayed empty, so the engine provisioned nothing but bootstrap itself. For any *enabled* ref the registry doesn't record, discovery synthesizes the entry from the cache (highest version dir = the code Claude Code loads); registry entries always take precedence. The enablement filter comes from `_load_enabled_refs` (settings `enabledPlugins` + registry); with no enablement source at all the fallback stays off -- never provision blindly. The harvest has the same fallback (`harvest._cache_installed_bootstrap`) for reading bootstrap's installed version.
 
    **Dev layout note**: When running the engine directly against the source tree (e.g. `"$BOOTSTRAP_PYTHON" plugins/bootstrap/engine/bootstrap_engine.py --plugin-root plugins/bootstrap ...` -- the engine is bootstrap's own code, so it is launched under the forced form, never `uv run python`; see references/python-interpreter.md), `plugins/installed_plugins.json` does not exist. `list_enabled_plugins()` returns `[], False` and sibling plugins (unreal-kit, p4-kit, ...) are not auto-discovered. This is expected and not part of any real dev workflow -- the engine runs cleanly with no plugin output.
 
@@ -132,7 +132,7 @@ they cannot adopt 0.62.0 by the very mechanism that is broken there. Those
 still need the
 separate `bootstrap-stuck-fix` plugin (`scripts/repair_registry.py`), which has
 no prior version to be wedged on. See the delivery-path rule in the repo
-CLAUDE.md and the `update_lifecycle` fact in the bootstrap SKILL.md.
+CLAUDE.md.
 
 ### Step 3c-pull: `project_git_pull` -- safe fast-forward of the project checkout
 
@@ -467,9 +467,9 @@ original behavior). Two guards, one per malformed shape above:
   The live shape this protects: `engineer@private-plugins` and
   `prototyping@private-plugins` are declared `scope: "project"` in one project's
   `bootstrap.json` while enabled at **user** scope in `~/.claude/settings.json`.
-  If Claude Code ships the claude-code#81706 fix and begins writing the missing
+  If Claude Code writes the missing
   user-scope record itself, an unguarded rewrite would convert it straight back
-  into the orphan upstream had just fixed -- the workaround fighting the real
+  into the orphan that upstream fix removes -- the workaround fighting the real
   fix, indefinitely.
 
 **2. Add a missing pathless user-scope record.** When a plugin is enabled at
@@ -578,7 +578,7 @@ After Step 4 completes, the engine re-scans for newly installed plugins. This ha
    refreshed plugin set (which also detects cycles spanning the two passes)
 4. Processes only new plugins using the same `_bootstrap_single_plugin()` helper
 
-This is a **single pass** — no recursive re-scanning. Plugins installed by Phase 2 plugins bootstrap on the next session start. This eliminates one of the two restarts previously needed: install + bootstrap now happen in the same session.
+This is a **single pass** -- no recursive re-scanning. Plugins installed by Phase 2 plugins bootstrap on the next session start. Install and bootstrap of the first-pass plugins therefore happen in the same session.
 
 For each discovered plugin, the engine resolves the plugin's install path via `plugins/installed_plugins.json` (e.g. `~/.claude/plugins/cache/plugins-kit/unreal-kit/0.1.5`) and processes bootstrapping in two phases:
 
@@ -741,7 +741,7 @@ plugins/installed_plugins.json      <- {"version": 2, "plugins": {}}
 
 **What happens**:
 1. Plugin files copied to `plugins/cache/plugins-kit/bootstrap/0.1.0/`
-2. Entry written to `plugins/installed_plugins.json` (scope, installPath, version, gitCommitSha, projectPath)
+2. On a registry that records installs, an entry is written to `plugins/installed_plugins.json` (scope, installPath, version, gitCommitSha, projectPath); under registry v2 the `plugins` map stays empty and the code is found through the cache fallback described in Step 4
 3. Bootstrap plugin's SessionStart hook fires (`session-bootstrap.sh`)
 4. Hook detects no Python 3 -> downloads standalone Python runtime
 5. Bootstrap engine runs
@@ -749,7 +749,7 @@ plugins/installed_plugins.json      <- {"version": 2, "plugins": {}}
 **State after Phase 2**:
 ```
 plugins/cache/plugins-kit/bootstrap/0.1.0/   <- plugin files cached
-plugins/installed_plugins.json               <- plugins-kit:bootstrap entry
+plugins/installed_plugins.json               <- plugins-kit:bootstrap entry (empty under registry v2)
 ~/.local/share/python-standalone/            <- standalone Python runtime
 ```
 

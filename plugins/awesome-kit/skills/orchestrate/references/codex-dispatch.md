@@ -294,7 +294,7 @@ explicit `-c` path is the sanctioned route to any other server.
 cache entry. Run it with the plugin venv's Python; for example, on macOS/Linux:
 
 ```sh
-~/.claude/plugins/data/plugins-kit/awesome-kit/.venv/bin/python \
+"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/awesome-kit/.venv/bin/python \
   "${AWESOME_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}/skills/orchestrate/scripts/dispatch.py" --list
 ```
 

@@ -26,7 +26,7 @@ relays the result.
 | `--a4` | Paginates to A4 and honors the page's own `@media print` rules (white background, page breaks). |
 | Default output | `<input>.pdf` next to the input file. Pass an explicit second argument to override. |
 | `--scale` | Fraction (`0.8`) or percent (`80%` / `80`). Range 10%-200%, default 100%. When the user says "scale it to 80%", pass `--scale 80%`. |
-| Invocation | `~/.claude/plugins/data/plugins-kit/pdf-kit/.venv/bin/python "${CLAUDE_SKILL_DIR}/scripts/html_to_pdf.py" <input.html> [output.pdf] [--scale 80%] [--a4]` (Windows: `.venv/Scripts/python.exe`) |
+| Invocation | `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/pdf-kit/.venv/bin/python "${CLAUDE_SKILL_DIR}/scripts/html_to_pdf.py" <input.html> [output.pdf] [--scale 80%] [--a4]` (Windows: `.venv/Scripts/python.exe`) |
 
 ## Technique
 
@@ -73,12 +73,12 @@ technique_skill:
           action: Run the converter
           tool: '"${CLAUDE_SKILL_DIR}/scripts/html_to_pdf.py"'
           precondition: >-
-            Confirm ~/.claude/plugins/data/plugins-kit/pdf-kit/bootstrap.log exists. If it does
+            Confirm "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/pdf-kit/bootstrap.log exists. If it does
             not, tell the user "the bootstrap plugin has not provisioned pdf-kit's html-pdf --
             install/enable plugins-kit:bootstrap and start a session" and stop. Also read
-            ~/.claude/plugins/data/plugins-kit/pdf-kit/deferred_requirements.json. If it lists
+            "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/pdf-kit/deferred_requirements.json. If it lists
             chromium, relay that entry's user_msg and satisfied_by, then stop.
-          detail: '~/.claude/plugins/data/plugins-kit/pdf-kit/.venv/bin/python "${CLAUDE_SKILL_DIR}/scripts/html_to_pdf.py" "<input.html>" ["<output.pdf>"] [--scale 80%] [--a4]'
+          detail: '"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/pdf-kit/.venv/bin/python "${CLAUDE_SKILL_DIR}/scripts/html_to_pdf.py" "<input.html>" ["<output.pdf>"] [--scale 80%] [--a4]'
         - n: 4
           action: Relay the result
           detail: >-

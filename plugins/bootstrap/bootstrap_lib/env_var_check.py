@@ -193,33 +193,64 @@ def write_env_record(path: str, entries) -> Tuple[bool, "OrderedDict[str, str]"]
 # the engine's per-plugin export and its pre-gate record (this module), and the
 # SessionStart prelude's re-emit of that record (session-bootstrap.sh, which
 # applies the same test lexically because it must stay fork-free).
+#
+# Only the cache of the marketplace claudx replaces is refused. Claude Code
+# lays the cache out as plugins/cache/<marketplace>/<plugin>/<version>, and a
+# plugin from ANOTHER marketplace that claudx does not load from the working
+# copy is legitimately installed there, so its root is kept. The launcher names
+# the owned marketplace in CLAUDX_MARKETPLACE_ENV (the ``name`` of the working
+# copy's .claude-plugin/marketplace.json); the checkout directory's name is no
+# substitute, since it need not equal the marketplace name.
 
 CLAUDX_ENV = "CLAUDE_PLUGIN_TEST"
+CLAUDX_MARKETPLACE_ENV = "CLAUDE_PLUGIN_TEST_MARKETPLACE"
 
 
-def _path_is_under_plugins_cache(path: str) -> bool:
-    """Whether ``path``, with links resolved, passes through ``plugins/cache``.
+def _plugins_cache_marketplace(path: str) -> Optional[str]:
+    """The ``<marketplace>`` component of ``path`` under ``plugins/cache``.
 
+    ``None`` when ``path``, with links resolved, does not pass through
+    ``plugins/cache``; ``""`` when it ends at the cache directory itself.
     Resolved with ``realpath`` so a directory reached through a junction or
     symlink is judged by where it lives, not by how it is spelled.
     """
-    parts = [p.lower() for p in re.split(r"[\\/]+", os.path.realpath(path))]
-    return any(a == "plugins" and b == "cache" for a, b in zip(parts, parts[1:]))
+    parts = re.split(r"[\\/]+", os.path.realpath(path))
+    lowered = [p.lower() for p in parts]
+    for i, (a, b) in enumerate(zip(lowered, lowered[1:])):
+        if a == "plugins" and b == "cache":
+            return parts[i + 2] if i + 2 < len(parts) else ""
+    return None
 
 
 def cache_root_refusal(name: str, value: str) -> Optional[str]:
     """The refusal message for a plugin-root export that must not happen, else None.
 
     Applies only in a claudx session; every other session exports a cache path
-    exactly as before, because there the cache IS the plugin being used.
+    exactly as before, because there the cache IS the plugin being used. Inside
+    claudx it refuses a cache path under the owned marketplace
+    (``CLAUDX_MARKETPLACE_ENV``) and keeps one under any other marketplace.
+    With the owned marketplace unnamed, every cache path is refused.
     """
     if not os.environ.get(CLAUDX_ENV):
         return None
-    if not isinstance(value, str) or not _path_is_under_plugins_cache(value):
+    if not isinstance(value, str):
         return None
+    marketplace = _plugins_cache_marketplace(value)
+    if marketplace is None:
+        return None
+    owned = os.environ.get(CLAUDX_MARKETPLACE_ENV, "")
+    if owned and marketplace and marketplace.casefold() != owned.casefold():
+        return None
+    scope = (
+        f"the cache of marketplace {owned}, whose plugins this session loads "
+        f"from the working copy"
+        if owned else
+        f"the plugin cache ({CLAUDX_MARKETPLACE_ENV} is unset, so every cache "
+        f"path is refused)"
+    )
     return (
-        f"claudx: refusing to export {name}={value}: it resolves into the plugin "
-        f"cache, so a command anchored on ${{{name}}} would run the INSTALLED "
+        f"claudx: refusing to export {name}={value}: it resolves into {scope}, "
+        f"so a command anchored on ${{{name}}} would run the INSTALLED "
         f"plugin instead of the working copy under test. {name} is left unset; "
         f"a consumer's \"${{{name}:?...}}\" guard fails loudly."
     )

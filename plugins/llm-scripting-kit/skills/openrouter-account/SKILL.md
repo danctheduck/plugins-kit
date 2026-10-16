@@ -38,7 +38,7 @@ technique_skill:
         - n: 1
           action: Run the CLI `status` (path under Invocation) BEFORE the work that calls OpenRouter. Exit 0 means proceed; do not ask the user anything.
         - n: 2
-          action: "On non-zero, read the recorded ask from `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/deferred_requirements.json` and present the entry's `agent_msg` VERBATIM. It is the authored copy of the ask; do not paraphrase it."
+          action: "On non-zero, read the recorded ask from `${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}/plugins-kit/llm-scripting-kit/deferred_requirements.json` and present the entry's `agent_msg` VERBATIM. It is the authored copy of the ask; do not paraphrase it."
           on_failure: If the file is absent (bootstrap not installed, or never ran), fall back to the two options in the Common scenarios section below -- same content, same order.
         - n: 3
           action: Set the key per the user's choice (they run `! llm-scripting-kit set-key`, or you run `set-key --key <KEY>` if they pasted it; both by the path under Invocation), then retry the original action. No restart is needed.
@@ -94,8 +94,8 @@ The plugin ships one CLI script at `${CLAUDE_PLUGIN_ROOT}/scripts/llm_scripting_
 The plugin ships shims at `bin/llm-scripting-kit` (Unix) and `bin/llm-scripting-kit.cmd` (Windows). Claude Code puts each enabled plugin's version-keyed `bin/` directory on PATH inside its own sessions only; PowerShell, Codex, and other shells do not get it. Run the CLI by its version-free venv path, which works from any shell and cwd:
 
 ```
-~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit
-(Windows: ~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
+"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit
+(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
 ```
 
 That path exists once bootstrap has provisioned the plugin venv. The examples below write `llm-scripting-kit` for that path:

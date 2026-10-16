@@ -30,7 +30,9 @@ Escape 3 -- an inherited re-exec loop flag kept a child on the wrong interpreter
     re-exec'd into and is trusted only for that interpreter.
 Escape 5 -- a ``<PLUGIN>_ROOT`` pointing into the plugin cache reached a claudx
     session. Fixed: the engine's export and record, and the SessionStart
-    prelude's re-emit, refuse such a value in a claudx session.
+    prelude's re-emit, refuse such a value in a claudx session. Only the cache of
+    the marketplace the launcher names in CLAUDE_PLUGIN_TEST_MARKETPLACE is
+    refused; a plugin installed from another marketplace keeps its root.
 """
 import json
 import os
@@ -338,12 +340,21 @@ def test_inherited_loop_flag_does_not_leave_a_child_on_the_wrong_interpreter(tmp
 # --------------------------------------------------------------------------
 
 _CLAUDX = "CLAUDE_PLUGIN_TEST"
+_OWNED = "CLAUDE_PLUGIN_TEST_MARKETPLACE"
 
 
-def _cache_plugin(tmp_path: Path, name: str = "alpha-kit") -> Path:
+@pytest.fixture(autouse=True)
+def _no_ambient_owned_marketplace(monkeypatch):
+    """A developer's own claudx session exports the owned marketplace; a test
+    that does not name one must not inherit it."""
+    monkeypatch.delenv(_OWNED, raising=False)
+
+
+def _cache_plugin(tmp_path: Path, name: str = "alpha-kit", marketplace: str = "kit") -> Path:
     """A plugin install directory inside a ``plugins/cache`` tree, as Claude Code
-    lays one out, holding a bootstrap.json so the engine treats it as a plugin."""
-    install = tmp_path / "plugins" / "cache" / "kit" / name / "1.0.0"
+    lays one out (``cache/<marketplace>/<plugin>/<version>``), holding a
+    bootstrap.json so the engine treats it as a plugin."""
+    install = tmp_path / "plugins" / "cache" / marketplace / name / "1.0.0"
     install.mkdir(parents=True)
     (install / "bootstrap.json").write_text("{}", encoding="utf-8")
     return install
@@ -399,6 +410,45 @@ class TestRecordRefusesCacheRoots:
         assert _record(tmp_path / "data") == {"ALPHA_KIT_ROOT": str(cache)}
         assert capsys.readouterr().err == ""
 
+    def test_another_marketplaces_cache_root_is_kept(self, tmp_path, monkeypatch, capsys):
+        """A plugin from a marketplace claudx does not replace is legitimately
+        installed in the cache; its root is recorded and nothing is printed."""
+        monkeypatch.setenv(_CLAUDX, "1")
+        monkeypatch.setenv(_OWNED, "kit")
+        other = _cache_plugin(tmp_path, "beta-kit", marketplace="other-mkt")
+        _maintain(tmp_path / "data", ("beta-kit", other))
+        assert _record(tmp_path / "data") == {"BETA_KIT_ROOT": str(other)}
+        assert capsys.readouterr().err == ""
+
+    def test_the_owned_marketplaces_cache_root_is_refused(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setenv(_CLAUDX, "1")
+        monkeypatch.setenv(_OWNED, "kit")
+        cache = _cache_plugin(tmp_path, "alpha-kit", marketplace="kit")
+        _maintain(tmp_path / "data", ("alpha-kit", cache))
+        assert _record(tmp_path / "data") == {}
+        err = capsys.readouterr().err
+        assert "ALPHA_KIT_ROOT" in err and str(cache) in err and "kit" in err, err
+
+    def test_the_owned_marketplace_match_ignores_case(self, tmp_path, monkeypatch, capsys):
+        """The cache sits on a case-insensitive filesystem on Windows and macOS."""
+        monkeypatch.setenv(_CLAUDX, "1")
+        monkeypatch.setenv(_OWNED, "KIT")
+        cache = _cache_plugin(tmp_path, "alpha-kit", marketplace="kit")
+        _maintain(tmp_path / "data", ("alpha-kit", cache))
+        assert _record(tmp_path / "data") == {}
+        assert "ALPHA_KIT_ROOT" in capsys.readouterr().err
+
+    def test_with_the_owned_marketplace_unnamed_every_cache_root_is_refused(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.setenv(_CLAUDX, "1")
+        monkeypatch.delenv(_OWNED, raising=False)
+        other = _cache_plugin(tmp_path, "beta-kit", marketplace="other-mkt")
+        _maintain(tmp_path / "data", ("beta-kit", other))
+        assert _record(tmp_path / "data") == {}
+        err = capsys.readouterr().err
+        assert "BETA_KIT_ROOT" in err and _OWNED in err, err
+
     def test_a_cache_root_reached_through_a_link_is_refused(
         self, tmp_path, monkeypatch, capsys
     ):
@@ -420,7 +470,7 @@ class TestRecordRefusesCacheRoots:
         assert "ALPHA_KIT_ROOT" in capsys.readouterr().err
 
 
-def _run_engine_pass(tmp_path: Path, install: Path, *, claudx: bool):
+def _run_engine_pass(tmp_path: Path, install: Path, *, claudx: bool, owned: str = ""):
     """One real engine pass over a registry that records ``install`` for
     alpha-kit, with HOME isolated; returns (result, env_file, data_dir)."""
     from bootstrap.link_compat import link_tree
@@ -446,10 +496,12 @@ def _run_engine_pass(tmp_path: Path, install: Path, *, claudx: bool):
     home = tmp_path / "_home"
     home.mkdir()
     env_file = tmp_path / "env-file.sh"
-    env = {k: v for k, v in os.environ.items() if k not in (_CLAUDX, "CLAUDE_ENV_FILE")}
+    env = {k: v for k, v in os.environ.items() if k not in (_CLAUDX, _OWNED, "CLAUDE_ENV_FILE")}
     env.update({"HOME": str(home), "USERPROFILE": str(home), "CLAUDE_ENV_FILE": str(env_file)})
     if claudx:
         env[_CLAUDX] = "1"
+    if owned:
+        env[_OWNED] = owned
     result = run_engine(str(data_dir), plugin_root=str(fake_root), env=env)
     return result, env_file, data_dir
 
@@ -469,6 +521,28 @@ class TestEnginePassRefusesCacheRoots:
     def test_a_claudx_pass_refuses_to_export_or_record_a_cache_root(self, tmp_path):
         install = _cache_plugin(tmp_path)
         result, env_file, data_dir = _run_engine_pass(tmp_path, install, claudx=True)
+        assert result.returncode == 0, result.stderr
+        text = env_file.read_text(encoding="utf-8") if env_file.exists() else ""
+        assert "ALPHA_KIT_ROOT" not in text
+        assert _record(data_dir) == {}
+        assert "ALPHA_KIT_ROOT" in result.stderr and str(install) in result.stderr, result.stderr
+
+    def test_a_claudx_pass_keeps_another_marketplaces_cache_root(self, tmp_path):
+        """The install sits under ``cache/kit``; the session owns
+        ``launcher-mkt``, so the root is a legitimately installed plugin's and is
+        exported and recorded."""
+        install = _cache_plugin(tmp_path)
+        result, env_file, data_dir = _run_engine_pass(
+            tmp_path, install, claudx=True, owned="launcher-mkt")
+        assert result.returncode == 0, result.stderr
+        assert "ALPHA_KIT_ROOT" in env_file.read_text(encoding="utf-8")
+        assert _record(data_dir) == {"ALPHA_KIT_ROOT": str(install)}
+        assert "refusing to export" not in result.stderr, result.stderr
+
+    def test_a_claudx_pass_refuses_the_owned_marketplaces_cache_root(self, tmp_path):
+        install = _cache_plugin(tmp_path)
+        result, env_file, data_dir = _run_engine_pass(
+            tmp_path, install, claudx=True, owned="kit")
         assert result.returncode == 0, result.stderr
         text = env_file.read_text(encoding="utf-8") if env_file.exists() else ""
         assert "ALPHA_KIT_ROOT" not in text
@@ -522,3 +596,52 @@ class TestPreludeRefusesCacheRoots:
         result = _hook_run(scaffold, env=_hook_env(scaffold, **{_CLAUDX: "1"}))
         assert result.returncode == 0, result.stderr
         assert scaffold.exports("HUE_KIT_ROOT") == [f"'{root.as_posix()}'"]
+
+    def test_a_claudx_session_keeps_another_marketplaces_cache_root(self, tmp_path):
+        root = _cache_plugin(tmp_path, "hue-kit", marketplace="other-mkt")
+        scaffold = self._scaffold(tmp_path, root)
+        result = _hook_run(scaffold, env=_hook_env(scaffold, **{_CLAUDX: "1", _OWNED: "kit"}))
+        assert result.returncode == 0, result.stderr
+        assert scaffold.exports("HUE_KIT_ROOT") == [f"'{root.as_posix()}'"]
+        assert "refusing to export" not in result.stderr, result.stderr
+
+    def test_a_claudx_session_refuses_the_owned_marketplaces_cache_root(self, tmp_path):
+        root = _cache_plugin(tmp_path, "hue-kit", marketplace="kit")
+        scaffold = self._scaffold(tmp_path, root)
+        result = _hook_run(scaffold, env=_hook_env(scaffold, **{_CLAUDX: "1", _OWNED: "kit"}))
+        assert result.returncode == 0, result.stderr
+        assert scaffold.exports("HUE_KIT_ROOT") == []
+        assert "HUE_KIT_ROOT" in result.stderr and root.as_posix() in result.stderr, \
+            result.stderr
+
+    def test_the_owned_marketplace_match_ignores_case(self, tmp_path):
+        root = _cache_plugin(tmp_path, "hue-kit", marketplace="kit")
+        scaffold = self._scaffold(tmp_path, root)
+        result = _hook_run(scaffold, env=_hook_env(scaffold, **{_CLAUDX: "1", _OWNED: "KIT"}))
+        assert result.returncode == 0, result.stderr
+        assert scaffold.exports("HUE_KIT_ROOT") == []
+        assert "HUE_KIT_ROOT" in result.stderr, result.stderr
+
+    def test_with_the_owned_marketplace_unnamed_every_cache_root_is_refused(self, tmp_path):
+        root = _cache_plugin(tmp_path, "hue-kit", marketplace="other-mkt")
+        scaffold = self._scaffold(tmp_path, root)
+        result = _hook_run(scaffold, env=_hook_env(scaffold, **{_CLAUDX: "1"}))
+        assert result.returncode == 0, result.stderr
+        assert scaffold.exports("HUE_KIT_ROOT") == []
+        assert "HUE_KIT_ROOT" in result.stderr and _OWNED in result.stderr, result.stderr
+
+
+class TestLauncherNamesTheOwnedMarketplace:
+    """scripts/claude_plugin_test.py is the only writer of CLAUDE_PLUGIN_TEST."""
+
+    def test_the_session_env_carries_the_marketplace_of_the_working_copy(self, tmp_path):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "claude_plugin_test_under_test", REPO_ROOT / "scripts" / "claude_plugin_test.py")
+        launcher = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(launcher)
+        env = launcher._session_env({}, tmp_path, launcher._marketplace_name())
+        listing = json.loads(
+            (REPO_ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+        assert env[_CLAUDX] == "1"
+        assert env[_OWNED] == listing["name"]

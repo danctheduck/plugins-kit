@@ -13,7 +13,7 @@ startup has a fixed ~1.6-2.9s toll. This toll is free on a 13-minute run but
 ruins a targeted run. Measured on a 24-core box,
 a single small bootstrap test file alone cost **0.40s serial, 2.03s at `-n 12`,
 3.33s at `-n auto`**. (That measurement was taken against
-`tests/bootstrap/test_cache.py`, a file the suite has since dropped; the ratio is
+`tests/bootstrap/test_cache.py`, a file dropped from the suite on 2026-06-09 in commit 0c04a600; the ratio is
 what carries, not the file.) A config-level `-n` makes the tight TDD loop 5-8x
 SLOWER. It makes the full run faster. Pass `-n` explicitly per run.
 
@@ -118,6 +118,7 @@ the exported plugin roots and the harvest):
   the name unset so a consumer's `:?` guard fails loudly. The cause that put a
   cache path there on 2026-10-02 was not identified; the refusal covers every
   writer rather than one cause.
+  Only the cache of the marketplace the launcher names in `CLAUDE_PLUGIN_TEST_MARKETPLACE` (the `name` in `.claude-plugin/marketplace.json`) is refused; a root under another marketplace's cache is a plugin claudx does not replace and is kept, and with the variable unset every cache root is refused.
 
 Containment remains partial: `CLAUDE_BOOTSTRAP_DATA_ROOT` redirects what bootstrap
 owns, not everything it reaches. These remaining escapes were observed on

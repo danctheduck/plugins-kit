@@ -256,6 +256,7 @@ fi
 #   sourced as shell code. The engine drops those at write time too.
 # - Fork-free, like the block above. Console mode has no env file to write.
 _pr_have=""; _pr_out=""; _pr_sep=""; _pr_l=""; _pr_name=""; _pr_path=""
+_pr_mkt=""; _pr_in_cache=""; _pr_owned=""; _pr_refuse=""; _pr_nc=""; _pr_scope=""
 _pr_scan() {
     # $1: record file. $2: `d` (the path must be a directory) or `f` (a file).
     local _pr_f=$1 _pr_kind=$2
@@ -272,18 +273,48 @@ _pr_scan() {
             d) [ -d "$_pr_path" ] || continue ;;
             *) [ -f "$_pr_path" ] || continue ;;
         esac
-        # claudx session: a root inside the plugin cache would send every
-        # command anchored on it to the INSTALLED plugin, not the working copy
-        # under test. Refuse it and say so on stderr, naming the variable and
-        # the value; the consumer's "${NAME:?...}" guard then fails loudly.
-        # Lexical on purpose (fork-free): the engine, which writes this record,
-        # applies the same test to the resolved path (env_var_check.py).
+        # claudx session: a root inside the OWNED marketplace's plugin cache
+        # would send every command anchored on it to the INSTALLED plugin, not
+        # the working copy under test. Refuse it and say so on stderr, naming
+        # the variable and the value; the consumer's "${NAME:?...}" guard then
+        # fails loudly. The cache layout is plugins/cache/<marketplace>/..., and
+        # the owned marketplace is CLAUDE_PLUGIN_TEST_MARKETPLACE (set by the
+        # launcher): a cache root under any OTHER marketplace is a plugin claudx
+        # does not replace, and is kept. With the variable unset, every cache
+        # root is refused. Lexical on purpose (fork-free): the engine, which
+        # writes this record, applies the same test to the resolved path
+        # (env_var_check.py, cache_root_refusal).
         if [ -n "${CLAUDE_PLUGIN_TEST:-}" ]; then
+            _pr_mkt=""; _pr_in_cache=""
             case "$_pr_path" in
-                *[/\\][Pp]lugins[/\\][Cc]ache|*[/\\][Pp]lugins[/\\][Cc]ache[/\\]*)
-                    echo "${BOOTSTRAP_LABEL:-bootstrap}: claudx: refusing to export ${_pr_name}=${_pr_path}: it points into the plugin cache, so commands anchored on it would run the INSTALLED plugin instead of the working copy under test" >&2
-                    continue ;;
+                *[/\\][Pp]lugins[/\\][Cc]ache)
+                    _pr_in_cache=1 ;;
+                *[/\\][Pp]lugins[/\\][Cc]ache[/\\]*)
+                    _pr_in_cache=1
+                    _pr_mkt=${_pr_path#*[/\\][Pp]lugins[/\\][Cc]ache[/\\]}
+                    _pr_mkt=${_pr_mkt%%[/\\]*} ;;
             esac
+            if [ -n "$_pr_in_cache" ]; then
+                _pr_owned=${CLAUDE_PLUGIN_TEST_MARKETPLACE:-}
+                _pr_refuse=1
+                if [ -n "$_pr_owned" ] && [ -n "$_pr_mkt" ]; then
+                    # Case-insensitive, like the engine's casefold compare;
+                    # restore the caller's nocasematch setting afterwards.
+                    _pr_nc=""; shopt -q nocasematch && _pr_nc=1
+                    shopt -s nocasematch
+                    case "$_pr_mkt" in "$_pr_owned") ;; *) _pr_refuse="" ;; esac
+                    [ -n "$_pr_nc" ] || shopt -u nocasematch
+                fi
+                if [ -n "$_pr_refuse" ]; then
+                    if [ -n "$_pr_owned" ]; then
+                        _pr_scope="the cache of marketplace ${_pr_owned}, whose plugins this session loads from the working copy"
+                    else
+                        _pr_scope="the plugin cache (CLAUDE_PLUGIN_TEST_MARKETPLACE is unset, so every cache path is refused)"
+                    fi
+                    echo "${BOOTSTRAP_LABEL:-bootstrap}: claudx: refusing to export ${_pr_name}=${_pr_path}: it points into ${_pr_scope}, so commands anchored on it would run the INSTALLED plugin instead of the working copy under test" >&2
+                    continue
+                fi
+            fi
         fi
         _pr_out="${_pr_out}export ${_pr_name}='${_pr_path}'${_ie_nl}"
         _pr_have="$_pr_have $_pr_name"

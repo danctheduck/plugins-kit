@@ -17,12 +17,12 @@ an example under `${CLAUDE_PLUGIN_ROOT}/examples/`.
 The compiler runs through the plugin-venv interpreter (NOT `uv run python`, which
 resolves the venv from cwd and breaks from a foreign project root):
 
-- Windows: `~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/Scripts/python.exe`
-- macOS/Linux: `~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/bin/python`
+- Windows: `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/Scripts/python.exe`
+- macOS/Linux: `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/bin/python`
 
 ## Procedure: compile and run
 
-PRECONDITION: confirm `~/.claude/plugins/data/plugins-kit/workflow-kit/bootstrap.log`
+PRECONDITION: confirm `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/bootstrap.log`
 exists before invoking the plugin-venv interpreter; if missing, tell the user
 "the bootstrap plugin hasn't provisioned workflow-kit -- install/enable
 plugins-kit:bootstrap and start a new session" and STOP.
@@ -46,7 +46,8 @@ plugins-kit:bootstrap and start a new session" and STOP.
      nothing in `args`, so pass a resolved path: read it from
      `"${WORKFLOW_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}"`.
    - `workflowKitVenvPython` -- the plugin-venv python
-     (`~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/{Scripts/python.exe|bin/python}`);
+     (`${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}/plugins-kit/workflow-kit/.venv/{Scripts/python.exe|bin/python}`,
+     expanded in a shell first: the Workflow tool expands nothing in `args`);
      when workflow-kit is dev-only (no own venv), use the bootstrap standalone python.
 4. **Run it.** Pass the compiled path as `scriptPath` and the args object as `args`
    to the native Workflow tool. This is the opt-in boundary. (The compiled script
