@@ -472,7 +472,13 @@ def _discipline_content(text: str) -> bool:
     return has_red_green_refactor(text) or has_excuse_reality_table(text)
 
 
+def _eval_pattern_bundle(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    present = (ctx.skill_dir / "scripts").exists() or (ctx.skill_dir / "bin").exists()
+    return "prohibited: utility bundle", not present, "scripts/ or bin/ present" if present else ""
+
+
 _REFERENCE_SKILL_APPLIES = _legacy_applies("reference-skill")
+_PATTERN_SKILL_APPLIES = _legacy_applies("pattern-skill")
 
 
 def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
@@ -628,6 +634,47 @@ MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
         _marker_absent("prohibited: workflow checklist", has_tickbox_list, "tickbox list present"),
         section="type_specific", bare_severity="fail",
     ),
+    "pattern-recognition-block": MechanicalEvaluator(
+        "skill_md", None,
+        "recognition criteria block (deferred)", _PATTERN_SKILL_APPLIES,
+        _marker_present(
+            "recognition criteria block",
+            has_recognition_marker,
+            "no 'recognize/recognition/applies when' marker",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "pattern-counter-example": MechanicalEvaluator(
+        "skill_md", None,
+        "counter-example(s) block (deferred)", _PATTERN_SKILL_APPLIES,
+        _marker_present(
+            "counter-example(s) block",
+            has_counter_example,
+            "no 'counter-example' or 'do NOT apply' marker",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "pattern-prohibited-bundle": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: utility bundle (deferred)", _PATTERN_SKILL_APPLIES, _eval_pattern_bundle,
+        section="type_specific", bare_severity="fail",
+    ),
+    "pattern-prohibited-checklist": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: workflow checklist (deferred)", _PATTERN_SKILL_APPLIES,
+        _marker_absent("prohibited: workflow checklist", has_tickbox_list, ""),
+        section="type_specific", bare_severity="fail",
+    ),
+    "pattern-prohibited-rule-counter": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: rule + counter pairs (deferred)", _PATTERN_SKILL_APPLIES,
+        _marker_absent(
+            "prohibited: rule + counter pairs",
+            has_excuse_reality_table,
+            "rationalization/excuse->reality detected",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
     "claude-md-import-size": MechanicalEvaluator(
         "claude_md", "import_max_lines",
         "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
@@ -779,41 +826,6 @@ def check_universal(
     return out
 
 
-def check_pattern_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
-    out: list[CheckResult] = []
-    out.append(CheckResult(
-        "recognition criteria block",
-        PASS if has_recognition_marker(body.text) else JUDGMENT,
-        "no 'recognize/recognition/applies when' marker" if not has_recognition_marker(body.text) else "",
-        rule="pattern-recognition-block",
-    ))
-    out.append(CheckResult(
-        "counter-example(s) block",
-        PASS if has_counter_example(body.text) else JUDGMENT,
-        "no 'counter-example' or 'do NOT apply' marker" if not has_counter_example(body.text) else "",
-        rule="pattern-counter-example",
-    ))
-    bundle_present = (skill_dir / "scripts").exists() or (skill_dir / "bin").exists()
-    out.append(CheckResult(
-        "prohibited: utility bundle",
-        FAIL if bundle_present else PASS,
-        "scripts/ or bin/ present" if bundle_present else "",
-        rule="pattern-prohibited-bundle",
-    ))
-    out.append(CheckResult(
-        "prohibited: workflow checklist",
-        FAIL if has_tickbox_list(body.text) else PASS,
-        rule="pattern-prohibited-checklist",
-    ))
-    out.append(CheckResult(
-        "prohibited: rule + counter pairs",
-        FAIL if has_excuse_reality_table(body.text) else PASS,
-        "rationalization/excuse->reality detected" if has_excuse_reality_table(body.text) else "",
-        rule="pattern-prohibited-rule-counter",
-    ))
-    return out
-
-
 def check_technique_skill(body: Body, skill_dir: Path, fm: Frontmatter | None = None) -> list[CheckResult]:
     """`fm` is accepted for positional-call compatibility (public signature;
     external callers pass it, e.g. tests/skills-kit/test_step_tracker_or_
@@ -961,7 +973,6 @@ def mixed_type_signal(body_text: str, threshold: int | None = None) -> tuple[int
 # since the special case always intercepted it before this dict was ever
 # indexed for that key).
 TYPE_RUNNERS = {
-    "pattern-skill": check_pattern_skill,
     "discipline-skill": check_discipline_skill,
     "domain-skill": check_domain_skill,
 }

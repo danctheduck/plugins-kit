@@ -49,8 +49,11 @@ OTHER_SHIPPED = [SHIPPED_DIR / "SKILL-standards.md", SHIPPED_DIR / "CLAUDE-md-st
 ROWS_BY_TYPE = {
     "reference-skill": ["ref-example-block", "ref-gotcha-block",
                         "ref-prohibited-discipline", "ref-prohibited-checklist"],
+    "pattern-skill": ["pattern-recognition-block", "pattern-counter-example",
+                      "pattern-prohibited-bundle", "pattern-prohibited-checklist",
+                      "pattern-prohibited-rule-counter"],
 }
-MIGRATED_TYPES = ("reference-skill",)
+MIGRATED_TYPES = ("reference-skill", "pattern-skill")
 LEGACY_IDS = [rid for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]]
 TYPE_OF = {rid: t for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]}
 
@@ -58,6 +61,9 @@ TYPE_OF = {rid: t for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]}
 SEVERITY = {
     "ref-example-block": "judgment", "ref-gotcha-block": "judgment",
     "ref-prohibited-discipline": "fail", "ref-prohibited-checklist": "fail",
+    "pattern-recognition-block": "judgment", "pattern-counter-example": "judgment",
+    "pattern-prohibited-bundle": "fail", "pattern-prohibited-checklist": "fail",
+    "pattern-prohibited-rule-counter": "fail",
 }
 
 H1 = "# Subject skill\n\n"
@@ -87,6 +93,36 @@ CASES = [
      ("prohibited: workflow checklist", PASS, "")),
     ("ref-prohibited-checklist", "hit", H1 + "- [ ] do a thing\n", (),
      ("prohibited: workflow checklist", FAIL, "tickbox list present")),
+    ("pattern-recognition-block", "miss", BLANK, (),
+     ("recognition criteria block", JUDGMENT, "no 'recognize/recognition/applies when' marker")),
+    ("pattern-recognition-block", "hit-recognize", H1 + "Recognize this shape by its second step.\n", (),
+     ("recognition criteria block", PASS, "")),
+    ("pattern-recognition-block", "hit-applies-when", H1 + "It applies when two lists disagree.\n", (),
+     ("recognition criteria block", PASS, "")),
+    ("pattern-counter-example", "miss", BLANK, (),
+     ("counter-example(s) block", JUDGMENT, "no 'counter-example' or 'do NOT apply' marker")),
+    ("pattern-counter-example", "hit-counter-example", H1 + "A counter-example: a single list.\n", (),
+     ("counter-example(s) block", PASS, "")),
+    ("pattern-counter-example", "hit-do-not-apply", H1 + "Do NOT apply to single lists.\n", (),
+     ("counter-example(s) block", PASS, "")),
+    ("pattern-prohibited-bundle", "miss", BLANK, (),
+     ("prohibited: utility bundle", PASS, "")),
+    ("pattern-prohibited-bundle", "miss-references-only", BLANK, ("references",),
+     ("prohibited: utility bundle", PASS, "")),
+    ("pattern-prohibited-bundle", "hit-scripts", BLANK, ("scripts",),
+     ("prohibited: utility bundle", FAIL, "scripts/ or bin/ present")),
+    ("pattern-prohibited-bundle", "hit-bin", BLANK, ("bin",),
+     ("prohibited: utility bundle", FAIL, "scripts/ or bin/ present")),
+    ("pattern-prohibited-checklist", "miss", BLANK, (),
+     ("prohibited: workflow checklist", PASS, "")),
+    ("pattern-prohibited-checklist", "hit", H1 + "- [ ] do a thing\n", (),
+     ("prohibited: workflow checklist", FAIL, "")),
+    ("pattern-prohibited-rule-counter", "miss", BLANK, (),
+     ("prohibited: rule + counter pairs", PASS, "")),
+    ("pattern-prohibited-rule-counter", "hit-table", H1 + "| excuse | reality |\n|---|---|\n| a | b |\n", (),
+     ("prohibited: rule + counter pairs", FAIL, "rationalization/excuse->reality detected")),
+    ("pattern-prohibited-rule-counter", "hit-record", H1 + "excuse: too slow\nreality: costs more\n", (),
+     ("prohibited: rule + counter pairs", FAIL, "rationalization/excuse->reality detected")),
 ]
 
 # A marker that appears ONLY inside a fenced block must not count: the id, the
@@ -97,10 +133,16 @@ FENCED = [
     ("ref-gotcha-block", H1 + "```markdown\n## Gotcha\n\nbar\n```\n", JUDGMENT),
     ("ref-prohibited-discipline", H1 + "```markdown\nRED -> GREEN -> REFACTOR\n```\n", PASS),
     ("ref-prohibited-checklist", H1 + "```markdown\n- [ ] item\n```\n", PASS),
+    ("pattern-recognition-block", H1 + "```markdown\nRecognize this shape.\n```\n", JUDGMENT),
+    ("pattern-counter-example", H1 + "```markdown\nA counter-example.\n```\n", JUDGMENT),
+    ("pattern-prohibited-checklist", H1 + "```markdown\n- [ ] item\n```\n", PASS),
+    ("pattern-prohibited-rule-counter",
+     H1 + "```markdown\n| excuse | reality |\n|---|---|\n| a | b |\n```\n", PASS),
 ]
 
 CONTRACT_BLOCK = {
     "reference-skill": "```yaml\nreference_skill:\n  _schema_version: \"1\"\n```\n",
+    "pattern-skill": "```yaml\npattern_skill:\n  _schema_version: \"1\"\n```\n",
 }
 
 

@@ -21,12 +21,14 @@ field, it carries the judgment criteria an agent applies inside a workflow lane
 
 Criteria declared by the shipped standards layer (defaults/standards/) are not
 catalogued here: the shipped file is their source, and the resolver rejects a
-criterion id that repeats a catalog id. Twenty ids live there: desc-160-char,
+criterion id that repeats a catalog id. Twenty-five ids live there: desc-160-char,
 desc-directive-form, desc-exclusion-clause, skill-type-tag, skill-type-valid,
 body-line-count, body-token-count, body-size-signal, refs-one-hop-deep,
 facts-floor, facts-gotcha, facts-example and caution-floor (SKILL-standards.md),
-ref-example-block, ref-gotcha-block, ref-prohibited-discipline and
-ref-prohibited-checklist (SKILL-legacy-standards.md), and claude-md-import-size,
+ref-example-block, ref-gotcha-block, ref-prohibited-discipline,
+ref-prohibited-checklist, pattern-recognition-block, pattern-counter-example,
+pattern-prohibited-bundle, pattern-prohibited-checklist and
+pattern-prohibited-rule-counter (SKILL-legacy-standards.md), and claude-md-import-size,
 claude-md-size-signal and claude-md-record-floor (CLAUDE-md-standards.md).
 
 This module is the single source consumed by the standards resolver (for the
@@ -61,12 +63,15 @@ RULES: dict[str, tuple[str, str, str]] = {
     "mixed-type": ("architectural", "contract", "A SKILL.md declares exactly one skill-type root -- no drift across two type contracts (consumes `mixed_min_score`)."),
     "cross-block-drift": ("architectural", "contract", "Multiple YAML blocks in one document do not disagree about the document's type."),
     # -- optional: description hygiene ------------------------------------
-    # The twenty shipped-criterion ids are not here: desc-160-char,
+    # The twenty-five shipped-criterion ids are not here: desc-160-char,
     # desc-directive-form, desc-exclusion-clause, skill-type-tag,
     # skill-type-valid, body-line-count, body-token-count, body-size-signal,
     # refs-one-hop-deep, facts-floor, facts-gotcha, facts-example and
     # caution-floor (defaults/standards/SKILL-standards.md), ref-example-block,
-    # ref-gotcha-block, ref-prohibited-discipline and ref-prohibited-checklist
+    # ref-gotcha-block, ref-prohibited-discipline, ref-prohibited-checklist,
+    # pattern-recognition-block, pattern-counter-example,
+    # pattern-prohibited-bundle, pattern-prohibited-checklist and
+    # pattern-prohibited-rule-counter
     # (defaults/standards/SKILL-legacy-standards.md), and claude-md-import-size,
     # claude-md-size-signal and claude-md-record-floor
     # (defaults/standards/CLAUDE-md-standards.md). They are criteria of the
@@ -75,11 +80,6 @@ RULES: dict[str, tuple[str, str, str]] = {
     # -- optional: record floors ------------------------------------------
     "step-tracking": ("optional", "record-floors", "A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation."),
     # -- optional: legacy per-type heuristic rows -------------------------
-    "pattern-recognition-block": ("optional", "legacy-heuristics", "A pattern-skill body carries a recognition-criteria marker."),
-    "pattern-counter-example": ("optional", "legacy-heuristics", 'A pattern-skill body carries a counter-example or "do NOT apply" marker.'),
-    "pattern-prohibited-bundle": ("optional", "legacy-heuristics", "A pattern-skill ships no `scripts/` or `bin/` utility bundle."),
-    "pattern-prohibited-checklist": ("optional", "legacy-heuristics", "A pattern-skill body omits a workflow tickbox checklist."),
-    "pattern-prohibited-rule-counter": ("optional", "legacy-heuristics", "A pattern-skill body omits rule+counter (excuse-to-reality) pairs."),
     "technique-ordered-steps": ("optional", "legacy-heuristics", "A technique-skill body has an ordered-step sequence."),
     "technique-prohibited-pressure-test": ("optional", "legacy-heuristics", "A technique-skill body omits adversarial RED/GREEN/REFACTOR pressure testing."),
     "discipline-rule-counter": ("optional", "legacy-heuristics", "A discipline-skill body carries at least one rule+counter pair."),

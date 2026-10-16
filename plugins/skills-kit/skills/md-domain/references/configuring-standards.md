@@ -189,11 +189,6 @@ through `audit-framework.yaml`.
 | Rule id | Meaning |
 |---------|---------|
 | `step-tracking` | A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation. |
-| `pattern-recognition-block` | A pattern-skill body carries a recognition-criteria marker. |
-| `pattern-counter-example` | A pattern-skill body carries a counter-example or "do NOT apply" marker. |
-| `pattern-prohibited-bundle` | A pattern-skill ships no `scripts/` or `bin/` utility bundle. |
-| `pattern-prohibited-checklist` | A pattern-skill body omits a workflow tickbox checklist. |
-| `pattern-prohibited-rule-counter` | A pattern-skill body omits rule+counter (excuse-to-reality) pairs. |
 | `technique-ordered-steps` | A technique-skill body has an ordered-step sequence. |
 | `technique-prohibited-pressure-test` | A technique-skill body omits adversarial RED/GREEN/REFACTOR pressure testing. |
 | `discipline-rule-counter` | A discipline-skill body carries at least one rule+counter pair. |
@@ -228,6 +223,11 @@ source of each statement, severity and threshold default.
 | `ref-gotcha-block` | `skill_md` | judgment | A reference-skill body has a "Gotcha" heading. |
 | `ref-prohibited-discipline` | `skill_md` | fail | A reference-skill body omits discipline content (rule+counter, RED/GREEN/REFACTOR). |
 | `ref-prohibited-checklist` | `skill_md` | fail | A reference-skill body omits a workflow tickbox checklist. |
+| `pattern-recognition-block` | `skill_md` | judgment | A pattern-skill body carries a recognition-criteria marker. |
+| `pattern-counter-example` | `skill_md` | judgment | A pattern-skill body carries a counter-example or "do NOT apply" marker. |
+| `pattern-prohibited-bundle` | `skill_md` | fail | A pattern-skill ships no `scripts/` or `bin/` utility bundle. |
+| `pattern-prohibited-checklist` | `skill_md` | fail | A pattern-skill body omits a workflow tickbox checklist. |
+| `pattern-prohibited-rule-counter` | `skill_md` | fail | A pattern-skill body omits rule+counter (excuse-to-reality) pairs. |
 | `desc-160-char` | `skill_md` | fail | The description frontmatter field is at most `desc_max_chars` characters. |
 | `desc-directive-form` | `skill_md` | fail | The description opens with "Use when..." or "Invoke when...". |
 | `desc-exclusion-clause` | `skill_md` | fail | The description carries a "Do NOT use for..." exclusion clause. |

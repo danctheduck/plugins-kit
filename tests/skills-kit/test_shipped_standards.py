@@ -48,7 +48,9 @@ BODY_IDS = ["body-line-count", "body-token-count", "body-size-signal", "refs-one
 CONTRACT_IDS = ["facts-floor", "facts-gotcha", "facts-example", "caution-floor"]
 SKILL_IDS = [*SHIPPED_IDS, *BODY_IDS, *CONTRACT_IDS]
 REF_LEGACY_IDS = ["ref-example-block", "ref-gotcha-block", "ref-prohibited-discipline", "ref-prohibited-checklist"]
-LEGACY_IDS = [*REF_LEGACY_IDS]
+PATTERN_LEGACY_IDS = ["pattern-recognition-block", "pattern-counter-example", "pattern-prohibited-bundle",
+                      "pattern-prohibited-checklist", "pattern-prohibited-rule-counter"]
+LEGACY_IDS = [*REF_LEGACY_IDS, *PATTERN_LEGACY_IDS]
 CLAUDE_IDS = ["claude-md-import-size", "claude-md-size-signal", "claude-md-record-floor"]
 
 
@@ -154,7 +156,7 @@ def test_the_shipped_ids_left_the_catalog_and_nothing_else_did():
         assert rid not in rule_catalog.RULES
     buckets = [b for b, _g, _d in rule_catalog.RULES.values()]
     assert (buckets.count("optional"), buckets.count("inoffensive"),
-            buckets.count("architectural")) == (24, 11, 3)
+            buckets.count("architectural")) == (19, 11, 3)
     assert "import_max_lines" not in audit_mod.THRESHOLDS
 
 

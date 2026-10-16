@@ -63,4 +63,29 @@ standards_set:
       severity: fail
       keywords: [reference-skill, prohibited checklist, tickbox list, legacy heuristics]
       enforcement: mechanical
+    - id: pattern-recognition-block
+      statement: A pattern-skill body carries a recognition-criteria marker.
+      severity: judgment
+      keywords: [pattern-skill, recognition criteria, recognize, legacy heuristics]
+      enforcement: mechanical
+    - id: pattern-counter-example
+      statement: A pattern-skill body carries a counter-example or "do NOT apply" marker.
+      severity: judgment
+      keywords: [pattern-skill, counter-example, do not apply, legacy heuristics]
+      enforcement: mechanical
+    - id: pattern-prohibited-bundle
+      statement: A pattern-skill ships no `scripts/` or `bin/` utility bundle.
+      severity: fail
+      keywords: [pattern-skill, prohibited utility bundle, scripts directory, legacy heuristics]
+      enforcement: mechanical
+    - id: pattern-prohibited-checklist
+      statement: A pattern-skill body omits a workflow tickbox checklist.
+      severity: fail
+      keywords: [pattern-skill, prohibited checklist, tickbox list, legacy heuristics]
+      enforcement: mechanical
+    - id: pattern-prohibited-rule-counter
+      statement: A pattern-skill body omits rule+counter (excuse-to-reality) pairs.
+      severity: fail
+      keywords: [pattern-skill, prohibited rule and counter, excuse and reality, legacy heuristics]
+      enforcement: mechanical
 ```

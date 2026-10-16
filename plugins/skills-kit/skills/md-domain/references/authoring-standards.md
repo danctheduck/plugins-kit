@@ -146,7 +146,9 @@ body and references criteria (`body-line-count`, `body-token-count`,
 criteria (`facts-floor`, `facts-gotcha`, `facts-example`, `caution-floor`), the
 SKILL.md legacy per-skill-type heuristic criteria of `SKILL-legacy-standards.md`
 (`ref-example-block`, `ref-gotcha-block`, `ref-prohibited-discipline`,
-`ref-prohibited-checklist`) and the CLAUDE.md
+`ref-prohibited-checklist`, `pattern-recognition-block`,
+`pattern-counter-example`, `pattern-prohibited-bundle`,
+`pattern-prohibited-checklist`, `pattern-prohibited-rule-counter`) and the CLAUDE.md
 criteria (`claude-md-import-size`, `claude-md-size-signal`,
 `claude-md-record-floor`) are not an example to copy: the shipped layer already
 declares them, so repeating one of those ids in an authored file is an error.

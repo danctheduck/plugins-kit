@@ -98,8 +98,10 @@ the `type_specific` list: heading, marker and filesystem tests that stand in
 for the type contract until the skill is on it. A criterion applies only to the
 skill type its statement names, and reads the body with fenced code removed.
 The reference-skill criteria are `ref-example-block`, `ref-gotcha-block`,
-`ref-prohibited-discipline` and `ref-prohibited-checklist`. Each switches off
-with `rules: {<id>: off}`.
+`ref-prohibited-discipline` and `ref-prohibited-checklist`; the pattern-skill
+criteria are `pattern-recognition-block`, `pattern-counter-example`,
+`pattern-prohibited-bundle`, `pattern-prohibited-checklist` and
+`pattern-prohibited-rule-counter`. Each switches off with `rules: {<id>: off}`.
 
 ### 2.2 Schemas are floors, not ceilings
 
