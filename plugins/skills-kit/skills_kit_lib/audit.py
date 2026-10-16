@@ -18,6 +18,7 @@ import re
 import sys
 from urllib.parse import unquote
 from dataclasses import dataclass, asdict
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -77,7 +78,6 @@ THRESHOLDS = {
     "body_max_lines": 500,
     "body_max_tokens": 3000,
     "mixed_min_score": 2,
-    "import_max_lines": 50,
 }
 
 
@@ -90,43 +90,374 @@ class CheckResult:
 
 
 @dataclass(frozen=True)
+class SkillContext:
+    """The parsed SKILL.md a mechanical skill_md evaluator reads.
+
+    yaml_root is the contract root the audit resolved for the document (None
+    when no contract block was recognized); it is set only on the context the
+    yaml_contract-section evaluators receive, because it is a result of the
+    contract check and does not exist when the universal rows are evaluated.
+    yaml_units is every recognized (root, block data) unit in the body, parsed
+    on first use and shared by the evaluators that read it; it is empty
+    without pyyaml.
+    """
+
+    fm: Frontmatter
+    body: Body
+    skill_dir: Path
+    yaml_root: str | None = None
+
+    @cached_property
+    def yaml_units(self) -> list[tuple[str, dict]]:
+        units, _, _ = collect_yaml_units(self.body.text)
+        return units
+
+
+@dataclass(frozen=True)
+class ClaudeMdContext:
+    """The parsed CLAUDE.md / AGENTS.md a mechanical claude_md evaluator reads.
+
+    claude_md is the inner mapping of the document's `claude_md:` contract
+    block, or None when the file carries no such block (or the block is not a
+    mapping). path anchors relative `@import` targets; content is the file as
+    read; body is parse_body(content).
+    """
+
+    path: Path
+    content: str
+    body: Body
+    claude_md: dict | None
+
+
+#: What a mechanical evaluator receives: the context of the document type its
+#: criterion's `applies_to` names.
+AuditContext = SkillContext | ClaudeMdContext
+
+
+@dataclass(frozen=True)
 class MechanicalEvaluator:
     """The code half of one `enforcement: mechanical` standards criterion.
 
     The criterion (id, statement, severity, threshold default) lives in a
     standards file; this record carries only what code must supply:
 
-    - applies_to: the file-type primitive whose audit runs the evaluator.
-    - threshold: the threshold name the evaluator reads from the effective
-      thresholds, or None. The criterion must declare exactly this name with a
-      default; standards_resolve rejects any other declaration.
+    - applies_to: the file-type primitive whose audit runs the evaluator; it
+      also names the context type the callables receive (skill_md ->
+      SkillContext, claude_md -> ClaudeMdContext).
+    - threshold: the threshold name the criterion OWNS, or None. The criterion
+      must declare exactly this name with a default; standards_resolve rejects
+      any other declaration.
     - deferred_row: the row label emitted when pyyaml is unavailable and the
       criterion cannot be read. It names the threshold, never a default.
-    - evaluate: (description, effective thresholds) -> (row label, passed, note).
+    - applies: context -> whether the criterion has a row for this document at
+      all. It is checked in both resolved and deferred modes and reads no
+      threshold.
+    - evaluate: (context, thresholds) -> (row label, outcome, note). The
+      outcome is True (pass), False (the criterion is violated; the row's
+      verdict follows the criterion's severity: fail -> fail, otherwise
+      judgment-required) or None (not applicable: the row's verdict is n/a).
+      None is for a criterion that applies to the document but has nothing to
+      check on it, so its row still appears; a criterion with no row at all
+      uses `applies`. The thresholds mapping holds only `threshold` and
+      `reads_builtin_thresholds`, so an evaluator cannot read a limit its
+      record does not name.
+    - reads_builtin_thresholds: built-in thresholds (THRESHOLDS) the evaluator
+      reads without owning. A criterion never declares one of these; a user
+      tunes it through `thresholds:` and every reader sees the same value.
+    - section: the report list the row joins ("universal" or "yaml_contract").
+      A claude_md audit appends yaml_contract rows after the contract rows. A
+      skill_md audit emits them after the portable-unit rows and before the
+      asset-dependency rows, with a SkillContext that carries yaml_root; its
+      universal rows are evaluated inside check_universal.
     """
 
     applies_to: str
     threshold: str | None
     deferred_row: str
-    evaluate: Callable[[str, dict[str, int]], tuple[str, bool, str]]
+    applies: Callable[[Any], bool]
+    evaluate: Callable[[Any, dict[str, int]], tuple[str, bool | None, str]]
+    reads_builtin_thresholds: tuple[str, ...] = ()
+    section: str = "universal"
+
+    def __post_init__(self) -> None:
+        unknown = [n for n in self.reads_builtin_thresholds if n not in THRESHOLDS]
+        if unknown:
+            raise ValueError(
+                f"reads_builtin_thresholds names {unknown}, which are not built-in "
+                f"thresholds (audit.THRESHOLDS: {sorted(THRESHOLDS)})"
+            )
+
+    def threshold_view(self, th: dict[str, int]) -> dict[str, int]:
+        """The slice of the effective thresholds this evaluator may read."""
+        names = (*self.reads_builtin_thresholds, *((self.threshold,) if self.threshold else ()))
+        return {name: th[name] for name in names}
 
 
-def _eval_desc_length(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
+def _has_description(ctx: SkillContext) -> bool:
+    return "description" in ctx.fm.fields
+
+
+def _eval_desc_length(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    desc = ctx.fm.fields["description"]
     limit = th["desc_max_chars"]
     return f"description <= {limit} chars", len(desc) <= limit, f"len={len(desc)}"
 
 
-def _eval_desc_directive(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
-    desc_lc = desc.lower().lstrip()
+def _eval_desc_directive(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    desc_lc = ctx.fm.fields["description"].lower().lstrip()
     directive = desc_lc.startswith("use when") or desc_lc.startswith("invoke when")
     note = "" if directive else "description should open with 'Use when...' or 'Invoke when...'"
     return "directive form ('Use when...' / 'Invoke when...')", directive, note
 
 
-def _eval_desc_exclusion(desc: str, th: dict[str, int]) -> tuple[str, bool, str]:
+def _eval_desc_exclusion(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    desc = ctx.fm.fields["description"]
     excl = bool(re.search(r"\bdo not use\b|\bdon'?t use\b", desc, re.IGNORECASE))
     note = "" if excl else "no 'do not use' phrase in description"
     return "exclusion clause (Do NOT use for...)", excl, note
+
+
+def _lacks_skill_type(ctx: SkillContext) -> bool:
+    return "skill-type" not in ctx.fm.fields
+
+
+def _has_skill_type(ctx: SkillContext) -> bool:
+    return "skill-type" in ctx.fm.fields
+
+
+def _eval_skill_type_tag(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    # Applies only while the tag is absent, so this row is never a pass.
+    return "skill-type advisory tag", False, "no skill-type frontmatter; agent infers type from content"
+
+
+def _eval_skill_type_valid(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    val = ctx.fm.fields["skill-type"]
+    if val in CANONICAL_TYPES:
+        return "skill-type value valid", True, val
+    return "skill-type value valid", False, f"got '{val}', expected one of {sorted(CANONICAL_TYPES)}"
+
+
+def _eval_line_count(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    # An informational count row: it always passes and carries the count.
+    return "SKILL.md line count", True, str(ctx.body.lines)
+
+
+def _eval_token_count(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    return "SKILL.md token count (approx)", True, str(ctx.body.tokens_approx)
+
+
+def _eval_progressive_disclosure(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool | None, str]:
+    """Size is a SIGNAL, not a verdict (framework Dec-11): a split is REQUIRED
+    only if a CRP-passing decomposition exists -- sections serve different
+    reading tasks. The mechanical check cannot evaluate CRP, so a violation
+    must not FAIL: the criterion's severity is judgment, and the agent runs
+    the CRP test before any split. A stub-plus-always-co-loaded-reference is a
+    tool-call doubling, not a context-efficiency win."""
+    label = "progressive disclosure (conditional)"
+    body = ctx.body
+    counts = f"lines={body.lines}, tokens~{body.tokens_approx}"
+    if not (body.lines > th["body_max_lines"] or body.tokens_approx > th["body_max_tokens"]):
+        return label, None, counts
+    if (ctx.skill_dir / "references").exists():
+        return label, True, f"body large ({counts}); references/ exists"
+    return (
+        label,
+        False,
+        f"body large ({counts}) and no references/; "
+        "run the CRP test (do sections serve different reading tasks?) before splitting -- "
+        "size is a signal, not a verdict (Dec-11)",
+    )
+
+
+def _eval_refs_one_hop_deep(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool | None, str]:
+    label = "references one-hop-deep (ADP)"
+    refs_dir = ctx.skill_dir / "references"
+    if not refs_dir.exists():
+        return label, None, "no references/ directory"
+    # A nested file is one hop when SKILL.md's index.references[] declares
+    # its exact path or its containing directory; only undeclared nested
+    # files fail (an unindexed nested file is invisible to the load graph).
+    declared = {
+        norm
+        for _, v, is_path in _structured_index_paths(ctx.body.text)
+        if is_path
+        for norm in [v.strip().replace("\\", "/").removeprefix("./").rstrip("/")]
+        if norm.startswith("references/")
+    }
+    nested = [
+        p for p in refs_dir.glob("*/*.md")
+        if p.relative_to(ctx.skill_dir).as_posix() not in declared
+        and p.parent.relative_to(ctx.skill_dir).as_posix() not in declared
+    ]
+    if nested:
+        rel = [str(p.relative_to(ctx.skill_dir)) for p in nested]
+        return (
+            label,
+            False,
+            f"nested and not declared in SKILL.md index.references[] (add the file's path or its directory as an entry): {rel}",
+        )
+    return label, True, ""
+
+
+def _is_reference_skill(ctx: SkillContext) -> bool:
+    """Gated on the YAML ROOT when a contract block was recognized, NOT on the
+    frontmatter skill-type: the frontmatter tag is advisory and judgment-only,
+    so a `reference_skill:` document with no (or a disagreeing) tag must not
+    skip the facts floor (I8). The tag is the fallback gate only for a
+    document that carries no recognized root at all."""
+    if ctx.yaml_root is not None:
+        return ctx.yaml_root == "reference_skill"
+    return ctx.fm.fields.get("skill-type") == "reference-skill"
+
+
+def _declared_facts(ctx: SkillContext) -> list[dict]:
+    """Every fact across the union of its sources: nested in a `reference_skill:`
+    unit's `facts` and in a top-level `facts:` unit. The facts criteria apply
+    over the union, not per source."""
+    all_facts: list[dict] = []
+    for unit_root, block_data in ctx.yaml_units:
+        if unit_root == "reference_skill":
+            inner = block_data.get("reference_skill", {})
+            if isinstance(inner, dict):
+                inner_facts = inner.get("facts", [])
+                if isinstance(inner_facts, list):
+                    all_facts.extend(f for f in inner_facts if isinstance(f, dict))
+        elif unit_root == "facts":
+            top_facts = block_data.get("facts", [])
+            if isinstance(top_facts, list):
+                all_facts.extend(f for f in top_facts if isinstance(f, dict))
+    return all_facts
+
+
+def _facts_floor_applies(ctx: SkillContext) -> bool:
+    # Without pyyaml the units cannot be parsed, so there is no row (not a
+    # deferred one): the contract-staged state skips these floors.
+    return HAVE_YAML and _is_reference_skill(ctx)
+
+
+def _facts_declared_applies(ctx: SkillContext) -> bool:
+    # With no fact declared, facts-floor reports the gap once and the two
+    # per-fact criteria have nothing to read.
+    return _facts_floor_applies(ctx) and bool(_declared_facts(ctx))
+
+
+def _eval_facts_floor(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    label = "yaml: facts present (cross-source)"
+    facts = _declared_facts(ctx)
+    if not facts:
+        return (
+            label,
+            False,
+            "reference-skill requires at least one fact (nested in reference_skill: or as a top-level facts: unit, or both)",
+        )
+    return label, True, f"{len(facts)} facts across all sources"
+
+
+def _eval_facts_gotcha(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    ok = any(f.get("gotchas") for f in _declared_facts(ctx))
+    return (
+        "yaml: >=1 fact carries gotchas (cross-source)",
+        ok,
+        "" if ok else "no fact carries a gotchas list across any source",
+    )
+
+
+def _eval_facts_example(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    ok = any(f.get("example") for f in _declared_facts(ctx))
+    return (
+        "yaml: >=1 fact carries example (cross-source)",
+        ok,
+        "" if ok else "no fact carries an example block across any source",
+    )
+
+
+def _technique_unit(ctx: SkillContext) -> dict | None:
+    """The inner mapping of the document's first `technique_skill:` unit whose
+    value is a mapping, or None."""
+    for unit_root, block_data in ctx.yaml_units:
+        if unit_root != "technique_skill":
+            continue
+        inner = block_data.get("technique_skill", {})
+        if isinstance(inner, dict):
+            return inner
+    return None
+
+
+def _caution_floor_applies(ctx: SkillContext) -> bool:
+    return HAVE_YAML and _technique_unit(ctx) is not None
+
+
+def _eval_caution_floor(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    """The technique-skill caution-surface OR-rule. Per-technique gotchas are
+    optional at the schema level; the document-level floor is >=1 gotcha across
+    techniques OR >=1 anti_patterns record. The two are alternate containers
+    for the same caution surface -- duplicating one caution across both is an
+    anti-pattern (the reader pays twice)."""
+    inner = _technique_unit(ctx)
+    techniques = inner.get("techniques", [])
+    has_gotcha = isinstance(techniques, list) and any(
+        isinstance(t, dict) and t.get("gotchas") for t in techniques)
+    anti_patterns = inner.get("anti_patterns")
+    has_anti = isinstance(anti_patterns, list) and len(anti_patterns) >= 1
+    ok = has_gotcha or has_anti
+    return (
+        "yaml: >=1 gotcha OR >=1 anti_pattern record (caution-surface OR-rule)",
+        ok,
+        "" if ok else "no technique carries a gotchas list and no anti_patterns record exists",
+    )
+
+
+def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
+    return ctx.claude_md is not None
+
+
+def _always(ctx: Any) -> bool:
+    return True
+
+
+def _eval_import_size(ctx: ClaudeMdContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    limit = th["import_max_lines"]
+    outside, _unclosed = _split_fences(ctx.content)
+    over: list[str] = []
+    for n, target, path, missing in _iter_imports(outside, ctx.path.parent):
+        # A missing import is reported under claude-md-links-resolve.
+        if missing or path is None or not path.is_file():
+            continue
+        try:
+            count = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+        except OSError:
+            continue
+        if count > limit:
+            over.append(f"line {n}: @{target} has {count} lines")
+    return f"@imports <= {limit} lines", not over, "; ".join(over)
+
+
+def _eval_size_signal(ctx: ClaudeMdContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    body = ctx.body
+    too_big = body.lines > th["body_max_lines"] or body.tokens_approx > th["body_max_tokens"]
+    counts = f"lines={body.lines}, tokens~{body.tokens_approx}"
+    if too_big:
+        return (
+            "body size signal",
+            False,
+            f"{counts}; run the size-signal judgment (split only when sections serve different reading tasks)",
+        )
+    return "body size signal", True, counts
+
+
+def _eval_record_floor(ctx: ClaudeMdContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    """Document-level floor for claude_md blocks: at least one record across
+    the insights/conventions union. The schema no longer requires insights
+    specifically -- a conventions-only CLAUDE.md is valid -- but an empty
+    block (neither insights nor conventions) fails."""
+    label = "yaml: >=1 record across insights/conventions (union floor)"
+    insights = ctx.claude_md.get("insights")
+    conventions = ctx.claude_md.get("conventions")
+    n_insights = len(insights) if isinstance(insights, list) else 0
+    n_conventions = len(conventions) if isinstance(conventions, list) else 0
+    if n_insights + n_conventions >= 1:
+        return label, True, f"{n_insights} insight(s), {n_conventions} convention(s)"
+    return label, False, "claude_md block carries neither insights nor conventions; the block must be non-empty"
 
 
 #: criterion id -> its evaluator. The registry of every id an
@@ -137,22 +468,83 @@ def _eval_desc_exclusion(desc: str, th: dict[str, int]) -> tuple[str, bool, str]
 MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
     "desc-160-char": MechanicalEvaluator(
         "skill_md", "desc_max_chars",
-        "description <= desc_max_chars chars (deferred)", _eval_desc_length,
+        "description <= desc_max_chars chars (deferred)", _has_description, _eval_desc_length,
     ),
     "desc-directive-form": MechanicalEvaluator(
         "skill_md", None,
-        "directive form ('Use when...' / 'Invoke when...') (deferred)", _eval_desc_directive,
+        "directive form ('Use when...' / 'Invoke when...') (deferred)", _has_description, _eval_desc_directive,
     ),
     "desc-exclusion-clause": MechanicalEvaluator(
         "skill_md", None,
-        "exclusion clause (Do NOT use for...) (deferred)", _eval_desc_exclusion,
+        "exclusion clause (Do NOT use for...) (deferred)", _has_description, _eval_desc_exclusion,
+    ),
+    "skill-type-tag": MechanicalEvaluator(
+        "skill_md", None,
+        "skill-type advisory tag (deferred)", _lacks_skill_type, _eval_skill_type_tag,
+    ),
+    "skill-type-valid": MechanicalEvaluator(
+        "skill_md", None,
+        "skill-type value valid (deferred)", _has_skill_type, _eval_skill_type_valid,
+    ),
+    "body-line-count": MechanicalEvaluator(
+        "skill_md", None,
+        "SKILL.md line count (deferred)", _always, _eval_line_count,
+    ),
+    "body-token-count": MechanicalEvaluator(
+        "skill_md", None,
+        "SKILL.md token count (approx) (deferred)", _always, _eval_token_count,
+    ),
+    "body-size-signal": MechanicalEvaluator(
+        "skill_md", None,
+        "progressive disclosure (conditional) (deferred)", _always, _eval_progressive_disclosure,
+        reads_builtin_thresholds=("body_max_lines", "body_max_tokens"),
+    ),
+    "refs-one-hop-deep": MechanicalEvaluator(
+        "skill_md", None,
+        "references one-hop-deep (ADP) (deferred)", _always, _eval_refs_one_hop_deep,
+    ),
+    "facts-floor": MechanicalEvaluator(
+        "skill_md", None,
+        "yaml: facts present (cross-source) (deferred)", _facts_floor_applies, _eval_facts_floor,
+        section="yaml_contract",
+    ),
+    "facts-gotcha": MechanicalEvaluator(
+        "skill_md", None,
+        "yaml: >=1 fact carries gotchas (cross-source) (deferred)", _facts_declared_applies, _eval_facts_gotcha,
+        section="yaml_contract",
+    ),
+    "facts-example": MechanicalEvaluator(
+        "skill_md", None,
+        "yaml: >=1 fact carries example (cross-source) (deferred)", _facts_declared_applies, _eval_facts_example,
+        section="yaml_contract",
+    ),
+    "caution-floor": MechanicalEvaluator(
+        "skill_md", None,
+        "yaml: >=1 gotcha OR >=1 anti_pattern record (caution-surface OR-rule) (deferred)",
+        _caution_floor_applies, _eval_caution_floor,
+        section="yaml_contract",
+    ),
+    "claude-md-import-size": MechanicalEvaluator(
+        "claude_md", "import_max_lines",
+        "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
+    ),
+    "claude-md-size-signal": MechanicalEvaluator(
+        "claude_md", None,
+        "body size signal (deferred)", _always, _eval_size_signal,
+        reads_builtin_thresholds=("body_max_lines", "body_max_tokens"),
+    ),
+    "claude-md-record-floor": MechanicalEvaluator(
+        "claude_md", None,
+        "yaml: >=1 record across insights/conventions (union floor) (deferred)",
+        _has_claude_md_block, _eval_record_floor,
+        section="yaml_contract",
     ),
 }
 
 
 @dataclass(frozen=True)
-class SkillCriterion:
-    """One mechanical skill_md criterion check_universal evaluates.
+class MechanicalCriterion:
+    """One mechanical standards criterion an audit evaluates.
 
     severity is the criterion's declared severity (fail | info | judgment), or
     None when the criterion could not be read (no pyyaml): the row is then a
@@ -163,28 +555,44 @@ class SkillCriterion:
     severity: str | None
 
 
-def _skill_criterion_rows(desc: str, criteria: Sequence[SkillCriterion], th: dict[str, int]) -> list[CheckResult]:
-    rows: list[CheckResult] = []
+def _criterion_rows(
+    ctx: AuditContext,
+    criteria: Sequence[MechanicalCriterion],
+    th: dict[str, int],
+    section: str | None = None,
+) -> list[tuple[str, CheckResult]]:
+    """Evaluate criteria against ctx; return (report section, row) pairs in order.
+
+    section, when given, restricts the run to criteria whose evaluator joins
+    that report section; the other criteria are skipped, not evaluated.
+    """
+    rows: list[tuple[str, CheckResult]] = []
     for crit in criteria:
         evaluator = MECHANICAL_EVALUATORS[crit.id]
+        if section is not None and evaluator.section != section:
+            continue
+        if not evaluator.applies(ctx):
+            continue
         if crit.severity is None:
-            rows.append(CheckResult(
+            rows.append((evaluator.section, CheckResult(
                 evaluator.deferred_row,
                 JUDGMENT,
                 "pyyaml unavailable: the shipped standards file cannot be read, so this "
                 "criterion's severity and threshold are unresolved; run under the "
                 "skills-kit plugin venv to evaluate it",
                 rule=crit.id,
-            ))
+            )))
             continue
-        label, passed, note = evaluator.evaluate(desc, th)
-        if passed:
+        label, passed, note = evaluator.evaluate(ctx, evaluator.threshold_view(th))
+        if passed is None:
+            verdict = NA
+        elif passed:
             verdict = PASS
         elif crit.severity == "fail":
             verdict = FAIL
         else:
             verdict = JUDGMENT
-        rows.append(CheckResult(label, verdict, note, rule=crit.id))
+        rows.append((evaluator.section, CheckResult(label, verdict, note, rule=crit.id)))
     return rows
 
 
@@ -203,14 +611,17 @@ def check_universal(
     skill_dir: Path,
     thresholds: dict[str, int] | None = None,
     *,
-    skill_criteria: Sequence[SkillCriterion],
+    skill_criteria: Sequence[MechanicalCriterion],
 ) -> list[CheckResult]:
     """The universal SKILL.md rows.
 
     skill_criteria is required: the mechanical skill_md standards criteria to
-    evaluate right after the description-present row, in order (see
-    skill_md_criteria). An empty sequence evaluates none -- a caller passes it
-    explicitly, never by omission.
+    evaluate right after the description row (present or absent), in order
+    (see mechanical_criteria("skill_md", ...)); each evaluator's `applies` gate decides whether it
+    has a row for this document. Only criteria whose evaluator joins the
+    "universal" section run here; the yaml_contract ones run in audit(). An
+    empty sequence evaluates none -- a caller passes it explicitly, never by
+    omission.
     """
     th = thresholds if thresholds is not None else THRESHOLDS
     out: list[CheckResult] = []
@@ -218,6 +629,7 @@ def check_universal(
         out.append(CheckResult("frontmatter present", FAIL, "no leading --- block", rule="frontmatter-present"))
         return out
     out.append(CheckResult("frontmatter present", PASS, rule="frontmatter-present"))
+    ctx = SkillContext(fm, body, skill_dir)
 
     if "name" not in fm.fields:
         out.append(CheckResult("frontmatter.name present", FAIL, rule="name-present"))
@@ -241,91 +653,8 @@ def check_universal(
     if "description" not in fm.fields:
         out.append(CheckResult("frontmatter.description present", FAIL, rule="desc-present"))
     else:
-        desc = fm.fields["description"]
         out.append(CheckResult("frontmatter.description present", PASS, rule="desc-present"))
-        out.extend(_skill_criterion_rows(desc, skill_criteria, th))
-
-    if "skill-type" not in fm.fields:
-        out.append(CheckResult(
-            "skill-type advisory tag",
-            JUDGMENT,
-            "no skill-type frontmatter; agent infers type from content",
-            rule="skill-type-tag",
-        ))
-    else:
-        val = fm.fields["skill-type"]
-        if val in CANONICAL_TYPES:
-            out.append(CheckResult("skill-type value valid", PASS, val, rule="skill-type-valid"))
-        else:
-            out.append(CheckResult(
-                "skill-type value valid",
-                FAIL,
-                f"got '{val}', expected one of {sorted(CANONICAL_TYPES)}",
-                rule="skill-type-valid",
-            ))
-
-    out.append(CheckResult("SKILL.md line count", PASS, str(body.lines), rule="body-line-count"))
-    out.append(CheckResult("SKILL.md token count (approx)", PASS, str(body.tokens_approx), rule="body-token-count"))
-
-    has_references = (skill_dir / "references").exists()
-    body_too_big = (
-        body.lines > th["body_max_lines"]
-        or body.tokens_approx > th["body_max_tokens"]
-    )
-    if not body_too_big:
-        out.append(CheckResult(
-            "progressive disclosure (conditional)",
-            NA,
-            f"lines={body.lines}, tokens~{body.tokens_approx}",
-            rule="body-size-signal",
-        ))
-    elif has_references:
-        out.append(CheckResult(
-            "progressive disclosure (conditional)",
-            PASS,
-            f"body large (lines={body.lines}, tokens~{body.tokens_approx}); references/ exists",
-            rule="body-size-signal",
-        ))
-    else:
-        # Size is a SIGNAL, not a verdict (framework Dec-11): a split is REQUIRED
-        # only if a CRP-passing decomposition exists -- sections serve different
-        # reading tasks. The mechanical check cannot evaluate CRP, so it must not
-        # FAIL. It emits judgment-required: the agent runs the CRP test before any
-        # split. A stub-plus-always-co-loaded-reference is a tool-call doubling,
-        # not a context-efficiency win.
-        out.append(CheckResult(
-            "progressive disclosure (conditional)",
-            JUDGMENT,
-            f"body large (lines={body.lines}, tokens~{body.tokens_approx}) and no references/; "
-            "run the CRP test (do sections serve different reading tasks?) before splitting -- "
-            "size is a signal, not a verdict (Dec-11)",
-            rule="body-size-signal",
-        ))
-
-    refs_dir = skill_dir / "references"
-    if not refs_dir.exists():
-        out.append(CheckResult("references one-hop-deep (ADP)", NA, "no references/ directory", rule="refs-one-hop-deep"))
-    else:
-        # A nested file is one hop when SKILL.md's index.references[] declares
-        # its exact path or its containing directory; only undeclared nested
-        # files fail (an unindexed nested file is invisible to the load graph).
-        declared = {
-            norm
-            for _, v, is_path in _structured_index_paths(body.text)
-            if is_path
-            for norm in [v.strip().replace("\\", "/").removeprefix("./").rstrip("/")]
-            if norm.startswith("references/")
-        }
-        nested = [
-            p for p in refs_dir.glob("*/*.md")
-            if p.relative_to(skill_dir).as_posix() not in declared
-            and p.parent.relative_to(skill_dir).as_posix() not in declared
-        ]
-        if nested:
-            rel = [str(p.relative_to(skill_dir)) for p in nested]
-            out.append(CheckResult("references one-hop-deep (ADP)", FAIL, f"nested and not declared in SKILL.md index.references[] (add the file's path or its directory as an entry): {rel}", rule="refs-one-hop-deep"))
-        else:
-            out.append(CheckResult("references one-hop-deep (ADP)", PASS, rule="refs-one-hop-deep"))
+    out.extend(row for _section, row in _criterion_rows(ctx, skill_criteria, th, section="universal"))
 
     # Match local references/X.md citations only; exclude cross-plugin refs.
     cited = set(re.findall(r"(?<![/:])references/([a-zA-Z0-9_\-]+\.md)", body.text))
@@ -614,115 +943,6 @@ def check_portable_units(body_text: str) -> list[CheckResult]:
             for path, msg in fails:
                 results.append(CheckResult(f"yaml: {path}", FAIL, msg, rule="yaml-contract"))
     return results
-
-
-def check_facts_cross_rules(
-    body_text: str,
-    declared_type: str | None,
-    yaml_root: str | None = None,
-) -> list[CheckResult]:
-    """Enforce document-level facts cross-rules across the union of all sources.
-
-    Facts can live nested in `reference_skill.facts` OR as a top-level `facts:`
-    portable unit, OR both. The cross-rules ("at least one fact carries gotchas",
-    "at least one fact carries example", "at least one fact exists") apply over
-    the union, not per-source. Only applies to reference-skill documents.
-
-    Gated on the YAML ROOT (like check_technique_caution_cross_rule) when a
-    contract block is present, NOT on the frontmatter skill-type -- the
-    frontmatter tag is advisory/judgment-only, so a `reference_skill:`
-    document with no (or a disagreeing) frontmatter skill-type must not
-    silently skip the facts floor (I8). Frontmatter is the fallback gate only
-    for a legacy document that carries no YAML root at all.
-    """
-    is_reference = (
-        yaml_root == "reference_skill"
-        if yaml_root is not None
-        else declared_type == "reference-skill"
-    )
-    if not is_reference:
-        return []
-    if not HAVE_YAML:
-        return []
-
-    all_facts: list[dict] = []
-    units, _, _ = collect_yaml_units(body_text)
-    for unit_root, block_data in units:
-        if unit_root == "reference_skill":
-            inner = block_data.get("reference_skill", {})
-            if isinstance(inner, dict):
-                inner_facts = inner.get("facts", [])
-                if isinstance(inner_facts, list):
-                    all_facts.extend(f for f in inner_facts if isinstance(f, dict))
-        elif unit_root == "facts":
-            top_facts = block_data.get("facts", [])
-            if isinstance(top_facts, list):
-                all_facts.extend(f for f in top_facts if isinstance(f, dict))
-
-    results: list[CheckResult] = []
-    if not all_facts:
-        results.append(CheckResult(
-            "yaml: facts present (cross-source)",
-            FAIL,
-            "reference-skill requires at least one fact (nested in reference_skill: or as a top-level facts: unit, or both)",
-            rule="facts-floor",
-        ))
-        return results
-
-    results.append(CheckResult(
-        "yaml: facts present (cross-source)",
-        PASS,
-        f"{len(all_facts)} facts across all sources",
-        rule="facts-floor",
-    ))
-    has_gotcha = any(f.get("gotchas") for f in all_facts)
-    results.append(CheckResult(
-        "yaml: >=1 fact carries gotchas (cross-source)",
-        PASS if has_gotcha else FAIL,
-        "" if has_gotcha else "no fact carries a gotchas list across any source",
-        rule="facts-gotcha",
-    ))
-    has_example = any(f.get("example") for f in all_facts)
-    results.append(CheckResult(
-        "yaml: >=1 fact carries example (cross-source)",
-        PASS if has_example else FAIL,
-        "" if has_example else "no fact carries an example block across any source",
-        rule="facts-example",
-    ))
-    return results
-
-
-def check_technique_caution_cross_rule(body_text: str) -> list[CheckResult]:
-    """Enforce the technique-skill caution-surface OR-rule.
-
-    Per-technique gotchas are optional at the schema level; the document-level
-    floor is >=1 gotcha across techniques OR >=1 anti_patterns record. The two
-    are alternate containers for the same caution surface -- duplicating one
-    caution across both is an anti-pattern (the reader pays twice).
-    """
-    if not HAVE_YAML:
-        return []
-
-    units, _, _ = collect_yaml_units(body_text)
-    for unit_root, block_data in units:
-        if unit_root != "technique_skill":
-            continue
-        inner = block_data.get("technique_skill", {})
-        if not isinstance(inner, dict):
-            continue
-        techniques = inner.get("techniques", [])
-        has_gotcha = isinstance(techniques, list) and any(
-            isinstance(t, dict) and t.get("gotchas") for t in techniques)
-        anti_patterns = inner.get("anti_patterns")
-        has_anti = isinstance(anti_patterns, list) and len(anti_patterns) >= 1
-        ok = has_gotcha or has_anti
-        return [CheckResult(
-            "yaml: >=1 gotcha OR >=1 anti_pattern record (caution-surface OR-rule)",
-            PASS if ok else FAIL,
-            "" if ok else "no technique carries a gotchas list and no anti_patterns record exists",
-            rule="caution-floor",
-        )]
-    return []
 
 
 _PROJECT_MARKERS = (".git", ".hg", ".svn", ".p4config.txt")
@@ -1044,33 +1264,6 @@ def check_references_reachable_from_skill_md(body_text: str, skill_dir: Path) ->
     return results
 
 
-def check_claude_md_record_floor(yaml_data: dict) -> CheckResult | None:
-    """Document-level floor for claude_md blocks: at least one record across
-    the insights/conventions union. The schema no longer requires insights
-    specifically -- a conventions-only CLAUDE.md is valid -- but an empty
-    block (neither insights nor conventions) fails."""
-    inner = yaml_data.get("claude_md")
-    if not isinstance(inner, dict):
-        return None
-    insights = inner.get("insights")
-    conventions = inner.get("conventions")
-    n_insights = len(insights) if isinstance(insights, list) else 0
-    n_conventions = len(conventions) if isinstance(conventions, list) else 0
-    if n_insights + n_conventions >= 1:
-        return CheckResult(
-            "yaml: >=1 record across insights/conventions (union floor)",
-            PASS,
-            f"{n_insights} insight(s), {n_conventions} convention(s)",
-            rule="claude-md-record-floor",
-        )
-    return CheckResult(
-        "yaml: >=1 record across insights/conventions (union floor)",
-        FAIL,
-        "claude_md block carries neither insights nor conventions; the block must be non-empty",
-        rule="claude-md-record-floor",
-    )
-
-
 def check_cross_block_drift(body_text: str) -> CheckResult | None:
     """Cross-block mixed-type drift detection."""
     if not HAVE_YAML:
@@ -1130,12 +1323,42 @@ def _link_target_path(target: str, base: Path) -> Path | None:
     return base / path_part
 
 
-def check_claude_md_defaults(
-    path: Path, content: str, body: Body, th: dict[str, int]
-) -> list[CheckResult]:
-    """Default rules for every CLAUDE.md / AGENTS.md, with or without a
-    claude_md: block. Independent of the directory dimension classifier and of
-    sibling files; reads only the file itself and its link/import targets."""
+def _iter_imports(
+    outside: list[tuple[int, str]], base: Path
+) -> list[tuple[int, str, Path | None, bool]]:
+    """The `@path` imports among the lines outside code fences.
+
+    Returns (line number, target as written, resolved path, missing) for each
+    line that opens with `@` followed by a token containing `.` or `/`. A
+    relative target that does not exist is reported with missing=True; a
+    `~` or absolute target is resolved but never checked for existence.
+    """
+    found: list[tuple[int, str, Path | None, bool]] = []
+    for n, line in outside:
+        m = _IMPORT_RE.match(line)
+        if not m or not re.search(r"[./]", m.group(1)):
+            continue
+        t = m.group(1)
+        if t.startswith("~"):
+            p: Path | None = Path(t).expanduser()
+        elif t.startswith("/"):
+            p = Path(t)
+        else:
+            p = _link_target_path(t, base)
+            if p is not None and not p.exists():
+                found.append((n, t, p, True))
+                continue
+        found.append((n, t, p, False))
+    return found
+
+
+def check_claude_md_defaults(path: Path, content: str) -> list[CheckResult]:
+    """The inoffensive rules for every CLAUDE.md / AGENTS.md, with or without a
+    claude_md: block: links resolve, fences closed. Independent of the
+    directory dimension classifier and of sibling files; reads only the file
+    itself and its link/import targets. The optional rules (import size, size
+    signal, record floor) are shipped standards criteria, evaluated by
+    MECHANICAL_EVALUATORS."""
     base = path.parent
     outside, unclosed = _split_fences(content)
 
@@ -1151,28 +1374,9 @@ def check_claude_md_defaults(
             if p is not None and not os.path.exists(p):
                 bad_links.append(f"line {n}: {t}")
 
-    over_imports: list[str] = []
-    for n, line in outside:
-        m = _IMPORT_RE.match(line)
-        if not m or not re.search(r"[./]", m.group(1)):
-            continue
-        t = m.group(1)
-        if t.startswith("~"):
-            p = Path(t).expanduser()
-        elif t.startswith("/"):
-            p = Path(t)
-        else:
-            p = _link_target_path(t, base)
-            if p is not None and not p.exists():
-                bad_links.append(f"line {n}: @{t} (missing import)")
-                continue
-        if p is not None and p.is_file():
-            try:
-                count = len(p.read_text(encoding="utf-8", errors="replace").splitlines())
-            except OSError:
-                continue
-            if count > th["import_max_lines"]:
-                over_imports.append(f"line {n}: @{t} has {count} lines")
+    for n, t, _p, missing in _iter_imports(outside, base):
+        if missing:
+            bad_links.append(f"line {n}: @{t} (missing import)")
 
     out: list[CheckResult] = []
     out.append(CheckResult(
@@ -1186,21 +1390,6 @@ def check_claude_md_defaults(
         FAIL if unclosed else PASS,
         "a ``` or ~~~ fence is opened and never closed" if unclosed else "",
         rule="claude-md-fences-closed",
-    ))
-    out.append(CheckResult(
-        f"@imports <= {th['import_max_lines']} lines",
-        FAIL if over_imports else PASS,
-        "; ".join(over_imports),
-        rule="claude-md-import-size",
-    ))
-    too_big = body.lines > th["body_max_lines"] or body.tokens_approx > th["body_max_tokens"]
-    out.append(CheckResult(
-        "body size signal",
-        JUDGMENT if too_big else PASS,
-        f"lines={body.lines}, tokens~{body.tokens_approx}; run the size-signal judgment "
-        "(split only when sections serve different reading tasks)" if too_big
-        else f"lines={body.lines}, tokens~{body.tokens_approx}",
-        rule="claude-md-size-signal",
     ))
     return out
 
@@ -1216,9 +1405,10 @@ def audit_claude_md(
     optional: when present it is schema-validated; when absent the contract row
     is n/a and the file is validated against the defaults alone.
     """
-    th = {**THRESHOLDS, **(resolved.thresholds if resolved else {})}
+    criteria, criterion_defaults = mechanical_criteria("claude_md", resolved)
+    th = {**THRESHOLDS, **criterion_defaults, **(resolved.thresholds if resolved else {})}
     body = parse_body(content)
-    universal = check_claude_md_defaults(claude_md_path, content, body, th)
+    universal = check_claude_md_defaults(claude_md_path, content)
     yaml_data, yaml_err, detected_root = extract_claude_md_unit(body.text)
     yaml_results: list[CheckResult] = []
     yaml_root: str | None = None
@@ -1242,9 +1432,6 @@ def audit_claude_md(
             ))
         else:
             yaml_results, yaml_root = check_yaml_contract(yaml_data)
-            floor = check_claude_md_record_floor(yaml_data)
-            if floor is not None:
-                yaml_results.append(floor)
     elif yaml_err == "no-yaml-parser":
         yaml_results.append(CheckResult(
             f"yaml: contract block detected (root='{detected_root}')",
@@ -1268,6 +1455,11 @@ def audit_claude_md(
             rule="yaml-contract",
         ))
 
+    inner = yaml_data.get("claude_md") if yaml_data is not None else None
+    ctx = ClaudeMdContext(claude_md_path, content, body, inner if isinstance(inner, dict) else None)
+    for section, row in _criterion_rows(ctx, criteria, th):
+        (yaml_results if section == "yaml_contract" else universal).append(row)
+
     disabled = resolved.disabled_rules if resolved else set()
     universal_rows = [asdict(r) for r in universal]
     yaml_rows = [asdict(r) for r in yaml_results]
@@ -1287,20 +1479,23 @@ def audit_claude_md(
     }
 
 
-def skill_md_criteria(
+def mechanical_criteria(
+    applies_to: str,
     resolved: "ResolvedStandards | None",
-) -> tuple[list[SkillCriterion], dict[str, int]]:
-    """The mechanical skill_md criteria to evaluate, and their threshold defaults.
+) -> tuple[list[MechanicalCriterion], dict[str, int]]:
+    """The mechanical criteria of one file-type primitive to evaluate, and their
+    threshold defaults. applies_to is "skill_md" or "claude_md".
 
-    - resolved given: its skill_md standards files, in layer then file order,
-      keeping each `enforcement: mechanical` criterion (standards_resolve has
-      already rejected any without a registered evaluator).
+    - resolved given: its standards files for that primitive, in layer then
+      file order, keeping each `enforcement: mechanical` criterion
+      (standards_resolve has already rejected any without a registered
+      evaluator).
     - resolved None, pyyaml available: the shipped layer alone
       (standards_resolve.resolve_shipped), so a plain audit stays deterministic
       and ignores user and project layers.
-    - resolved None, no pyyaml: the shipped file cannot be parsed. Its presence
-      is still verified, and each registered skill_md evaluator yields a
-      deferred row; no criterion default is assumed.
+    - resolved None, no pyyaml: the shipped files cannot be parsed. Their
+      presence is still verified, and each registered evaluator for the
+      primitive yields a deferred row; no criterion default is assumed.
 
     A missing or invalid shipped standards file raises StandardsConfigError.
     Returns (criteria, criterion-declared threshold defaults).
@@ -1311,15 +1506,15 @@ def skill_md_criteria(
         if not standards_resolve.HAVE_YAML:
             standards_resolve.require_shipped_standards()
             deferred = [
-                SkillCriterion(rid, None)
+                MechanicalCriterion(rid, None)
                 for rid, ev in MECHANICAL_EVALUATORS.items()
-                if ev.applies_to == "skill_md"
+                if ev.applies_to == applies_to
             ]
             return deferred, {}
         resolved = standards_resolve.resolve_shipped()
     criteria = [
-        SkillCriterion(c["id"], c["severity"])
-        for sf in resolved.standards_by_primitive.get("skill_md", [])
+        MechanicalCriterion(c["id"], c["severity"])
+        for sf in resolved.standards_by_primitive.get(applies_to, [])
         for c in sf.criteria
         if c.get("enforcement") == "mechanical"
     ]
@@ -1342,9 +1537,9 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
 
     skill_dir = skill_md_path.parent
 
-    # Resolved only after the CLAUDE.md / AGENTS.md dispatch above: an
-    # instruction-file audit never needs the skill_md standards layer.
-    skill_criteria, criterion_defaults = skill_md_criteria(resolved)
+    # Resolved after the CLAUDE.md / AGENTS.md dispatch above, which resolves
+    # its own claude_md criteria.
+    skill_criteria, criterion_defaults = mechanical_criteria("skill_md", resolved)
 
     # Effective thresholds: audit defaults, then criterion-declared defaults,
     # overlaid by any resolved overrides. The module-level THRESHOLDS dict is
@@ -1402,8 +1597,12 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
         ))
 
     yaml_results.extend(check_portable_units(body.text))
-    yaml_results.extend(check_facts_cross_rules(body.text, declared_type, yaml_root))
-    yaml_results.extend(check_technique_caution_cross_rule(body.text))
+    # The yaml_contract-section criteria (facts and caution floors) read the
+    # parsed units and the resolved root, so they run once both exist.
+    contract_ctx = SkillContext(
+        fm if fm is not None else Frontmatter(raw="", fields={}), body, skill_dir, yaml_root)
+    yaml_results.extend(
+        row for _section, row in _criterion_rows(contract_ctx, skill_criteria, th, section="yaml_contract"))
     yaml_results.extend(check_asset_dependencies_resolve(body.text, skill_dir))
 
     cross_block_drift = check_cross_block_drift(body.text)

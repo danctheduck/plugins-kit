@@ -4,7 +4,7 @@ directory; a nested file declared by neither form still FAILs."""
 
 import yaml
 
-from skills_kit_lib.audit import FAIL, PASS, check_universal
+from skills_kit_lib.audit import FAIL, PASS, THRESHOLDS, check_universal, mechanical_criteria
 from skills_kit_lib.markdown_heuristics import parse_body, parse_frontmatter
 
 RULE = "refs-one-hop-deep"
@@ -30,7 +30,8 @@ def _skill(tmp_path, index_paths, files):
 
 def _verdict(skill_dir, content):
     fm = parse_frontmatter(content, mode="full")
-    rows = [r for r in check_universal(fm, parse_body(content), skill_dir, skill_criteria=()) if r.rule == RULE]
+    criteria, defaults = mechanical_criteria("skill_md", None)
+    rows = [r for r in check_universal(fm, parse_body(content), skill_dir, {**THRESHOLDS, **defaults}, skill_criteria=criteria) if r.rule == RULE]
     assert len(rows) == 1
     return rows[0]
 

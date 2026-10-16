@@ -73,7 +73,6 @@ def test_thresholds_have_expected_keys_and_values():
         "body_max_lines": 500,
         "body_max_tokens": 3000,
         "mixed_min_score": 2,
-        "import_max_lines": 50,
     }
 
 
@@ -85,8 +84,8 @@ def test_bucket_values_are_only_the_three_allowed_strings():
 
 def test_helpers_agree_with_catalog():
     assert rule_catalog.is_architectural("yaml-contract") is True
-    assert rule_catalog.is_architectural("skill-type-tag") is False
+    assert rule_catalog.is_architectural("step-tracking") is False
     assert rule_catalog.is_architectural("nonexistent-rule") is False
     optional = rule_catalog.optional_rule_ids()
-    assert "skill-type-tag" in optional
+    assert "step-tracking" in optional
     assert all(rule_catalog.BUCKETS[rid] == "optional" for rid in optional)

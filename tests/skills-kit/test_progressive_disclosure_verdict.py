@@ -1,5 +1,6 @@
 """Tests for the Dec-11 size-is-a-signal recalibration of the progressive-
-disclosure check in audit.check_universal.
+disclosure check (the shipped body-size-signal criterion, evaluated through
+audit.check_universal).
 
 The framework (Dec-11) holds that the 500-line / 3000-token size threshold is
 a SIGNAL that a SKILL.md deserves evaluation for a split, NOT a verdict that
@@ -16,7 +17,7 @@ These tests pin:
 3. large body + no references/      -> judgment-required (run the CRP test)
 """
 
-from skills_kit_lib.audit import check_universal
+from skills_kit_lib.audit import THRESHOLDS, check_universal, mechanical_criteria
 from skills_kit_lib.markdown_heuristics import parse_body, parse_frontmatter
 
 
@@ -42,8 +43,8 @@ def _make(tmp_path, *, words: int, references: bool):
     body_text = HEADER + " ".join(f"word{i}" for i in range(words)) + "\n"
     fm = parse_frontmatter(body_text)
     body = parse_body(body_text)
-    # The shipped description criteria are irrelevant to this row.
-    return check_universal(fm, body, skill_dir, skill_criteria=())
+    criteria, defaults = mechanical_criteria("skill_md", None)
+    return check_universal(fm, body, skill_dir, {**THRESHOLDS, **defaults}, skill_criteria=criteria)
 
 
 def test_small_body_is_na(tmp_path):

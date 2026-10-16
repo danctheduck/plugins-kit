@@ -2,7 +2,7 @@
 
 The schema no longer requires insights: as a key -- a conventions-only
 CLAUDE.md validates. The non-empty floor is the insights/conventions UNION,
-enforced as a document-level check (audit.check_claude_md_record_floor); an
+enforced by the shipped criterion claude-md-record-floor (audit.MECHANICAL_EVALUATORS); an
 empty block (neither insights nor conventions) still fails.
 """
 
@@ -10,7 +10,9 @@ import copy
 
 import yaml
 
-from skills_kit_lib.audit import FAIL, PASS, audit, check_claude_md_record_floor
+from pathlib import Path
+
+from skills_kit_lib.audit import FAIL, MECHANICAL_EVALUATORS, audit, parse_body, ClaudeMdContext
 from skills_kit_lib.schema_engine import validate
 from skills_kit_lib.schemas.claude_md import CLAUDE_MD_SCHEMA
 
@@ -53,20 +55,23 @@ class TestSchema:
         assert fails
 
 
+def _floor(data: dict) -> tuple[str, bool, str]:
+    """The record-floor evaluator over a parsed {"claude_md": {...}} document."""
+    ctx = ClaudeMdContext(Path("CLAUDE.md"), "", parse_body(""), data["claude_md"])
+    return MECHANICAL_EVALUATORS["claude-md-record-floor"].evaluate(ctx, {})
+
+
 class TestUnionFloor:
     def test_conventions_only_passes_floor(self):
-        result = check_claude_md_record_floor(CONVENTIONS_ONLY)
-        assert result is not None and result.verdict == PASS
+        assert _floor(CONVENTIONS_ONLY)[1] is True
 
     def test_insights_only_passes_floor(self, minimal_claude_md):
-        result = check_claude_md_record_floor(minimal_claude_md)
-        assert result is not None and result.verdict == PASS
+        assert _floor(minimal_claude_md)[1] is True
 
     def test_empty_block_fails_floor(self):
         data = copy.deepcopy(CONVENTIONS_ONLY)
         del data["claude_md"]["conventions"]
-        result = check_claude_md_record_floor(data)
-        assert result is not None and result.verdict == FAIL
+        assert _floor(data)[1] is False
 
 
 class TestAuditIntegration:

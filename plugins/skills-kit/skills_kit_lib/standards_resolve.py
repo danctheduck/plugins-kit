@@ -24,7 +24,7 @@ because returning empty defaults would ignore every config and standards file
 while reading exactly like "nothing configured". Malformed config, an un-tunable rule id, an unknown
 threshold, an unknown adapter or adapter setting, an unknown audit setting or value, or an invalid standards file
 are LOUD (StandardsConfigError), never a silent {}. So are a missing shipped
-standards layer, a criterion id repeated anywhere in the resolved layers or
+standards layer (each of SHIPPED_REQUIRED_STANDARDS), a criterion id repeated anywhere in the resolved layers or
 equal to a rule_catalog id, an `enforcement: mechanical` criterion with no
 registered evaluator (audit.MECHANICAL_EVALUATORS), and a malformed or
 conflicting criterion `threshold:` declaration.
@@ -58,8 +58,11 @@ except ImportError:  # pragma: no cover - exercised only on a bare interpreter
 #: this module attribute at call time, never as a bound default.
 SHIPPED_STANDARDS_DIR = Path(__file__).resolve().parent / "defaults" / "standards"
 
-#: The shipped file carrying the skill_md criteria audit.py evaluates.
+#: The shipped files carrying the criteria audit.py evaluates: skill_md and
+#: claude_md. Each must exist in the shipped directory.
 SHIPPED_SKILL_STANDARDS = "SKILL-standards.md"
+SHIPPED_CLAUDE_MD_STANDARDS = "CLAUDE-md-standards.md"
+SHIPPED_REQUIRED_STANDARDS = (SHIPPED_SKILL_STANDARDS, SHIPPED_CLAUDE_MD_STANDARDS)
 
 #: Sentinel for "use SHIPPED_STANDARDS_DIR"; an explicit None opts out.
 _SHIPPED_DEFAULT = object()
@@ -325,7 +328,7 @@ def _validate_audit(merged: dict) -> dict[str, str]:
 
 
 def _evaluator_thresholds() -> set[str]:
-    """Threshold names the registered mechanical evaluators consume."""
+    """Threshold names the registered mechanical evaluators own."""
     return {ev.threshold for ev in MECHANICAL_EVALUATORS.values() if ev.threshold}
 
 
@@ -499,6 +502,15 @@ def _validate_criteria(files: list[StandardsFile]) -> dict[str, int]:
                     )
                 continue
             name, default = th.get("name"), th.get("default")
+            if isinstance(name, str) and name in THRESHOLDS:
+                raise StandardsConfigError(
+                    f"criterion '{cid}' at {here} declares threshold '{name}', which is "
+                    "a built-in threshold (audit.THRESHOLDS); a criterion may declare "
+                    "only a threshold no built-in rule owns. An evaluator reads a "
+                    "built-in threshold without declaring it "
+                    "(MechanicalEvaluator.reads_builtin_thresholds), and a user tunes "
+                    "it through `thresholds:`"
+                )
             if wanted is None:
                 raise StandardsConfigError(
                     f"criterion '{cid}' at {here} declares a threshold, but only a "
@@ -519,12 +531,6 @@ def _validate_criteria(files: list[StandardsFile]) -> dict[str, int]:
                     f"criterion '{cid}' at {here}: threshold '{name}' default must be a "
                     f"positive integer; got {default!r}"
                 )
-            if name in THRESHOLDS:
-                raise StandardsConfigError(
-                    f"criterion '{cid}' at {here} declares threshold '{name}', which is "
-                    "a built-in threshold (audit.THRESHOLDS); a criterion may declare "
-                    "only a threshold no built-in rule owns"
-                )
             if name in declared:
                 raise StandardsConfigError(
                     f"threshold '{name}' is declared twice: {declared[name][1]} and {here}"
@@ -533,21 +539,22 @@ def _validate_criteria(files: list[StandardsFile]) -> dict[str, int]:
     return {name: default for name, (default, _where) in declared.items()}
 
 
-def require_shipped_standards(shipped_dir: Path | None = None) -> Path:
-    """Return the shipped skill_md standards file; raise if it is missing.
+def require_shipped_standards(shipped_dir: Path | None = None) -> list[Path]:
+    """Return the shipped standards files audits need; raise if any is missing.
 
     Reads no content, so it works without pyyaml: audit.py's degraded path
     calls it to keep a missing shipped layer loud on a bare interpreter.
     """
     base = shipped_dir if shipped_dir is not None else SHIPPED_STANDARDS_DIR
-    path = base / SHIPPED_SKILL_STANDARDS
-    if not path.is_file():
-        raise StandardsConfigError(
-            f"shipped standards file missing: {path}. The skills-kit install is "
-            "incomplete; reinstall or update the plugin. Every SKILL.md audit "
-            "needs this layer, so it is never skipped."
-        )
-    return path
+    paths = [base / name for name in SHIPPED_REQUIRED_STANDARDS]
+    for path in paths:
+        if not path.is_file():
+            raise StandardsConfigError(
+                f"shipped standards file missing: {path}. The skills-kit install is "
+                "incomplete; reinstall or update the plugin. Every SKILL.md and "
+                "CLAUDE.md audit needs this layer, so it is never skipped."
+            )
+    return paths
 
 
 def layer_paths(

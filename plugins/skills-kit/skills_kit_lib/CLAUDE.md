@@ -81,7 +81,7 @@ claude_md:
       detail: |
         Each schema row is a dict using a small fixed rule vocabulary; schema_engine.py's module
         docstring is the SSOT for the key list (it changes in the same diff as the validator).
-        Cross-record rules (e.g. check_facts_cross_rules) live in audit.py as document-level checks
+        Cross-record rules (e.g. the facts-floor evaluator) live in audit.py as document-level checks
         evaluated after the walker. No jsonschema or pydantic dependency.
       origin: Phase Y1 design choice for the YAML contract refactor.
       added: "2026-04-28"
@@ -161,15 +161,15 @@ claude_md:
         mis-pointed member fail the audit instead of dangling silently.
       added: "2026-05-31"
     - id: asset_and_floor_document_checks
-      keywords: [check_asset_dependencies_resolve, check_claude_md_record_floor, asset_dependencies, tools tests, union floor, document-level check, path resolution]
-      summary: "Two document-level checks added 2026-07-13 (steam-analysis stress test): check_asset_dependencies_resolve resolves every declared asset_dependencies path (top-level or nested in any skill-type unit) AND every domain_skill tools[].tests path against the skill dir then the nearest project root (markers: .git/.hg/.svn/.p4config.txt), FAILing per unresolved path; check_claude_md_record_floor enforces >=1 record across the claude_md insights/conventions union (the schema no longer requires insights as a key)."
+      keywords: [check_asset_dependencies_resolve, claude-md-record-floor, asset_dependencies, tools tests, union floor, document-level check, path resolution]
+      summary: "Two document-level checks added 2026-07-13 (steam-analysis stress test): check_asset_dependencies_resolve resolves every declared asset_dependencies path (top-level or nested in any skill-type unit) AND every domain_skill tools[].tests path against the skill dir then the nearest project root (markers: .git/.hg/.svn/.p4config.txt), FAILing per unresolved path; the shipped criterion claude-md-record-floor (an evaluator in audit.MECHANICAL_EVALUATORS) enforces >=1 record across the claude_md insights/conventions union (the schema no longer requires insights as a key)."
       detail: |
         Both follow the established convention: cross-key/cross-source rules live in
         audit.py after the walker, not in the schema engine. Asset resolution strips a
         ${CLAUDE_PLUGIN_ROOT}/ prefix and a leading slash before trying bases (declared
         paths are skill-dir-relative or project-root-relative by contract). Nested
         asset_dependencies are collected from inside skill-type units the same way
-        check_facts_cross_rules collects nested facts (collect_yaml_units does NOT emit
+        the facts evaluators collect nested facts (collect_yaml_units does NOT emit
         nested portable units as separate units). Both checks degrade silently without
         pyyaml, consistent with the contract-staged state.
       origin: steam-analysis stress-test feedback gaps 5/7/8 implementation (2026-07-13).
@@ -221,23 +221,45 @@ claude_md:
       origin: explicit-skill-context plan, unit SC4 (decision SC-D9).
       added: "2026-09-30"
     - id: shipped_standards_criteria_have_evaluators
-      keywords: [shipped standards, defaults/standards, SKILL-standards.md, MECHANICAL_EVALUATORS, mechanical criterion, evaluator registry, threshold_defaults, resolve_shipped, desc-160-char, deferred row]
+      keywords: [shipped standards, defaults/standards, SKILL-standards.md, CLAUDE-md-standards.md, MECHANICAL_EVALUATORS, mechanical criterion, evaluator registry, threshold_defaults, resolve_shipped, desc-160-char, skill-type-valid, claude-md-import-size, SkillContext, ClaudeMdContext, applies gate, reads_builtin_thresholds, deferred row]
       summary: "A rule that moves out of rule_catalog.RULES into the shipped standards layer (defaults/standards/*-standards.md) keeps only its check in code: a MechanicalEvaluator registered in audit.MECHANICAL_EVALUATORS under the criterion id. Statement, severity and any threshold default live in the standards file."
       detail: |
-        To move another rule: add the criterion to the shipped file with
+        To move another rule: add the criterion to the shipped file for its
+        file type (SKILL-standards.md or CLAUDE-md-standards.md) with
         enforcement: mechanical (and `threshold: {name, default}` when the
-        check reads a limit), register the evaluator with the same id, delete
-        the RULES entry (a criterion id may not repeat a catalog id), and run
-        scripts/gen_standards_doc.py. standards_resolve raises when a
-        mechanical criterion has no evaluator, when the evaluator and the
-        criterion disagree about the threshold, and when an id repeats.
-        audit() resolves after the CLAUDE.md / AGENTS.md dispatch: with no
-        `resolved` it applies resolve_shipped(), and without pyyaml it checks
-        that the shipped file exists and emits one deferred row per registered
-        evaluator. check_universal takes skill_criteria as a required keyword,
-        so a direct caller states which criteria it evaluates. Provenance:
+        check reads a limit only that criterion owns), register the evaluator
+        with the same id (its `evaluate` takes a SkillContext of frontmatter,
+        body, skill dir, and (for the yaml_contract rows) the resolved contract
+        root and the parsed YAML units for skill_md, or a ClaudeMdContext of
+        path, content, body and parsed claude_md block for claude_md; its
+        `applies` gate decides whether the criterion has a row for that
+        document at all (the four contract floors return false without pyyaml,
+        so they have no deferred row either); its
+        `evaluate` returns (label, outcome, note) where the outcome is True
+        (pass), False (violated: the criterion's severity maps it to fail or
+        judgment-required) or None (n/a: the row appears with verdict n/a, as
+        refs-one-hop-deep does with no references/ directory); its
+        `reads_builtin_thresholds` names built-in thresholds it reads without
+        declaring them; its `section` places the row in the universal or the
+        yaml_contract list: check_universal evaluates the universal skill_md
+        criteria, audit() the yaml_contract ones after the portable-unit rows),
+        delete the RULES entry (a criterion id may not
+        repeat a catalog id), and run scripts/gen_standards_doc.py.
+        standards_resolve raises when a mechanical criterion has no evaluator,
+        when the evaluator and the criterion disagree about the threshold, when
+        a criterion declares a built-in threshold, and when an id repeats.
+        An evaluator receives only the thresholds its record names.
+        audit() and audit_claude_md resolve through
+        mechanical_criteria(applies_to, resolved): with no `resolved` it
+        applies resolve_shipped(), and without pyyaml it checks that every
+        required shipped file exists and emits one deferred row per registered
+        evaluator of that file type whose `applies` gate accepts the document.
+        check_universal takes skill_criteria as a required keyword, so a direct
+        caller states which criteria it evaluates. Provenance:
         ../skills/md-domain/references/provenance/standards-decisions.md,
-        shipped_standards_layer_enabled. Pinned by
+        shipped_standards_layer_enabled, skill_type_criteria_shipped,
+        claude_md_criteria_shipped, body_refs_criteria_shipped and
+        contract_floor_criteria_shipped. Pinned by
         tests/skills-kit/test_shipped_standards.py.
       origin: skills-kit 0.92.0, milestone M5 of the configurable-standards work.
       added: "2026-10-16"
@@ -247,7 +269,7 @@ claude_md:
       why: Duplicating heuristics between audit.py and classify.py was an early-version mistake; the refactor pulled them into a shared module so a single update reaches both consumers.
     - rule: Custom schema rules go in audit.py as document-level checks evaluated after the walker. Do not embed custom logic inside the schema engine itself.
       keywords: [walker, custom rule, schema flag, validation order]
-      why: Engine stays general; custom rules are per-document and benefit from explicit audit-time invocation (check_facts_cross_rules, check_cross_block_drift). Engine should remain reusable across schema types.
+      why: Engine stays general; custom rules are per-document and benefit from explicit audit-time invocation (the facts-floor evaluator, check_cross_block_drift). Engine should remain reusable across schema types.
     - rule: Audit output rows describe what was checked, not what was good or bad in isolation. Verdict is one of pass/fail/judgment-required/n/a.
       keywords: [verdict vocabulary, four-state output, audit row]
       why: Three-state (pass/fail) loses the conditional-not-fired case (n/a) and the agent-must-judge case (judgment-required). Both are real and deserve their own slot.

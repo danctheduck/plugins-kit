@@ -31,13 +31,18 @@ from skills_kit_lib.schema_engine import validate
 # The "at least one fact / gotcha / example" requirement moved OUT of the schema
 # (facts: is now optional there, because facts may live nested in reference_skill:
 # OR as a top-level portable facts: unit) and INTO an audit-time cross-source rule.
+from pathlib import Path
+
 import yaml
 
 from skills_kit_lib.audit import (
     FAIL,
-    check_facts_cross_rules,
-    check_technique_caution_cross_rule,
+    THRESHOLDS,
+    SkillContext,
+    _criterion_rows,
+    mechanical_criteria,
 )
+from skills_kit_lib.markdown_heuristics import Frontmatter, parse_body
 
 
 def _has_fail_at(fails, path_substring: str) -> bool:
@@ -57,6 +62,18 @@ def _fail_rows(results):
     return [r for r in results if r.verdict == FAIL]
 
 
+def _contract_floor_rows(body_text: str, declared_type: str | None = None, yaml_root: str | None = None):
+    """The yaml_contract-section rows of the shipped skill_md criteria (the
+    facts and caution floors) for a body, as audit() emits them."""
+    criteria, defaults = mechanical_criteria("skill_md", None)
+    fm = Frontmatter(raw="", fields={"skill-type": declared_type} if declared_type else {})
+    ctx = SkillContext(fm, parse_body(body_text), Path("."), yaml_root)
+    return [
+        row for _section, row
+        in _criterion_rows(ctx, criteria, {**THRESHOLDS, **defaults}, section="yaml_contract")
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Reference-skill
 # ---------------------------------------------------------------------------
@@ -71,7 +88,7 @@ class TestReferenceSkill:
         # Enforced at audit time (cross-source), not by the schema: a reference
         # skill must carry at least one fact somewhere (nested or top-level unit).
         bad = make_invalid(minimal_reference_skill, lambda d: d["reference_skill"].pop("facts"))
-        results = check_facts_cross_rules(_ref_body(bad), "reference-skill")
+        results = _contract_floor_rows(_ref_body(bad), "reference-skill")
         assert any("facts present" in r.row for r in _fail_rows(results))
 
     def test_empty_facts_list_fails_min_len(self, minimal_reference_skill, make_invalid):
@@ -93,7 +110,7 @@ class TestReferenceSkill:
             minimal_reference_skill,
             lambda d: d["reference_skill"]["facts"][0].pop("gotchas"),
         )
-        results = check_facts_cross_rules(_ref_body(bad), "reference-skill")
+        results = _contract_floor_rows(_ref_body(bad), "reference-skill")
         assert any("gotchas" in r.row for r in _fail_rows(results))
 
     def test_facts_must_include_example(self, minimal_reference_skill, make_invalid):
@@ -102,7 +119,7 @@ class TestReferenceSkill:
             minimal_reference_skill,
             lambda d: d["reference_skill"]["facts"][0].pop("example"),
         )
-        results = check_facts_cross_rules(_ref_body(bad), "reference-skill")
+        results = _contract_floor_rows(_ref_body(bad), "reference-skill")
         assert any("example" in r.row for r in _fail_rows(results))
 
     def test_forbidden_key_rules_fails(self, minimal_reference_skill, make_invalid):
@@ -224,7 +241,7 @@ class TestTechniqueSkill:
         )
         fails, _ = validate(bad, TECHNIQUE_SKILL_SCHEMA)
         assert fails == [], f"gotchas is optional at the schema level: {fails}"
-        results = check_technique_caution_cross_rule(_ref_body(bad))
+        results = _contract_floor_rows(_ref_body(bad))
         assert any("anti_pattern" in r.row for r in _fail_rows(results))
 
     def test_anti_patterns_satisfy_caution_or_rule(
@@ -248,11 +265,11 @@ class TestTechniqueSkill:
         )
         fails, _ = validate(ok, TECHNIQUE_SKILL_SCHEMA)
         assert fails == [], f"unexpected fails: {fails}"
-        results = check_technique_caution_cross_rule(_ref_body(ok))
+        results = _contract_floor_rows(_ref_body(ok))
         assert results and not _fail_rows(results)
 
     def test_gotchas_alone_satisfy_caution_or_rule(self, minimal_technique_skill):
-        results = check_technique_caution_cross_rule(_ref_body(minimal_technique_skill))
+        results = _contract_floor_rows(_ref_body(minimal_technique_skill))
         assert results and not _fail_rows(results)
 
     def test_forbidden_key_rules_fails(self, minimal_technique_skill, make_invalid):

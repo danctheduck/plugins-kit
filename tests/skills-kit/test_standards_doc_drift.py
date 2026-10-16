@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from skills_kit_lib import rule_catalog
-from skills_kit_lib.audit import THRESHOLDS
+from skills_kit_lib.audit import MECHANICAL_EVALUATORS, THRESHOLDS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _GEN_PATH = REPO_ROOT / "plugins" / "skills-kit" / "scripts" / "gen_standards_doc.py"
@@ -45,8 +45,14 @@ def test_threshold_consumers_cover_thresholds_exactly():
 
 
 def test_threshold_consumers_name_catalogued_rules():
+    """A consumer is a catalogued rule, or a shipped criterion whose evaluator
+    reads that built-in threshold (reads_builtin_thresholds)."""
     for name, consumers in rule_catalog.THRESHOLD_CONSUMERS.items():
         for rid in consumers.replace("`", "").split(","):
-            assert rid.strip() in rule_catalog.RULES, (
-                f"threshold {name}: consumer {rid.strip()!r} is not a catalogued rule id"
+            rid = rid.strip()
+            if rid in rule_catalog.RULES:
+                continue
+            assert rid in MECHANICAL_EVALUATORS and name in MECHANICAL_EVALUATORS[rid].reads_builtin_thresholds, (
+                f"threshold {name}: consumer {rid!r} is neither a catalogued rule id "
+                "nor a registered evaluator that reads it"
             )
