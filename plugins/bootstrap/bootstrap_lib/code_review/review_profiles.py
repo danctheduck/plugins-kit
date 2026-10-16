@@ -31,7 +31,6 @@ from __future__ import annotations
 import argparse
 from copy import deepcopy
 import sys
-import warnings
 from pathlib import Path
 from typing import Any, Mapping, NoReturn, Sequence
 
@@ -47,7 +46,6 @@ PathLike = str | Path
 Provenance = tuple[str, Path, str]
 
 TOP_LEVEL_FIELDS = frozenset({"profiles"})
-CONTEXT_ESTIMATE_FIELDS = frozenset({"bytes_per_token", "lane_base_tokens"})
 PROFILE_FIELDS = frozenset(
     {"id", "selection", "reviewers", "validator_models", "disabled"}
 )
@@ -172,14 +170,6 @@ def load_layer(path: PathLike) -> dict[str, Any] | None:
         return {}
     if not isinstance(data, dict):
         _fail(source, "top level", f"must be a mapping, got {type(data).__name__}")
-    if "context_estimate" in data:
-        _validate_context_estimate(data["context_estimate"], source, complete=False)
-        warnings.warn(
-            f"{source}: context_estimate has no effect and is removed in bootstrap 0.151.0",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        data = {key: value for key, value in data.items() if key != "context_estimate"}
     return data
 
 
@@ -292,25 +282,6 @@ def _validate_entries(
         where = location if exc.index is None else f"{location}[{exc.index}]"
         _fail(source, where, str(exc))
     del parsed
-
-
-def _validate_context_estimate(value: Any, source: Path | str, *, complete: bool) -> None:
-    """Validate the removed context estimate shape during its shim window."""
-    if not isinstance(value, dict):
-        _fail(source, "context_estimate", f"must be a mapping, got {type(value).__name__}")
-    _validate_known_fields(value, CONTEXT_ESTIMATE_FIELDS, source, "context_estimate")
-    if complete:
-        for key in sorted(CONTEXT_ESTIMATE_FIELDS - value.keys()):
-            _fail(source, "context_estimate", f"required field missing: {key}")
-    for key, item in value.items():
-        if isinstance(item, bool) or not isinstance(item, (int, float)) or not item > 0:
-            _fail(
-                source,
-                f"context_estimate.{key}",
-                f"must be a positive number, got {item!r}",
-            )
-        if item != item or item == float("inf"):
-            _fail(source, f"context_estimate.{key}", f"must be finite, got {item!r}")
 
 
 def _no_effort(model_id: str) -> str:

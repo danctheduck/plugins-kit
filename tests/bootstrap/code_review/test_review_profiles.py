@@ -171,19 +171,9 @@ def test_patch_merges_profile_reviewer_and_validator_in_place(tmp_path: Path) ->
     }
 
 
-def test_context_estimate_is_accepted_with_deprecation_warning_and_ignored(
-    tmp_path: Path,
-) -> None:
-    context_estimate = {"bytes_per_token": 4, "lane_base_tokens": 1000}
-
-    with pytest.warns(DeprecationWarning) as warnings:
-        config = _resolved(tmp_path, user={"context_estimate": context_estimate})
-
-    assert str(_user_path(tmp_path)) in str(warnings[0].message)
-    assert "context_estimate has no effect" in str(warnings[0].message)
-    assert "removed in bootstrap 0.151.0" in str(warnings[0].message)
-    assert "context_estimate" not in config
-    assert "context_estimate" not in rp.render(config)
+def test_context_estimate_is_rejected_as_unknown_top_level_field(tmp_path: Path) -> None:
+    with pytest.raises(rp.ConfigError, match="top level.*context_estimate"):
+        _resolved(tmp_path, user={"context_estimate": {"bytes_per_token": 4}})
 
 
 def test_unknown_profiles_and_validator_reasons_append(tmp_path: Path) -> None:

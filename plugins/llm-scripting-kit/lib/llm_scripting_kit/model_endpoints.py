@@ -80,7 +80,6 @@ an entry whose two declared styles disagree.
 from __future__ import annotations
 
 import os
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Mapping, Optional
@@ -154,8 +153,6 @@ class EndpointEntry:
     effort: Optional[str] = None
     tier: Optional[int] = None
     family: Optional[str] = None
-    # Deprecated compatibility field; has no effect on routing and will be removed in 0.66.0.
-    context_budget: Optional[int] = None
     conserve_usage: Optional[ConserveSpec] = None
     routing: Optional["RoutingConfig"] = None
     key_file: Optional[str] = None
@@ -314,32 +311,6 @@ def parse_classification_fields(
             )
         family = value.strip()
     return tier, family
-
-
-def parse_context_budget(
-    raw: Mapping[str, object], *, source: str, entry_id: str
-) -> Optional[int]:
-    """Validate the deprecated optional ``context_budget`` field.
-
-    This compatibility parser handles a deprecated field that has no effect on
-    routing and will be removed in 0.66.0. An explicit null means no budget.
-    """
-    warnings.warn(
-        "parse_context_budget is deprecated, has no effect on routing, and will be removed in 0.66.0",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    if "context_budget" not in raw:
-        return None
-    value = raw["context_budget"]
-    if value is None:
-        return None
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise EndpointMetadataError(
-            f"{source}: entry '{entry_id}' has invalid 'context_budget' ({value!r}); "
-            "expected a positive integer number of tokens"
-        )
-    return value
 
 
 def parse_routing(
@@ -797,7 +768,6 @@ __all__ = [
     "EndpointMetadataError",
     "RoutingConfig",
     "parse_classification_fields",
-    "parse_context_budget",
     "parse_routing",
     "parse_frontdoor",
     "parse_billing_mode",
