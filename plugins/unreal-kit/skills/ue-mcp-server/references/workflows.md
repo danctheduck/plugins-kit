@@ -10,8 +10,8 @@ Each recipe below names the goal, lists the tool calls in order, and notes the p
 1. `manage_blueprint` -> `create` with name, parent class, and folder.
 2. `manage_blueprint` -> `add_component` for each component the BP needs.
 3. `manage_blueprint` -> `create_node` + `connect_pins` to author graph logic.
-4. `control_editor` -> `save_all`.
-5. Verify the `.uasset` exists on disk.
+4. Save only the Blueprint: pass `save:true` on the last graph mutation, and `applyAndSave:true` on `add_component`. `control_editor` -> `save_all` is the fallback when no save parameter applies.
+5. Verify the `.uasset`'s modification time or checksum changed since before the edit; existence alone proves nothing.
 
 ## Build a level shell
 
@@ -19,14 +19,15 @@ Each recipe below names the goal, lists the tool calls in order, and notes the p
 2. `manage_lighting` -> `spawn_light` for primary light sources.
 3. `control_actor` -> `spawn` for placeable actors (player start, geometry primitives, etc.).
 4. `manage_lighting` -> `build` to bake lighting.
-5. `control_editor` -> `save_all`.
+5. `manage_level` -> `save` to write the level. `control_editor` -> `save_all` is the fallback when the level save does not apply.
 
 ## Material setup
 
 1. `manage_asset` -> `create_material` with name and folder.
 2. `manage_material_authoring` -> `add_node` + `connect` to author the graph.
-3. `control_editor` -> `save_all`.
-4. (Optional) `manage_asset` -> `create_material_instance` for variants.
+3. Save only the material: pass `save:true` on the last `manage_material_authoring` call. `control_editor` -> `save_all` is the fallback when no save parameter applies.
+4. Verify the `.uasset`'s modification time or checksum changed since before the edit.
+5. (Optional) `manage_asset` -> `create_material_instance` for variants.
 
 ## PIE drive for testing
 

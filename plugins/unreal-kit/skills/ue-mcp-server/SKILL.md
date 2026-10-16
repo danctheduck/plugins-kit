@@ -240,8 +240,8 @@ capability_skill:
       tool: system_control
       reference_section: tool-catalog.md
   gotchas:
-    - Save after mutating assets. MCP tools operate on the Editor's in-memory object graph -- changes are not written to disk until you call `control_editor` -> `save_all`. After any creation or modification, call save_all and verify the .uasset exists on disk before proceeding. Read-only tools (inspect, control_editor, manage_performance, system_control) are exempt.
-    - Source-control trap when assets are tracked. `save_all` writes over read-only files without source-control awareness. The file changes on disk but the source-control system does not see the file as opened, so a subsequent submit will not include the change. Open the file for edit in source control before the MCP mutation, or open + reopen retroactively after save_all.
+    - Save after mutating assets. MCP tools operate on the Editor's in-memory object graph -- changes are not written to disk until a save runs. Save only the edited asset by passing the mutating tool's own save parameter on the mutating call (the verified parameters are listed under Save After Mutating Assets). Only when the mutating tool has no save parameter, fall back to `control_editor` -> `save_all`, which can skip an edit that did not mark the package dirty and can save unrelated assets a recompile dirtied. Either way, verify that the edited .uasset's modification time or checksum changed since before the edit, because existence alone proves nothing, and proceed only after the save and the check both succeed. Read-only tools (inspect, control_editor, manage_performance, system_control) are exempt.
+    - Source-control trap when assets are tracked. A save can write over a read-only file without source-control awareness (`save_all` does; `manage_blueprint` and `manage_widget_authoring` instead answer ASSET_READ_ONLY and change nothing). When a write does go through, the file changes on disk but the source-control system does not see the file as opened, so a subsequent submit will not include the change. Open the file for edit in source control before the MCP mutation, or open + reopen retroactively after the save. A broad save also writes assets you did not edit, and source control then checks those out.
     - Validate before changing editor state. Stopping PIE, restarting PIE, and loading levels are disruptive -- they reset player state, drop server connections, and lose in-progress work. Always query the current state first (inspect, find_by_class, or a project-side status helper) and only act if the state actually needs to change.
     - The MCP response always reports `success: true` when a console command is dispatched. It does NOT confirm the command actually executed on the server. Verify by observing the resulting game state.
     - Setup requires Node.js 18+ on PATH and an `npm ci` in the MCP server directory before the .mcp.json server can be approved. If the MCP server shows as failed in Claude Code, check `node --version` first; missing Node is the most common cause.
@@ -355,16 +355,26 @@ filename: my_screenshot
 
 ### Save After Mutating Assets
 
-MCP tools operate on the Editor's in-memory object graph. Changes are not written to disk until you explicitly save. After any tool call that creates or modifies an asset:
+MCP tools operate on the Editor's in-memory object graph. Changes are not written to disk until a save runs. After any tool call that creates or modifies an asset:
 
-1. Call `control_editor` -> `save_all`.
-2. Verify the `.uasset` exists on disk (file check).
+1. Note the edited `.uasset`'s modification time or checksum before the edit.
+2. Save only the edited asset, by passing the mutating tool's own save parameter on the mutating call (list below).
+3. When the mutating tool has no save parameter, the only remaining save is `control_editor` -> `save_all`. It can skip an edit that did not mark the package dirty, so the edit never reaches disk while the call reports success, and it can save unrelated assets that a recompile dirtied, which source control then checks out.
+4. Verify the save reached disk: the `.uasset`'s modification time or checksum must have changed since before the edit. Existence alone proves nothing.
 
-Only proceed with further operations on the asset after both steps succeed. If the file does not exist on disk, the creation failed silently.
+Only proceed with further operations on the asset after the save and the check both succeed. A save parameter an action ignores saves nothing, so the check in step 4 is what decides.
+
+**Per-tool save parameters.** Checked against the vendored `unreal-engine-mcp-server` 0.5.18 (`io.github.ChiR24/unreal-engine-mcp`), in the schemas of `src/tools/consolidated-tool-definitions.ts`. A different server version can differ, so read the connected server's advertised schema before relying on this list.
+
+- `manage_blueprint`: `save:true` on graph mutations (such as `create_node` and `connect_pins`) compiles, then writes the package in the same call, and never saves a failed compile. Graph mutations default to not saving, except `set_pin_default_value`, which defaults to saving. `applyAndSave:true` on `add_component` and `modify_scs` compiles and saves, and is the only save route for those two actions.
+- `manage_widget_authoring`: `save:true` on any action except the reads compiles, then writes the package in the same call, and never saves a failed compile. The response carries `saved`. Pass it explicitly.
+- `animation_physics`: `save` on authoring actions, default true.
+- `manage_level`: action `save` writes the open level; `save_as` and `save_level_as` take a `savePath`.
+- Other authoring tools advertise a `save` boolean described as "Save the asset(s) after the operation": `manage_asset`, `manage_audio`, `manage_geometry`, `manage_skeleton`, `manage_material_authoring`, `manage_texture`, `manage_gas`, `manage_character`, `manage_inventory`, `manage_game_framework`, `manage_level_structure`, `manage_volumes`, `manage_navigation`, `manage_splines`. The schema states no default and does not say which actions honor it, so pass it explicitly and rely on the step 4 check.
 
 **Exempt tools** (read-only or transient -- no save needed): `inspect`, `control_editor`, `manage_performance`, `system_control`.
 
-**Source-control trap:** when assets are tracked in a source-control system (Perforce, Git+LFS, etc.), `save_all` writes over read-only `.uasset` files without source-control awareness. The file changes on disk but the source-control system does not see the file as opened, and a subsequent submit will not include the change. Open the file for edit in source control before the MCP mutation, or open + reopen retroactively after `save_all`. Verify with the source-control "opened" command before declaring the edit complete.
+**Source-control trap:** when assets are tracked in a source-control system (Perforce, Git+LFS, etc.), a save can write over a read-only `.uasset` without source-control awareness. `save_all` does. `manage_blueprint` and `manage_widget_authoring` instead answer `ASSET_READ_ONLY` and change nothing, which is the cue to open the file for edit first. When a write does go through, the file changes on disk but the source-control system does not see the file as opened, and a subsequent submit will not include the change. Open the file for edit in source control before the MCP mutation, or open + reopen retroactively after the save. Verify with the source-control "opened" command before declaring the edit complete. A broad save such as `save_all` also writes assets you did not edit, and source control then checks those out.
 
 ### Validate Before Changing Editor State
 
