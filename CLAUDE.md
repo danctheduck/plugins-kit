@@ -488,30 +488,47 @@ venv from the CWD, so a launcher a user invokes from any directory -- the four
 Python-invoking `plugins/<name>/bin/` shims (hue-kit, job-kit,
 llm-scripting-kit, secrets-kit) and their `.cmd` twins -- would pick up the
 wrong environment, or none. Those shims resolve an absolute interpreter
-instead: the deterministic bootstrap-provisioned standalone Python path
-first; `BOOTSTRAP_PYTHON` next, but only when that deterministic file is
-absent and the variable's own realpath resolves inside the standalone
-directory (a stranger's `BOOTSTRAP_PYTHON` must never substitute for the file
-the shim was written to find); then the plugin venv by its version-independent
-`~/.claude/plugins/data/<marketplace>/<plugin>/.venv/` path. POSIX shims fall
-back to `python3`, then `python`; `.cmd` shims fall back to `python.exe`. The
-absolute-path preference avoids the Windows Store stub when the preferred
-interpreter exists, but the PATH fallback can still resolve it. A shim that
-names a plugin venv (job-kit, llm-scripting-kit) honours one redirect: when
-`CLAUDE_BOOTSTRAP_DATA_ROOT` is set (a claude-plugin-test session) and
-`$CLAUDE_BOOTSTRAP_DATA_ROOT/plugins-kit/<plugin>/.venv/` holds the
-interpreter, that venv is the first candidate. With the variable unset, or
-that interpreter absent, resolution is unchanged. Guard:
-`tests/repo-scripts/test_launcher_shim_data_root_redirect.py`. The
+instead, and the order depends on whether the CLI needs a plugin venv:
+
+- hue-kit and secrets-kit name no venv (hue-kit's CLI re-execs into its own;
+  secrets-kit's is stdlib-only). Order: the deterministic bootstrap-provisioned
+  standalone Python path; then `BOOTSTRAP_PYTHON`, only when that file is
+  absent and the variable's own realpath resolves inside the standalone
+  directory (a stranger's `BOOTSTRAP_PYTHON` must never substitute for the file
+  the shim was written to find); then PATH.
+- job-kit and llm-scripting-kit name a plugin venv and take it FIRST, from its
+  version-independent `~/.claude/plugins/data/<marketplace>/<plugin>/.venv/`
+  path. job-kit then tries the validated `BOOTSTRAP_PYTHON`, then PATH.
+  llm-scripting-kit then tries the standalone path (no third-party
+  packages, so the CLI warns and uses the shipped model baseline), the
+  validated `BOOTSTRAP_PYTHON`, then PATH.
+
+POSIX shims fall back to `python3`, then `python`; `.cmd` shims fall back to
+`python.exe`. The absolute-path preference avoids the Windows Store stub when
+the preferred interpreter exists, but the PATH fallback can still resolve it.
+
+Two refusals sit in front of that order. When `CLAUDE_BOOTSTRAP_DATA_ROOT` is
+set (a claude-plugin-test session), job-kit and llm-scripting-kit take
+`$CLAUDE_BOOTSTRAP_DATA_ROOT/plugins-kit/<plugin>/.venv/` as the only venv
+candidate and exit 2 when that interpreter is missing: they never fall back to
+the production venv, which holds the installed release, or to anything later in
+the chain. With the variable unset the order above is unchanged. Separately,
+all four shims exit 2 when `CLAUDE_PLUGIN_TEST` is set and the shim itself runs
+from the plugin cache, because that copy is the installed release and the
+session tests the working copy. Only the cache of the marketplace named in
+`CLAUDE_PLUGIN_TEST_MARKETPLACE` is refused, and every cache path when it is
+unset, the same scope as `bootstrap_lib.env_var_check.cache_root_refusal`.
+Guard: `tests/repo-scripts/test_launcher_shim_data_root_redirect.py`. The
 `bin/qwen3*-server` scripts are outside this exception -- they invoke
 `model-server.sh`, not Python.
 
 Outside these two exceptions, every other FORCED call site -- bootstrap or
 recovery code that produces the interpreter itself, Claude Code hook scripts
 bootstrap ships, `bootstrap-stuck-fix`, and other levers -- uses the same
-deterministic-path-first chain: the deterministic standalone path, then
-`BOOTSTRAP_PYTHON` only when that file is absent and the variable's realpath
-resolves inside the standalone directory, then the existing PATH chain. Each
+deterministic-path-first chain, the one the venv-less shims use: the
+deterministic standalone path, then `BOOTSTRAP_PYTHON` only when that file is
+absent and the variable's realpath resolves inside the standalone directory,
+then the existing PATH chain. Each
 such call site must state its reason. Exceptions to this standard are
 recorded in the repo guard's allowlist as `{path: (anchor_string, reason)}`,
 where `anchor_string` is text that already exists at the call site; the
@@ -829,12 +846,16 @@ claude_md:
       added: "2026-07-16"
     - id: host_python_via_plugin_venv
       keywords: [host-side python, plugin venv, uv run python, ModuleNotFoundError, foreign cwd, project root, pyyaml, skill examples]
-      summary: SKILL.md examples that invoke host-side Python never use `uv run python`, which resolves the venv from the cwd. The default form launches the script under `"${BOOTSTRAP_PYTHON:?...}"` and lets it re-exec into its plugin venv; the explicit plugin-venv path below remains valid for a script without a re-exec guard.
+      summary: SKILL.md examples that invoke host-side Python never use `uv run python`, which resolves the venv from the cwd. The default form launches the script under `"${BOOTSTRAP_PYTHON:?...}"` and lets it re-exec into its plugin venv; for a script without a re-exec guard, name the plugin-venv interpreter under `${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}`, never the bare `~/.claude/plugins/data` path.
       detail: |
         Explicit plugin-venv interpreter, for a script without a re-exec guard
-        (version-independent, resolves from any cwd):
-          Windows:     ~/.claude/plugins/data/<marketplace>/<plugin>/.venv/Scripts/python.exe
-          macOS/Linux: ~/.claude/plugins/data/<marketplace>/<plugin>/.venv/bin/python
+        (version-independent, resolves from any cwd). The base is
+        "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}" (bash/zsh
+        syntax; expand it first in PowerShell or cmd), because the variable is
+        set only in a claudx session, where the production venv under
+        ~/.claude/plugins/data holds the installed release, not the working copy:
+          Windows:     <base>/<marketplace>/<plugin>/.venv/Scripts/python.exe
+          macOS/Linux: <base>/<marketplace>/<plugin>/.venv/bin/python
         Variable forms: "Python interpreter variables" above. Re-exec rule:
         plugins/bootstrap/skills/bootstrap/references/python-interpreter.md.
       origin: "Surfaced 2026-05-05 in unreal-kit fix-up-redirectors -- broke Phase 2 with ModuleNotFoundError: yaml. Fixed in 0.9.4."

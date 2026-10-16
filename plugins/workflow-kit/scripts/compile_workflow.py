@@ -16,6 +16,22 @@ import argparse
 import sys
 from pathlib import Path
 
+# Run under workflow-kit's bootstrap-provisioned venv: workflow_kit_lib imports yaml
+# at import time and reaches bootstrap_lib and llm_scripting_kit lazily, and the
+# interpreter that launched this script is caller-supplied (<plugin-venv-python>).
+# Under a claudx session (CLAUDE_BOOTSTRAP_DATA_ROOT set) the guard re-execs into
+# the REDIRECTED venv and exits 2 when that venv is missing, instead of compiling
+# against the installed release's libraries. The vendored, stdlib-only guard sits
+# next to this script; its directory is put on sys.path explicitly so the import
+# also resolves when this file is loaded by path.
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.append(_SCRIPT_DIR)
+
+from bootstrap_guard import reexec_under_plugin_venv  # noqa: E402
+
+reexec_under_plugin_venv("workflow-kit")
+
 # Allow running as a bare script (skill invokes it by path): make the package importable.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

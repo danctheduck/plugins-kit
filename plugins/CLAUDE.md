@@ -243,7 +243,7 @@ unconfigurable opinion whose test passes is a finding.
   verdict expires and the next read evaluates the pool afresh (`usage_budget.pinned_evaluate`). A
   team could reasonably want live re-evaluation -- a session running for days holds an
   `available` verdict computed against numbers that have since moved -- and the only
-  remedy we leave them is to start a new session (or `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit usage --no-pin`, or `.venv/Scripts/llm-scripting-kit.exe` in place of `.venv/bin/llm-scripting-kit` on Windows,
+  remedy we leave them is to start a new session (or `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit usage --no-pin`, or `.venv/Scripts/llm-scripting-kit.exe` in place of `.venv/bin/llm-scripting-kit` on Windows,
   which inspects without changing what `seats` returns). We refuse the seam because the
   alternative is the failure the feature exists to prevent: an endpoint that was usable
   when work was planned against it disappearing mid-run on a re-read, which strands that
@@ -596,8 +596,22 @@ venv); fixed in bootstrap 0.86.3, pinned by
 
 The SKILL.md-side companion is in the root CLAUDE.md insight
 `host_python_via_plugin_venv`: launch the script under `"$BOOTSTRAP_PYTHON"`
-and let it re-exec; use the explicit venv path only for a script without a
-re-exec guard; never use `uv run python` outside a skill preload.
+and let it re-exec; for a script without a re-exec guard, name the venv
+interpreter under `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"`
+rather than the bare `~/.claude/plugins/data` path (the bare path is the
+installed release inside a claudx session; the expression is bash/zsh syntax);
+never use `uv run python` outside a skill preload.
+
+**A launcher shim names its interpreter order, and under claudx it refuses
+rather than substitutes.** The order of each Python-invoking
+`plugins/<name>/bin/` shim (a plugin-venv shim takes its venv first; a shim
+whose CLI needs no venv takes the standalone interpreter first) is stated once,
+in the root CLAUDE.md, "Scoped exception: Python CLI launcher shims". A new shim
+also exits 2 when `CLAUDE_BOOTSTRAP_DATA_ROOT` is set and its redirected venv is
+missing (never the production venv), and exits 2 when `CLAUDE_PLUGIN_TEST` is
+set and the shim runs from the plugin cache. Register its order in the allowlist
+of `tests/repo-scripts/test_python_invocation_standard.py`; the refusals are
+pinned by `tests/repo-scripts/test_launcher_shim_data_root_redirect.py`.
 
 **Three surfaces expand `${CLAUDE_PLUGIN_ROOT}`; a shell is not one of them.**
 Claude Code substitutes the variable only where the harness reads the string

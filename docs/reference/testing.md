@@ -89,7 +89,7 @@ interpreter is missing, including when a re-exec loop guard is inherited. The
 missing-venv mechanism is reproduced; the exact invocation behind the earlier
 `claudx -p` observation was not captured and remains unproven.
 
-Four further escapes are contained, each pinned by a test in
+Three further escapes are contained, each pinned by a test in
 `tests/bootstrap/test_claudx_escapes.py` (the 2026-10-02 observations of
 the exported plugin roots and the harvest):
 
@@ -126,6 +126,75 @@ the exported plugin roots and the harvest):
   cache path there on 2026-10-02 was not identified; the refusal covers every
   writer rather than one cause.
   Only the cache of the marketplace the launcher names in `CLAUDE_PLUGIN_TEST_MARKETPLACE` (the `name` in `.claude-plugin/marketplace.json`) is refused; a root under another marketplace's cache is a plugin claudx does not replace and is kept, and with the variable unset every cache root is refused.
+
+The launcher, nested sessions and launch paths are contained as follows. Each
+item names the tests that pin it.
+
+- **The launcher drops inherited state that names the published plugins.**
+  `scripts/claude_plugin_test.py` (`_session_env`) removes, from the environment
+  it passes to the session, the `<PLUGIN>_ROOT` of every plugin the working copy
+  contains (a launching shell that carries one from an ordinary session points at
+  a cached release), and both guard variables, `_BOOTSTRAP_GUARD_VENV_REEXEC` and
+  `_BOOTSTRAP_GUARD_SKIP_REEXEC`. A `<PLUGIN>_ROOT` of a plugin the working copy
+  does not contain belongs to another marketplace and is kept. It then exports
+  `CLAUDE_PLUGIN_TEST_DIRS`: the absolute `--plugin-dir` directories joined with
+  `os.pathsep`, in argument order. Pinned by
+  `tests/repo-scripts/test_claude_plugin_test_env.py`.
+- **A nested `claude` child is a claudx session, or it is refused.** A child
+  inherits the environment but not the `--plugin-dir` flags, so without them it
+  loads the published plugins against the redirected data root.
+  `bootstrap_lib/claudx.py` builds the flags from the parent's
+  `CLAUDE_PLUGIN_TEST_DIRS` and raises `ClaudxPropagationError` when the child's
+  `CLAUDE_PLUGIN_TEST`, `CLAUDE_BOOTSTRAP_DATA_ROOT` or `CLAUDE_PLUGIN_TEST_DIRS`
+  differs from the parent's, so a well-formed but different directory list is
+  refused rather than honoured. The `claude -p` argv of llm-scripting-kit's
+  `ClaudeCliBackend` and job-kit's claude contract commands carry the parent's set.
+  `claude --bg` and `claude respawn` are refused under claudx, because a background
+  supervisor's environment and plugin flags are not carried over. Outside claudx
+  the argv is unchanged. Pinned by `tests/bootstrap/test_claudx_nested.py`,
+  `tests/llm-scripting-kit/test_claude_backend_claudx.py`,
+  `tests/job-kit/test_run_claudx.py` and
+  `tests/content-pipeline-kit/test_claude_bg_claudx.py`;
+  `tests/repo-scripts/test_nested_claude_sites.py` fails on a code site under
+  `plugins/` that names the `claude` executable and is neither wired nor an
+  anchored exemption.
+- **Launch paths follow the redirect.** llm-scripting-kit's console script and
+  `scripts/llm_scripting_kit_cli.py` re-exec into the redirected venv, and its
+  messages name the redirected console script (`cli_command()`). pdf-kit's
+  `html_to_pdf.py`, workflow-kit's scripts and unreal-kit's `ue-runner.cmd` take
+  the same redirect. Each exits 2 when the redirected interpreter is missing and
+  never falls back to the production venv. The job-kit and llm-scripting-kit
+  shims do the same, and all four Python-invoking shims (hue-kit, job-kit,
+  llm-scripting-kit, secrets-kit) exit 2 when run as the cached copy under
+  claudx, with the marketplace scope of the cache-root refusal above. Pinned by
+  `tests/repo-scripts/test_launcher_shim_data_root_redirect.py`,
+  `tests/llm-scripting-kit/test_cli_redirect.py`,
+  `tests/pdf-kit/test_pdf_entry_redirect.py`,
+  `tests/workflow-kit/test_workflow_entry_redirect.py` and
+  `tests/unreal-kit/test_interpreter_policy.py`.
+
+Accepted limits of these containments:
+
+- **No in-repo spawn scrubs the environment, but a consumer's can.** The generic
+  runners pass a caller-supplied environment through unchanged.
+  content-pipeline-kit's `compose_worker_environment` copies the parent's
+  environment, then overlays a run's recorded `required_vars` and subtracts an
+  adapter's `forbidden_vars` plus the billing-diverting names. No adapter in this
+  repo declares `forbidden_vars`, so no in-repo worker loses `CLAUDE_PLUGIN_TEST`
+  or `CLAUDE_BOOTSTRAP_DATA_ROOT`. A consumer adapter can drop or overwrite them;
+  `nested_claude_args` then refuses, because the child's value differs from the
+  parent's. Loss of the data root in other children is not observed: the
+  variables were present in the Bash tool, subagents and codex lanes on
+  2026-10-16.
+- **Third-party cached roots are kept.** A `<PLUGIN>_ROOT` that resolves into
+  another marketplace's cache is a plugin claudx does not replace, so neither the
+  engine's refusal nor the launcher's scrub touches it.
+- **User state stays on the production paths, by design.** The API key
+  (`api_key.py`), the model configuration (`models.py`), the usage-budget cache
+  (`usage_budget.py`), the front door and model-server scripts, the claude-ui-kit
+  statusline and unreal-kit's in-editor `sys.path` inserts belong to the user or
+  the machine, not to the plugin under test, so a claudx session reads and writes
+  them where a normal session does.
 
 Containment remains partial: `CLAUDE_BOOTSTRAP_DATA_ROOT` redirects what bootstrap
 owns, not everything it reaches. These remaining escapes were observed on

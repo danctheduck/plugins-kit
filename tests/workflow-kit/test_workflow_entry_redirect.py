@@ -4,10 +4,11 @@ Two surfaces, one property: a session that sets CLAUDE_BOOTSTRAP_DATA_ROOT
 (the claude-plugin-test launcher) must never end up running workflow-kit's
 runners against the PRODUCTION venv.
 
-1. The runners. ``openrouter_run.py`` and ``check_artifact.py`` receive their
-   interpreter from the caller (the compiled workflow's
-   ``${inputs.workflowKitVenvPython}``), and the Workflow tool expands nothing
-   in ``args``, so the entry guard is the only runtime check. With a redirected
+1. The runners. ``openrouter_run.py``, ``check_artifact.py`` and
+   ``compile_workflow.py`` receive their interpreter from the caller (the
+   compiled workflow's ``${inputs.workflowKitVenvPython}``, or the skill's
+   ``<plugin-venv-python>``), and the Workflow tool expands nothing in
+   ``args``, so the entry guard is the only runtime check. With a redirected
    root and no redirected venv each must exit 2 before any work, even when the
    test opt-out is set.
 2. The placeholder definitions. ``<workflow-kit-venv-python>``,
@@ -29,7 +30,7 @@ import pytest
 from wk_testlib import PLUGIN_ROOT
 
 SCRIPTS = PLUGIN_ROOT / "scripts"
-GUARDED = ["openrouter_run.py", "check_artifact.py"]
+GUARDED = ["openrouter_run.py", "check_artifact.py", "compile_workflow.py"]
 
 # The placeholder definitions the plan names, plus the other shipped text that
 # names the venv, so a new definition site cannot reintroduce a literal.
@@ -110,6 +111,9 @@ def _redirected_env(tmp_path):
 
 @pytest.mark.parametrize("script", GUARDED)
 def test_runner_refuses_when_redirected_venv_is_missing(tmp_path, script):
+    """Shown to fail: delete the ``reexec_under_plugin_venv`` call from the script
+    (for compile_workflow.py, the block added ahead of the ``workflow_kit_lib``
+    import) and the child prints its usage and exits 0 instead of 2."""
     proc = subprocess.run(
         [sys.executable, str(SCRIPTS / script), "--help"],
         cwd=tmp_path,
