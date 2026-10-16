@@ -106,11 +106,18 @@ the exported plugin roots and the harvest):
   interpreter.** `bootstrap_guard.reexec_under_plugin_venv` exports
   `_BOOTSTRAP_GUARD_VENV_REEXEC` with the interpreter it moved into as the
   value, and honors an inherited flag only when it names the interpreter this call
-  would move into (or is the literal `1`, the opt-out each `tests/<plugin>/conftest.py`
-  sets). A flag left by another plugin's re-exec therefore falls through to the
-  `sys.prefix` check and re-execs, and a chain stays bounded because each call
-  re-execs at most once per target. A `1` inherited from a guard older than the
-  token format is still trusted.
+  would move into. The flag is provenance only and the guard is its only writer
+  (`tests/repo-scripts/test_guard_flag_writers.py`). The one opt-out is a separate
+  variable, `_BOOTSTRAP_GUARD_SKIP_REEXEC=1`, which each `tests/<plugin>/conftest.py`
+  sets; a missing redirected interpreter still exits 2 with the opt-out set. A flag
+  left by another plugin's re-exec therefore falls through to the `sys.prefix`
+  check and re-execs, and a chain stays bounded because each call re-execs at most
+  once per target. The literal `1`, which guards older than this format honored as
+  the opt-out, is untrusted: a guard that inherits it prints one stderr line naming
+  it as legacy, re-execs once and writes its token, so an old parent cannot loop or
+  pin a new child. The residual is the reverse pairing (a new parent's token
+  reaching an old child, which trusts any truthy value), closed when that plugin
+  updates its vendored guard copy.
 - **A plugin root inside the plugin cache is refused.** With `CLAUDE_PLUGIN_TEST`
   set, the engine's per-plugin export, its `plugin_roots` record and the SessionStart
   prelude's re-emit each decline a `<PLUGIN>_ROOT` that resolves through

@@ -134,16 +134,64 @@ def _write_registry(selected, marketplace: str) -> None:
         json.dumps({"version": 2, "plugins": plugins}, indent=2) + "\n", encoding="utf-8")
 
 
-def _session_env(env: dict, data_root: Path, marketplace: str) -> dict:
+# The two loop-guard variables of bootstrap_guard.reexec_under_plugin_venv. Both
+# live in the launching process's environment when claudx is started from inside
+# a plugin's re-exec'd process (or a test run), and an inherited value would let
+# the session's guarded entry points skip the redirected-interpreter check.
+GUARD_LOOP_FLAG_ENV = "_BOOTSTRAP_GUARD_VENV_REEXEC"
+GUARD_SKIP_ENV = "_BOOTSTRAP_GUARD_SKIP_REEXEC"
+# The loaded plugin directories, os.pathsep-joined absolute paths, in the order of
+# the --plugin-dir arguments. A nested claude child (bootstrap_lib.claudx) rebuilds
+# its own --plugin-dir pairs from it and refuses when it differs from the parent's.
+PLUGIN_DIRS_ENV = "CLAUDE_PLUGIN_TEST_DIRS"
+
+
+def _plugin_dirs_value(plugin_dirs) -> str:
+    """The CLAUDE_PLUGIN_TEST_DIRS value for ``plugin_dirs``; raises on a bad entry."""
+    dirs = [str(d) for d in plugin_dirs]
+    if not dirs:
+        raise ValueError(f"{PLUGIN_DIRS_ENV}: no plugin directories to export")
+    for d in dirs:
+        if not os.path.isabs(d):
+            raise ValueError(f"{PLUGIN_DIRS_ENV}: not an absolute path: {d!r}")
+        if os.pathsep in d:
+            raise ValueError(f"{PLUGIN_DIRS_ENV}: path contains {os.pathsep!r}: {d!r}")
+    return os.pathsep.join(dirs)
+
+
+def _session_env(env: dict, data_root: Path, marketplace: str,
+                 plugin_dirs=None, tree_plugin_names=None) -> dict:
     """The environment of the launched session, layered over ``env``.
 
     CLAUDE_PLUGIN_TEST_MARKETPLACE names the marketplace this session loads from
     the working copy. Bootstrap refuses a <PLUGIN>_ROOT inside that marketplace's
     plugin cache (CLAUDE_PLUGIN_TEST) and keeps one under any other marketplace.
+
+    Inherited state that would name the PUBLISHED plugins or defeat the
+    interpreter guard is removed first: the <PLUGIN>_ROOT of every plugin in the
+    working copy (``tree_plugin_names``, default every plugin under plugins/),
+    which the launching shell may carry from a normal session and which points at
+    a cached release; and both guard loop variables. A <PLUGIN>_ROOT of a plugin
+    this tree does not contain belongs to another marketplace and is kept.
+
+    ``plugin_dirs``, the directories passed as --plugin-dir, are exported as
+    CLAUDE_PLUGIN_TEST_DIRS. It is None only for a caller that loads no plugins.
     """
+    from bootstrap_lib.env_var_check import plugin_root_env_var_name
+
+    names = tree_plugin_names
+    if names is None:
+        names = [name for name, _version, _dir in _tree_plugins()]
+    for var in [plugin_root_env_var_name(n) for n in names] + [GUARD_LOOP_FLAG_ENV, GUARD_SKIP_ENV]:
+        env.pop(var, None)
+
     env["CLAUDE_BOOTSTRAP_DATA_ROOT"] = str(data_root)
     env["CLAUDE_PLUGIN_TEST"] = "1"
     env["CLAUDE_PLUGIN_TEST_MARKETPLACE"] = marketplace
+    if plugin_dirs is None:
+        env.pop(PLUGIN_DIRS_ENV, None)
+    else:
+        env[PLUGIN_DIRS_ENV] = _plugin_dirs_value(plugin_dirs)
     return env
 
 
@@ -198,7 +246,9 @@ def main() -> int:
         cmd += ["--plugin-dir", str(directory)]
     cmd += args.claude_args
 
-    env = _session_env(dict(os.environ), data_root, marketplace)
+    env = _session_env(dict(os.environ), data_root, marketplace,
+                       plugin_dirs=[directory for _, _, directory in selected],
+                       tree_plugin_names=[name for name, _, _ in _tree_plugins()])
 
     print(f"plugins: {len(selected)} from {PLUGINS_DIR}", file=sys.stderr)
     print(f"data root: {data_root}", file=sys.stderr)

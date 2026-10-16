@@ -264,6 +264,23 @@ def _default_runner(
     return proc.stdout, proc.stderr, proc.returncode
 
 
+def _refuse_supervised_under_claudx(what: str, env: Optional[Mapping[str, str]]) -> None:
+    """Refuse a supervised ``claude`` session under claudx (``CLAUDE_PLUGIN_TEST``).
+
+    A ``--bg`` session and a respawn run under a background supervisor whose
+    environment inheritance and plugin flags are not established, so such a
+    session could load plugins without the claudx data-root redirect. Outside
+    claudx, where neither ``os.environ`` nor ``env`` sets ``CLAUDE_PLUGIN_TEST``,
+    nothing is imported and nothing changes. Raises
+    ``bootstrap_lib.claudx.ClaudxPropagationError`` before any process starts.
+    """
+    if not os.environ.get("CLAUDE_PLUGIN_TEST") and not (env or {}).get("CLAUDE_PLUGIN_TEST"):
+        return
+    from bootstrap_lib.claudx import refuse_supervised
+
+    refuse_supervised(what, env)
+
+
 @dataclass
 class ClaudeCli:
     """Owns ``claude`` executable resolution and argv construction.
@@ -322,6 +339,7 @@ class ClaudeCli:
         ``--`` separator keeps a variadic flag such as ``--allowedTools`` from
         consuming the prompt, and a prompt starting with ``-`` from being read as
         a flag."""
+        _refuse_supervised_under_claudx("claude --bg", env)
         exe = self.resolve_executable()
         argv = [exe, "--bg", *extra_args, "--", prompt]
         return self._invoke(argv, env=env, cwd=cwd, timeout=timeout)
@@ -381,6 +399,7 @@ class ClaudeCli:
         env: Optional[Mapping[str, str]] = None,
         timeout: Optional[float] = None,
     ) -> Tuple[str, str, int]:
+        _refuse_supervised_under_claudx("claude respawn", env)
         return self._lifecycle("respawn", session_id, env=env, timeout=timeout)
 
     def version(

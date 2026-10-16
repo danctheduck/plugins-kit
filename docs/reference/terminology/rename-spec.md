@@ -582,7 +582,7 @@ The tree is SHARED with other sessions, so the baseline may already be red. That
 fine and is exactly why it is captured. Note the git SHA in the baseline file.
 
 **`tests/p4-kit` and `tests/git-kit` gotcha:** their `conftest.py` sets
-`_BOOTSTRAP_GUARD_VENV_REEXEC=1`. Never invoke a single test FILE from those dirs by
+`_BOOTSTRAP_GUARD_SKIP_REEXEC=1`. Never invoke a single test FILE from those dirs by
 absolute path in a way that skips the package conftest -- a missing guard produces
 **exit 0, no output, zero tests run: a false green**. Always pass the DIRECTORY.
 

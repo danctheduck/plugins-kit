@@ -506,6 +506,23 @@ def _resolve_claude_executable() -> str:
     )
 
 
+def _claudx_plugin_args() -> list:
+    """``--plugin-dir`` flags that make a ``claude -p`` child a claudx session.
+
+    Empty outside claudx (``CLAUDE_PLUGIN_TEST`` unset), where
+    ``bootstrap_lib.claudx`` is never imported. Under claudx the child inherits
+    this process's environment (the runner is given none), so the flags are
+    validated and derived by :func:`bootstrap_lib.claudx.nested_claude_args`,
+    which raises ``ClaudxPropagationError`` when the claudx variables are lost
+    or unusable. That is raised before any process starts.
+    """
+    if not os.environ.get("CLAUDE_PLUGIN_TEST"):
+        return []
+    from bootstrap_lib.claudx import nested_claude_args
+
+    return nested_claude_args()
+
+
 # Transient HTTP statuses worth retrying. 500 / 502 / 503 / 504 are server-side
 # and typically clear within a minute; 429 / 401 are excluded -- those persist
 # across calls and the caller's hard-stop path is the right response.
@@ -634,6 +651,7 @@ class ClaudeCliBackend:
 
         cmd = [
             executable,
+            *_claudx_plugin_args(),
             "-p",
             "--model",
             model,

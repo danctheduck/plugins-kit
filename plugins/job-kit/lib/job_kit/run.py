@@ -278,6 +278,28 @@ def _timed_out_contract(contract: Contract, directory: Path) -> Acceptance:
     )
 
 
+def _claudx_contract_command(
+    command: Sequence[str], environment: Optional[Mapping[str, str]]
+) -> list[str]:
+    """The contract command to start, made claudx-faithful when it runs ``claude``.
+
+    Outside claudx (``CLAUDE_PLUGIN_TEST`` set in neither this process nor the
+    contract environment) the command is returned unchanged and
+    ``bootstrap_lib.claudx`` is not imported. Under claudx, a ``claude``
+    contract command gets the session's ``--plugin-dir`` flags after the
+    executable, and a supervised one (``--bg``, ``respawn``) or one whose
+    environment lost the claudx variables raises
+    ``bootstrap_lib.claudx.ClaudxPropagationError`` before anything starts.
+    """
+    if not os.environ.get("CLAUDE_PLUGIN_TEST") and not (environment or {}).get(
+        "CLAUDE_PLUGIN_TEST"
+    ):
+        return list(command)
+    from bootstrap_lib.claudx import contract_command
+
+    return list(contract_command(command, environment))
+
+
 def run_contract(
     contract: Contract,
     *,
@@ -315,6 +337,7 @@ def run_contract(
         )
     if interrupt_io is not None:
         environment.update(interrupt_io.environment())
+    command = _claudx_contract_command(contract.command, environment)
     started = time.monotonic()
     outcome = "observed"
     try:
@@ -326,7 +349,7 @@ def run_contract(
                 subprocess, "CREATE_NEW_PROCESS_GROUP", 0
             )
         process = subprocess.Popen(
-            list(contract.command),
+            command,
             cwd=str(working_directory),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

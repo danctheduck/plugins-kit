@@ -467,7 +467,7 @@ def test_resolve_cli_reports_a_disabled_coverage_criterion(tmp_path):
     # The plugin venv links bootstrap_lib (lane_models needs it); this
     # interpreter does not, so the child gets the source tree instead.
     env["PYTHONPATH"] = str(_PLUGIN_ROOT.parent / "bootstrap")
-    env["_BOOTSTRAP_GUARD_VENV_REEXEC"] = "1"
+    env["_BOOTSTRAP_GUARD_SKIP_REEXEC"] = "1"
     proc = subprocess.run(
         [sys.executable, str(_RESOLVE_CLI), "--project-root", str(project_root)],
         capture_output=True,

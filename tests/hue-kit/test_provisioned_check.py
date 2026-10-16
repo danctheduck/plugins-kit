@@ -58,11 +58,12 @@ def _provisioned_no_venv(tmp_path: Path) -> Path:
 def _run(tmp_path: Path, data_root: Path | None,
         *args: str) -> subprocess.CompletedProcess:
     env = dict(os.environ)
-    # Another plugin's conftest sets this process-wide to disable the
-    # re-exec loop guard for its own subprocess probes; drop it here so this
-    # child starts from a clean slate rather than inheriting that plugin's
-    # assumption.
+    # Another plugin's conftest sets the skip variable process-wide to disable
+    # the re-exec guard for its own subprocess probes; drop it (and any loop
+    # flag) here so this child starts from a clean slate rather than
+    # inheriting that plugin's assumption.
     env.pop("_BOOTSTRAP_GUARD_VENV_REEXEC", None)
+    env.pop("_BOOTSTRAP_GUARD_SKIP_REEXEC", None)
     env["HOME"] = str(tmp_path)
     env["USERPROFILE"] = str(tmp_path)
     env.pop("PYTHONPATH", None)

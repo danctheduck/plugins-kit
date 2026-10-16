@@ -17,13 +17,12 @@ import pytest
 # that would os.execv (or, via the subprocess relaunch path, sys.exit on the
 # child's returncode) and abandon the pytest process itself, not just the
 # import -- collection then aborts with an INTERNALERROR / SystemExit instead
-# of running any test (a false green when swallowed). Setting the loop-guard
-# env flag up front makes the re-exec a no-op under tests, matching how the
-# real script behaves once the guard has already fired once (see
+# of running any test (a false green when swallowed). Setting the guard's skip
+# variable up front makes the re-exec a no-op under tests (see
 # plugins/CLAUDE.md "Shared-lib scripts must re-exec under the plugin venv",
 # the "Test gotcha" paragraph, and tests/git-kit/conftest.py for the same
 # pattern).
-os.environ.setdefault("_BOOTSTRAP_GUARD_VENV_REEXEC", "1")
+os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 
 
 def _kw(*words: str) -> list:

@@ -1083,6 +1083,42 @@ spelled through a link. The working copy's SessionStart pass owns provisioning
 there, so the harvest, the import-crash retry and the mid-session install
 relaunch do not run in a claudx session.
 
+**A nested `claude` child of a claudx session is a claudx session, or it is
+refused.** `scripts/claude_plugin_test.py` exports `CLAUDE_PLUGIN_TEST`,
+`CLAUDE_BOOTSTRAP_DATA_ROOT` and `CLAUDE_PLUGIN_TEST_DIRS` (the absolute
+`--plugin-dir` directories joined with `os.pathsep`, in argument order). A child
+inherits those variables but not the `--plugin-dir` flags, so without them it would
+load the PUBLISHED plugins against the redirected data root.
+`bootstrap_lib/claudx.py` is the one place that decides what a child gets:
+
+- `nested_claude_args(child_env=None)` compares the child environment with the
+  parent's (`os.environ`) on all three variables and raises
+  `ClaudxPropagationError` when any differs, including a child that lost one or
+  carries a different but well-formed directory list. After that check it
+  validates the parent's list (absolute, each holding `.claude-plugin/plugin.json`,
+  a data root present) and returns `["--plugin-dir", d, ...]` built from the
+  PARENT's list. Outside claudx (neither side sets `CLAUDE_PLUGIN_TEST`) it
+  returns `[]` and reads nothing else.
+- `refuse_supervised(what, child_env=None)` raises under claudx. `claude --bg` and
+  `claude respawn` run under a background supervisor whose environment and plugin
+  flags are not carried over, so they are refused rather than started without the
+  redirect.
+- `contract_command(command, child_env=None)` is the job-kit form: it leaves a
+  command alone unless `command[0]` is the claude CLI, leaves session-less
+  invocations (`--version`, `--help`, a management subcommand) alone, refuses
+  `--bg` and `respawn`, and otherwise inserts the flags after the executable.
+
+Callers import the module lazily, only when `CLAUDE_PLUGIN_TEST` is set, so a
+production code path never touches it and no `requires_bootstrap` floor moves.
+The wired sites are `llm_scripting_kit` `ClaudeCliBackend` (the `claude -p` argv,
+reached also by job-kit agent calls and content-pipeline's claude backend),
+job-kit `run_contract`, and content-pipeline-kit `ClaudeCli.launch_bg` and
+`ClaudeCli.respawn`. `tests/repo-scripts/test_nested_claude_sites.py` lists every
+code site in `plugins/` that resolves or names the `claude` executable and fails
+on one that is neither wired nor an anchored exemption (a `--version` probe, a
+`claude plugin` operation, a stop/rm/logs/agents call, the `--bg -p x` usage-error
+probe).
+
 ## Diagnosing a Python that uv reports but cannot run
 
 `plugins/bootstrap/scripts/diagnose-python-venv.sh` is a read-only diagnostic

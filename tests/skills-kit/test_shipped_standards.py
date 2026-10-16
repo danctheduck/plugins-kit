@@ -363,7 +363,7 @@ def _cli(tmp_path, *args):
     env = dict(os.environ)
     env["CLAUDE_CONFIG_DIR"] = str(tmp_path / "config")
     env["PYTHONPATH"] = str(REPO_ROOT / "plugins" / "bootstrap")
-    env["_BOOTSTRAP_GUARD_VENV_REEXEC"] = "1"
+    env["_BOOTSTRAP_GUARD_SKIP_REEXEC"] = "1"
     proc = subprocess.run(
         [sys.executable, str(RESOLVE_CLI), "--project-root", str(tmp_path), *args],
         capture_output=True, text=True, env=env, timeout=60,

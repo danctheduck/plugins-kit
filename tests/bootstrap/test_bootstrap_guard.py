@@ -41,6 +41,18 @@ def _load_canon():
     return mod
 
 
+_SKIP_ENV = "_BOOTSTRAP_GUARD_SKIP_REEXEC"
+_LOOP_ENV = "_BOOTSTRAP_GUARD_VENV_REEXEC"
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_skip_variable(monkeypatch):
+    """Another test directory's conftest sets the skip variable process-wide
+    (tests/awesome-kit/conftest.py is collected first in a full run). Every
+    test here drives the real re-exec decision, so none may inherit it."""
+    monkeypatch.delenv(_SKIP_ENV, raising=False)
+
+
 def _clear_loop_flag(monkeypatch, mod):
     """Make the loop flag absent for this test AND restore it afterwards.
 
@@ -153,11 +165,11 @@ class TestReexecUnderPluginVenv:
         monkeypatch.setattr(mod.os.path, "expanduser", lambda p: str(tmp_path))
         assert mod.plugin_venv_python("p4-kit") is None
 
-    def test_reexec_noop_when_guard_env_set(self, tmp_path, monkeypatch):
+    def test_reexec_noop_when_skip_variable_set(self, tmp_path, monkeypatch):
         mod = _load_canon()
         monkeypatch.setattr(mod.os.path, "expanduser", lambda p: str(tmp_path))
         self._fake_venv_python(tmp_path, "p4-kit")
-        monkeypatch.setenv(mod._REEXEC_GUARD_ENV, "1")
+        monkeypatch.setenv(mod._REEXEC_SKIP_ENV, "1")
         called = []
         monkeypatch.setattr(mod.os, "execv", lambda *a: called.append(a))
         mod.reexec_under_plugin_venv("p4-kit")
@@ -172,10 +184,14 @@ class TestReexecUnderPluginVenv:
         mod.reexec_under_plugin_venv("p4-kit")
         assert called == []
 
-    @pytest.mark.parametrize("inherited_guard", [False, True])
+    @pytest.mark.parametrize(
+        "inherited_guard",
+        [None, (_LOOP_ENV, "1"), (_SKIP_ENV, "1")],
+        ids=["none", "legacy-loop-flag-1", "skip-variable"],
+    )
     @pytest.mark.parametrize("venv_exists", [False, True])
     def test_redirected_missing_interpreter_refuses_before_shared_import(
-        self, tmp_path: Path, inherited_guard: bool, venv_exists: bool
+        self, tmp_path: Path, inherited_guard: "tuple[str, str] | None", venv_exists: bool
     ) -> None:
         redirected = tmp_path / "data-dev"
         venv = redirected / "plugins-kit" / "git-kit" / ".venv"
@@ -201,9 +217,10 @@ class TestReexecUnderPluginVenv:
         env = dict(os.environ)
         env["CLAUDE_BOOTSTRAP_DATA_ROOT"] = str(redirected)
         env["PYTHONPATH"] = str(payload)
-        env.pop("_BOOTSTRAP_GUARD_VENV_REEXEC", None)
+        env.pop(_LOOP_ENV, None)
+        env.pop(_SKIP_ENV, None)
         if inherited_guard:
-            env["_BOOTSTRAP_GUARD_VENV_REEXEC"] = "1"
+            env[inherited_guard[0]] = inherited_guard[1]
         result = subprocess.run(
             [sys.executable, "-S", str(script)], env=env,
             capture_output=True, text=True, timeout=30,
@@ -431,17 +448,76 @@ class TestLoopFlagNamesItsTarget:
         mod.reexec_under_plugin_venv("git-kit")
         assert execs == []
 
-    def test_the_explicit_opt_out_is_honored_under_redirection(
-        self, tmp_path, monkeypatch
-    ):
+    def test_the_skip_variable_is_the_opt_out(self, tmp_path, monkeypatch):
         """What every tests/<plugin>/conftest.py sets (see plugins/CLAUDE.md,
         "Test gotcha"): the re-exec must stay a no-op under pytest even inside
-        a redirected session where the plugin venv exists."""
+        a redirected session where the plugin venv exists. It is a separate
+        variable from the loop flag, which only ever carries a target path."""
         mod = _load_canon()
         _, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit")
-        monkeypatch.setenv(mod._REEXEC_GUARD_ENV, "1")
+        monkeypatch.setenv(mod._REEXEC_SKIP_ENV, "1")
         mod.reexec_under_plugin_venv("git-kit")
         assert execs == []
+        assert os.environ.get(mod._REEXEC_GUARD_ENV) in (None, ""), (
+            "the opt-out must not write the loop flag"
+        )
+
+    @pytest.mark.parametrize("value", ["0", "true", "yes", ""])
+    def test_only_the_value_1_opts_out(self, tmp_path, monkeypatch, value):
+        mod = _load_canon()
+        pythons, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit")
+        monkeypatch.setenv(mod._REEXEC_SKIP_ENV, value)
+        mod.reexec_under_plugin_venv("git-kit")
+        assert execs == [str(pythons["git-kit"])]
+
+    def test_a_legacy_1_flag_no_longer_bypasses_the_prefix_check(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """An old guard (or an unmigrated conftest) leaves the loop flag at "1".
+        That value used to return before the sys.prefix check, keeping a process
+        off the plugin venv. Now it is untrusted: the process re-execs once and
+        the one-line stderr note names the flag as legacy."""
+        mod = _load_canon()
+        pythons, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit")
+        monkeypatch.setenv(mod._REEXEC_GUARD_ENV, "1")
+        mod.reexec_under_plugin_venv("git-kit")
+        assert execs == [str(pythons["git-kit"])]
+        assert os.environ[mod._REEXEC_GUARD_ENV] == str(pythons["git-kit"])
+        err = capsys.readouterr().err
+        assert "legacy" in err and mod._REEXEC_GUARD_ENV in err, err
+        assert err.count("\n") == 1, "exactly one stderr line"
+
+    def test_an_unrelated_untrusted_flag_value_is_silent(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Only the legacy literal earns the note; a foreign path just re-execs."""
+        mod = _load_canon()
+        pythons, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit", "p4-kit")
+        monkeypatch.setenv(mod._REEXEC_GUARD_ENV, str(pythons["p4-kit"]))
+        mod.reexec_under_plugin_venv("git-kit")
+        assert execs == [str(pythons["git-kit"])]
+        assert capsys.readouterr().err == ""
+
+    def test_the_skip_variable_never_bypasses_a_missing_redirected_interpreter(
+        self, tmp_path, monkeypatch
+    ):
+        """Step 1 of the decision order runs before the opt-out is read."""
+        mod = _load_canon()
+        monkeypatch.setenv("CLAUDE_BOOTSTRAP_DATA_ROOT", str(tmp_path / "data-dev"))
+        monkeypatch.setenv(mod._REEXEC_SKIP_ENV, "1")
+        with pytest.raises(SystemExit) as exc:
+            mod.reexec_under_plugin_venv("git-kit")
+        assert exc.value.code == 2
+
+    def test_a_legacy_1_parent_chain_is_bounded(self, tmp_path, monkeypatch):
+        """An old-guard parent leaves "1"; the new child re-execs once, writes its
+        token, and every later call in the tree returns: no combination loops."""
+        mod = _load_canon()
+        pythons, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit")
+        monkeypatch.setenv(mod._REEXEC_GUARD_ENV, "1")
+        for _ in range(4):
+            mod.reexec_under_plugin_venv("git-kit")
+        assert execs == [str(pythons["git-kit"])]
 
     def test_a_reexec_chain_is_bounded(self, tmp_path, monkeypatch):
         """Each call stands for one process in the chain, all outside every venv

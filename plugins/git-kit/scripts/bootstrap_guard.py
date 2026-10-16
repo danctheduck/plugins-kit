@@ -94,27 +94,36 @@ def plugin_venv_python(plugin: str, marketplace: str = "plugins-kit") -> Path | 
     return None
 
 
-# Env flag set across the re-exec boundary so a missing/already-active venv can
-# never cause an exec loop. Its value NAMES the interpreter the re-exec moved
-# into (the token), because the flag is process-tree scoped: a child of another
-# plugin's re-exec'd process inherits it, and a bare "I re-exec'd once" bit would
-# leave that child on the wrong interpreter. The literal "1" is the explicit
-# opt-out a test conftest sets to make the re-exec a no-op under pytest.
+# Two environment variables, two meanings -- never one variable for both.
+#
+# _REEXEC_GUARD_ENV is PROVENANCE ONLY. Its value is the interpreter path a
+# re-exec moved into (the token), written by this module and by nothing else.
+# It stops an exec loop when the venv's ``sys.prefix`` never matches, and it is
+# process-tree scoped: a child of another plugin's re-exec'd process inherits
+# it, so a bare "I re-exec'd once" bit would leave that child on the wrong
+# interpreter. Any value that is not THIS call's token is foreign and untrusted,
+# including the literal "1" that guards older than this one honored as an
+# opt-out.
+#
+# _REEXEC_SKIP_ENV is the only opt-out. A test conftest sets it to "1" to make
+# the re-exec a no-op under pytest. It is a separate variable so that the loop
+# flag has one meaning and "nothing but the guard writes the loop flag" is
+# mechanically checkable (tests/repo-scripts/test_guard_flag_writers.py).
 _REEXEC_GUARD_ENV = "_BOOTSTRAP_GUARD_VENV_REEXEC"
-_REEXEC_OPT_OUT = "1"
+_REEXEC_SKIP_ENV = "_BOOTSTRAP_GUARD_SKIP_REEXEC"
+_REEXEC_SKIP_VALUE = "1"
+_LEGACY_OPT_OUT = "1"
 
 
 def _flag_trusted(flag: str, target: Path) -> bool:
     """Whether an inherited loop flag licenses returning without a re-exec.
 
-    The explicit opt-out is always honored. Otherwise the flag is trusted only
-    when it names THIS call's target interpreter, i.e. this process tree already
-    re-exec'd into it once -- which is what stops a loop when the venv's
-    ``sys.prefix`` never matches. A flag naming another plugin's interpreter is
-    not trusted: that plugin's re-exec moved the process into ITS venv.
+    Trusted only when it names THIS call's target interpreter, i.e. this
+    process tree already re-exec'd into it once -- which is what stops a loop
+    when the venv's ``sys.prefix`` never matches. A flag naming another
+    plugin's interpreter is not trusted: that plugin's re-exec moved the
+    process into ITS venv. No other value is trusted, the legacy "1" included.
     """
-    if flag == _REEXEC_OPT_OUT:
-        return True
     return os.path.normcase(os.path.abspath(flag)) == os.path.normcase(
         os.path.abspath(str(target))
     )
@@ -147,11 +156,24 @@ def reexec_under_plugin_venv(plugin: str, marketplace: str = "plugins-kit") -> N
     venv correctly -- surfacing a misleading "not provisioned" error.
 
     No-op when already running under the provisioned venv, so it is safe to call
-    unconditionally. Stdlib-only; loop-guarded via an env flag. If the venv
-    cannot be located, a redirected data root exits nonzero before shared
-    imports, even with an inherited loop guard. Without redirection, returns
-    quietly and lets the caller's normal `require_bootstrap()` guard report
-    the genuine absence.
+    unconditionally. Stdlib-only; loop-guarded via an env flag. Order of
+    decisions:
+
+      1. A redirected data root whose interpreter is missing exits 2 before any
+         shared import. Nothing bypasses this, the skip variable included.
+      2. No interpreter located (not redirected): return quietly and let the
+         caller's normal ``require_bootstrap()`` guard report the genuine
+         absence.
+      3. ``_BOOTSTRAP_GUARD_SKIP_REEXEC=1`` (the test opt-out): return.
+      4. The loop flag names this target: return (already re-exec'd into it).
+      5. Any other loop-flag value is untrusted. The legacy opt-out value "1"
+         from a guard older than this one earns a one-line stderr note.
+      6. ``sys.prefix`` check, then re-exec writing the token.
+
+    An inherited "1" therefore re-execs once and writes its token, so it can
+    never loop and can never leave a process on the wrong interpreter. "1" is
+    no longer an opt-out: a conftest that still sets the loop flag to "1"
+    must set ``_BOOTSTRAP_GUARD_SKIP_REEXEC`` instead.
     """
     redirected = bool(os.environ.get("CLAUDE_BOOTSTRAP_DATA_ROOT"))
     target = plugin_venv_python(plugin, marketplace) if redirected else None
@@ -168,9 +190,18 @@ def reexec_under_plugin_venv(plugin: str, marketplace: str = "plugins-kit") -> N
         target = plugin_venv_python(plugin, marketplace)
     if target is None:
         return  # not provisioned; let require_bootstrap() report it
+    if os.environ.get(_REEXEC_SKIP_ENV) == _REEXEC_SKIP_VALUE:
+        return  # explicit test opt-out
     inherited = os.environ.get(_REEXEC_GUARD_ENV)
     if inherited and _flag_trusted(inherited, target):
-        return  # already re-exec'd into this target (or opted out)
+        return  # already re-exec'd into this target
+    if inherited == _LEGACY_OPT_OUT:
+        print(
+            f"{marketplace}:{plugin}: ignoring {_REEXEC_GUARD_ENV}=1, a legacy "
+            "opt-out from a bootstrap_guard older than this release or an "
+            f"unmigrated test setup; the opt-out is now {_REEXEC_SKIP_ENV}=1.",
+            file=sys.stderr,
+        )
     # "Already in the venv" is decided by sys.prefix, NOT by comparing
     # interpreter paths. uv builds `.venv/bin/python` as a SYMLINK to the base
     # interpreter, so resolving both sides collapses them to the same file and

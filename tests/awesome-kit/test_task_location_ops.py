@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from bootstrap_guard import _REEXEC_GUARD_ENV
+from bootstrap_guard import _REEXEC_SKIP_ENV
 from task_system import location_ops
 from task_system.state_ops import StateOpError
 from task_system.validate import git_vcs_state, validate_ref
@@ -52,7 +52,7 @@ OTHER = "definitely-not-this-host"
 def run_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     """Run task.py in a subprocess, hermetically (same pattern as Steps 2-4)."""
     env = os.environ.copy()
-    env[_REEXEC_GUARD_ENV] = "1"
+    env[_REEXEC_SKIP_ENV] = "1"
     env["PYTHONPATH"] = str(_REPO_ROOT / "plugins" / "skills-kit")
     return subprocess.run(
         [sys.executable, str(_TASK_CLI), *args],

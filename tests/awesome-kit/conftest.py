@@ -16,7 +16,7 @@ import pytest
 # call os.execv at import time, which abandons the pytest process itself and
 # yields a false green. This env var makes the re-exec a no-op, matching how the
 # real script behaves once the guard has already fired. See plugins/CLAUDE.md.
-os.environ.setdefault("_BOOTSTRAP_GUARD_VENV_REEXEC", "1")
+os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SYS_PATHS = (
