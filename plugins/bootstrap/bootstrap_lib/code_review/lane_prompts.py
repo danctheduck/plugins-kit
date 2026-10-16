@@ -271,7 +271,7 @@ def _validate_issue(item: Any, index: int) -> dict[str, Any]:
 # Bumped whenever any prompt text below changes, so a recorded lane result says
 # which wording produced it. A comparison across prompt versions is not a
 # like-for-like measurement, and without this the difference is invisible.
-PROMPT_VERSION = "10"
+PROMPT_VERSION = "11"
 
 
 # The false-positive guardrails, stated once. These are the same rules the
@@ -407,9 +407,19 @@ imports, unresolved references, and logic that is definitely wrong regardless
 of inputs. For data and documentation files, report malformed syntax, duplicate
 keys, schema or column-count violations, and broken cross-file references.
 
-Restrictions. The diff below is everything you get and everything you may
-consider. Do not ask for other files, do not reason about code you cannot see,
-and do not report an issue in a file that does not appear in this diff.
+Files changed but not shown. The change may also touch files that a subject
+specialist reviews instead of you -- Markdown, typically. When such files exist
+they are listed by path under "Also changed in this review", and that list is
+part of the change even though their diffs are not shown to you. A file listed
+there IS part of the change: never report that a listed path is missing, not
+added, or unchanged, and never report a reference to a listed path as broken or
+unresolved because its content is not in this diff. Do not audit the content of
+a listed file -- you cannot see it, and it already has its own reviewer.
+
+Restrictions. The diff below, with the path list above when one is supplied, is
+everything you get and everything you may consider. Do not ask for other files,
+do not reason about code you cannot see, and do not report an issue in a file
+that does not appear in this diff.
 
 {FULL_READ_RULE}
 
@@ -488,6 +498,16 @@ empty result, a note, or exit 0. This is not an input-dependent issue: the
 admitted input is ignored every time. Report it with reason "bug" on the
 widened line, name the consumer that ignores the input, and state that the fix
 belongs in this change: widen the consumer, or keep the refusal.
+
+Files changed but not shown. The change may also touch files that a subject
+specialist reviews instead of you -- Markdown, typically. When such files exist
+they are listed by path under "Also changed in this review", and that list is
+part of the change even though their diffs are not shown to you. A file listed
+there IS part of the change: never report that a listed path is missing, not
+added, or unchanged, and never report a reference to a listed path as broken or
+unresolved because its content is not in this diff. Do not audit the content of
+a listed file -- its diff is not shown to you, and it already has its own
+reviewer.
 
 Restrictions. Only report issues in files that appear in this diff. When the
 context you would need to settle an issue is not in one of those files, you

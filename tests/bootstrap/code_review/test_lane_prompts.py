@@ -312,6 +312,55 @@ class TestBuildUserMessage:
         assert "never report that" in system
 
 
+    @pytest.mark.parametrize(
+        "lane",
+        [
+            "reviewer_a_claude_md_compliance",
+            "reviewer_b_diff_only_bugs",
+            "reviewer_c_introduced_code",
+        ],
+    )
+    def test_every_reviewer_renders_the_claimed_list(self, lane: str) -> None:
+        """Observed failure: a diff-only lane reported that .md files the change
+        DID add were unadded, because claimed files are absent from the chunk."""
+        message = lp.build_user_message(
+            lane,
+            diff_text="diff --git a/x.py b/x.py",
+            files=["x.py"],
+            claimed_files=["SKILL-standards.md", "CLAUDE-md-standards.md"],
+        )
+        assert "Also changed in this review" in message
+        assert "- SKILL-standards.md" in message
+        assert "- CLAUDE-md-standards.md" in message
+
+    @pytest.mark.parametrize(
+        "lane",
+        [
+            "reviewer_a_claude_md_compliance",
+            "reviewer_b_diff_only_bugs",
+            "reviewer_c_introduced_code",
+        ],
+    )
+    def test_every_reviewer_omits_the_claimed_section_when_empty(
+        self, lane: str
+    ) -> None:
+        message = lp.build_user_message(lane, diff_text="d", files=["x.py"])
+        assert "Also changed in this review" not in message
+
+    @pytest.mark.parametrize(
+        "lane",
+        ["reviewer_b_diff_only_bugs", "reviewer_c_introduced_code"],
+    )
+    def test_b_and_c_are_told_a_listed_path_is_part_of_the_change(
+        self, lane: str
+    ) -> None:
+        """The prompt half: the list alone does not say what to do with it."""
+        system = lp.LANE_PROMPTS[lane].system
+        assert "Also changed in this review" in system
+        assert "never report that a listed path is missing, not" in system
+        assert "Do not audit the content of" in system
+
+
 class TestLaneEligibility:
     """Which lanes may carry an endpoint id, and what a backend must be."""
 
