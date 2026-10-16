@@ -313,11 +313,11 @@ claude_md:
         generation-lane.md's write mechanics; claude-md-generate.js's
         agent-result schema) kept its narrow, still-true description with the
         old exclusivity language ("the one place," "requires this criterion
-        to have rejected the fact first") removed, since other routes now
+        to have rejected the fact first") removed, since other routes
         exist alongside it. Placement enforcement: the coverage lane's write
         instructions were tightened so a sidecar is never written without a
         co-located CLAUDE.md carrying the required pointer in the same turn
-        -- a non-empty `potentialDefects` now takes the null branch off the
+        -- a non-empty `potentialDefects` takes the null branch off the
         table for that directory, forcing a pointer-only CLAUDE.md when the
         directory's own code otherwise earns no ambient cost. Current-state
         contract: deferred-defects.md.
@@ -522,7 +522,7 @@ claude_md:
       added: "2026-10-16"
     - id: skill_type_criteria_shipped
       keywords: [skill-type-tag, skill-type-valid, SkillContext, applies gate, MechanicalEvaluator, evaluator context, frontmatter hygiene, deferred row, no pyyaml, M6, shipped standards]
-      summary: "skills-kit 0.93.0 moves skill-type-tag and skill-type-valid out of audit.check_universal and rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria. An evaluator now receives a SkillContext (frontmatter, body, skill dir) and carries an applies gate that decides whether the criterion has a row for the document. Extends shipped_standards_layer_enabled."
+      summary: "skills-kit 0.93.0 moves skill-type-tag and skill-type-valid out of audit.check_universal and rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria. An evaluator receives a SkillContext (frontmatter, body, skill dir) and carries an applies gate that decides whether the criterion has a row for the document. Extends shipped_standards_layer_enabled."
       detail: |
         Surface: the two skill-type rows were hard-coded in check_universal and
         catalogued in rule_catalog.RULES as optional description-hygiene rules.
@@ -706,7 +706,7 @@ claude_md:
       added: "2026-10-16"
     - id: legacy_heuristic_criteria_shipped
       keywords: [SKILL-legacy-standards.md, legacy heuristics, type_specific section, ref-example-block, pattern-prohibited-bundle, technique-ordered-steps, step-tracking, discipline-pressure-test, domain-orientation, bare_severity, JUDGMENT outcome, contract_staged, applies gate, fence-stripped body, no pyyaml, coverage ids stay, D2, D4, M6, shipped standards]
-      summary: "skills-kit 0.97.0 moves the 19 legacy per-skill-type heuristic ids (ref-*, pattern-*, technique-*, discipline-*, domain-*) and step-tracking out of audit.py's per-type check functions and out of rule_catalog.RULES into a new shipped file, SKILL-legacy-standards.md, as mechanical criteria in the type_specific list. The eight coverage ids stay in the catalog. Extends contract_floor_criteria_shipped."
+      summary: "skills-kit 0.97.0 moves the 19 legacy per-skill-type heuristic ids (ref-*, pattern-*, technique-*, discipline-*, domain-*) and step-tracking out of audit.py's per-type check functions and out of rule_catalog.RULES into a dedicated shipped file, SKILL-legacy-standards.md, as mechanical criteria in the type_specific list. The eight coverage ids stay in the catalog. Extends contract_floor_criteria_shipped."
       detail: |
         Surface: twenty optional rules were emitted by five hard-coded
         functions, one per skill type, selected by a TYPE_RUNNERS table, and
