@@ -110,7 +110,7 @@ QUESTION_HEADER = "Profile"
 
 #: Label of the option that sends the user to Other when the profiles do not
 #: fit as options.
-TYPED_CHOICE_LABEL = "Type a profile name"
+TYPED_CHOICE_LABEL = "Select a Profile Now"
 
 #: Descriptions are sanitized before they reach a question. The cap is a hard
 #: truncation with no ellipsis: an ellipsis is decoration that costs three of

@@ -378,6 +378,10 @@ class TestOverflowQuestion:
         assert [o["label"] for o in question["options"]] == [
             "Not now", profiles.TYPED_CHOICE_LABEL]
 
+    def test_typed_option_label_is_select_a_profile_now(self):
+        question = profiles.build_question(_state_with(FIVE), "first_run")
+        assert question["options"][1]["label"] == "Select a Profile Now"
+
     def test_switch_mode_keeps_its_own_lead_option(self):
         state = _state_with(FIVE, status="selected", selected="alpha")
         question = profiles.build_question(state, "switch")
