@@ -27,6 +27,7 @@ to ``path_entries`` + tool->PATH linkage.
 import os
 import re
 import shlex
+import sys
 from collections import OrderedDict
 from typing import List, Optional, Tuple
 
@@ -178,6 +179,59 @@ def write_env_record(path: str, entries) -> Tuple[bool, "OrderedDict[str, str]"]
     except OSError:
         return False, safe
     return True, safe
+
+
+# --- claudx: a plugin root must not point into the plugin cache -------------
+#
+# Inside a claudx session (CLAUDE_PLUGIN_TEST, set only by
+# scripts/claude_plugin_test.py) the plugins under test load from the working
+# copy through --plugin-dir, which repoints Claude Code's loading of skills and
+# hooks and nothing else. A <PLUGIN>_ROOT that resolves into the installed
+# cache sends every command anchored on "${<PLUGIN>_ROOT}" to the INSTALLED
+# plugin, so a green run exercises the release instead of the working copy.
+# The names reach a session from two writers, both of which call this check:
+# the engine's per-plugin export and its pre-gate record (this module), and the
+# SessionStart prelude's re-emit of that record (session-bootstrap.sh, which
+# applies the same test lexically because it must stay fork-free).
+
+CLAUDX_ENV = "CLAUDE_PLUGIN_TEST"
+
+
+def _path_is_under_plugins_cache(path: str) -> bool:
+    """Whether ``path``, with links resolved, passes through ``plugins/cache``.
+
+    Resolved with ``realpath`` so a directory reached through a junction or
+    symlink is judged by where it lives, not by how it is spelled.
+    """
+    parts = [p.lower() for p in re.split(r"[\\/]+", os.path.realpath(path))]
+    return any(a == "plugins" and b == "cache" for a, b in zip(parts, parts[1:]))
+
+
+def cache_root_refusal(name: str, value: str) -> Optional[str]:
+    """The refusal message for a plugin-root export that must not happen, else None.
+
+    Applies only in a claudx session; every other session exports a cache path
+    exactly as before, because there the cache IS the plugin being used.
+    """
+    if not os.environ.get(CLAUDX_ENV):
+        return None
+    if not isinstance(value, str) or not _path_is_under_plugins_cache(value):
+        return None
+    return (
+        f"claudx: refusing to export {name}={value}: it resolves into the plugin "
+        f"cache, so a command anchored on ${{{name}}} would run the INSTALLED "
+        f"plugin instead of the working copy under test. {name} is left unset; "
+        f"a consumer's \"${{{name}:?...}}\" guard fails loudly."
+    )
+
+
+def refuse_cache_root(name: str, value: str) -> bool:
+    """Print the refusal to stderr and return True when ``name=value`` is refused."""
+    message = cache_root_refusal(name, value)
+    if message is None:
+        return False
+    print(message, file=sys.stderr)
+    return True
 
 
 def _rc_files(current_os: str) -> List[str]:
