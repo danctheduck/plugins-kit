@@ -814,8 +814,9 @@ claude_md:
         shipped evaluators with the caller's th; the two-argument call is
         unchanged and silent. THRESHOLDS is a dict subclass whose
         __missing__ answers import_max_lines (50, pinned equal to the shipped
-        criterion's default) with a warning; the key is still not a member, so
-        the standards resolver still refuses a criterion that declares it.
+        criterion's default) with a warning; the key is not a member of
+        THRESHOLDS, so the standards resolver refuses a criterion that declares
+        it.
         MechanicalEvaluator and MECHANICAL_EVALUATORS are not shimmed: they are
         the in-library seam that binds a shipped criterion id to code, no
         consumer outside skills-kit reaches it, and a registration made for the
