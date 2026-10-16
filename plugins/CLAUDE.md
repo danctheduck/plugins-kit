@@ -949,3 +949,12 @@ for two minor versions, and a behavior change from success to raise follows
 the same window. Policy, rationale, and the contract-listing convention:
 [docs/reference/deprecation-policy.md](../docs/reference/deprecation-policy.md).
 content-pipeline-kit's listing and guard are the reference implementation.
+
+A brief or plan that deletes, renames, or changes the signature of a
+module-level name in a plugin library cites
+[docs/reference/deprecation-policy.md](../docs/reference/deprecation-policy.md)
+and requires the shims in the same change. Observed failure: skills-kit M6
+(0.93.0 through 0.96.0) removed 11 public `skills_kit_lib/audit.py` names
+without shims because no wave brief cited the policy. The gap surfaced only at
+code review, after an intervening publish had shipped it; it was
+fixed forward in 0.97.0.
