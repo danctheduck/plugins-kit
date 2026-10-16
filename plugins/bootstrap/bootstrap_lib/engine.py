@@ -1010,6 +1010,20 @@ def _main_pass():
             "persist_across_sessions": True,
         })
 
+    # Step 3c-tiers: resolve profile plugin tiers against what is installed,
+    # BEFORE the layered manifest drives any phase. The rewritten plugins list
+    # replaces the authored one (tiered entries carry the install mode the
+    # resolver decided), and the removals the user recorded are carried out
+    # here. See _process_plugin_tiers.
+    tier_action, tier_ok, tier_quiet = [], [], []
+    layered_manifest, tier_failures = _process_plugin_tiers(
+        layered_manifest, profile_state, args.project_dir,
+        tier_action, tier_ok, tier_quiet)
+    bootstrap_action_entries.extend(_reprefix(e, "config: ") for e in tier_action)
+    bootstrap_ok_entries.extend(_reprefix(e, "config: ") for e in tier_ok)
+    bootstrap_quiet_entries.extend(_reprefix(e, "config: ") for e in tier_quiet)
+    all_failures.extend(tier_failures)
+
     # Plugin discovery inputs, shared by Step 3c-mkt and Step 4.
     registry_path = os.path.join(plugins_dir, "installed_plugins.json")
 
@@ -2897,7 +2911,9 @@ def _profile_prompt_directive(profile_state, marker_dir, run_cmd, env=None):
     gate: a promptable status, an attended session with a session id, and no
     guard marker -- see its docstring for the full rule). A pure query: the
     caller still owns calling profiles.mark_prompted once a response
-    carrying this text is actually emitted, never before.
+    carrying this text is actually emitted, never before. A project whose
+    tracked manifest sets ``profile_prompt: false`` never gets a directive
+    (``should_prompt`` reads the switch from ``profile_state``).
     """
     from . import profiles as _profiles
     if env is None:
@@ -2917,6 +2933,10 @@ def _profile_attended_note(profile_state, env):
     than an explanation for a skipped prompt.
     """
     from . import profiles as _profiles
+    if not profile_state.profile_prompt:
+        # The project runs its own setup: no built-in prompt was ever going to
+        # be emitted, so there is no skipped prompt for the note to explain.
+        return None
     if profile_state.status not in _profiles.PROMPTABLE_STATUSES:
         return None
     if not _profiles.attended_signal_missing(env):
@@ -2988,6 +3008,285 @@ def _report_profile_state(profile_state, action_entries, ok_entries,
             quiet_entries, attended_note,
             display="profile: attended signal missing",
         )
+    return failures
+
+
+#: Marker the tier step sets on a plugins[] entry whose install the resolver
+#: ordered. _phase_plugins then installs it even though the registry holds a
+#: record somewhere (another project's local install, a dormant project
+#: record): the resolver already asked "is it installed HERE" and the answer
+#: was no. Engine-internal; never authored.
+_TIER_INSTALL_KEY = "_tier_install"
+
+
+def _cli_ref_of(plugin_ref):
+    """``marketplace:plugin`` -> ``plugin@marketplace`` for CLI-facing text."""
+    if ":" not in plugin_ref:
+        return plugin_ref
+    mkt, name = plugin_ref.split(":", 1)
+    return f"{name}@{mkt}"
+
+
+def _short_plugin_name(plugin_ref):
+    """The plugin half of a ref, for display labels that must stay short."""
+    return plugin_ref.split(":", 1)[1] if ":" in plugin_ref else plugin_ref
+
+
+def _plugin_tier_failure(ref, message, agent_msg):
+    """A fix-all failure dict for one tiered plugin.
+
+    Type ``plugin`` with an authored ``agent_msg``: the generic ``plugin``
+    line ("Install plugin ...") would misdescribe an uninstall or an unreadable
+    inventory. No ``persist_across_sessions``: a failure already clears the
+    project cooldown, so the next session re-runs and recomputes it.
+    """
+    return {
+        "type": "plugin",
+        "ref": ref,
+        "name": ref,
+        "message": message,
+        "agent_msg": agent_msg,
+        "plugin": _LAYERED_MANIFEST_NAME,
+    }
+
+
+def _manual_entry(entry):
+    """A copy of a tiered entry that is only ever kept up to date."""
+    out = dict(entry)
+    out["install"] = "manual"
+    out.pop(_TIER_INSTALL_KEY, None)
+    return out
+
+
+def _with_plugins(manifest, plugins, replacements):
+    """``manifest`` with ``plugins[i]`` replaced for every ``i`` in ``replacements``.
+
+    Returns a new manifest dict (the input is not mutated).
+    """
+    rewritten = list(plugins)
+    for index, entry in replacements.items():
+        rewritten[index] = entry
+    out = dict(manifest)
+    out["plugins"] = rewritten
+    return out
+
+
+def _plugin_tier_inventory(refs, project_dir):
+    """``({ref: [Install]}, {ref: error text})`` for every ref.
+
+    One ref's unreadable inventory (``InventoryError``) is recorded against
+    that ref and does not stop the others; nothing else is caught.
+    """
+    from .marketplace_lifecycle import InventoryError, plugin_installs
+
+    installs, errors = {}, {}
+    for ref in refs:
+        try:
+            installs[ref] = list(plugin_installs(ref, project_dir))
+        except InventoryError as exc:
+            errors[ref] = str(exc)
+    return installs, errors
+
+
+def _process_plugin_tiers(manifest, profile_state, project_dir,
+                          action_entries, ok_entries, quiet_entries):
+    """Resolve the layered manifest's plugin tiers and carry out recorded removals.
+
+    Returns ``(manifest, failures)``: the manifest with every tiered
+    ``plugins[]`` entry replaced by the resolver's rewrite (untiered and
+    malformed entries are never touched), plus this step's fix-all failures.
+
+    Rules (see ``plugin_tiers`` for the resolver itself):
+
+    - Tiers act only under a SELECTED profile. In every other status (and
+      whenever the profile declaration is invalid) tiered entries are forced to
+      ``install: manual``: kept up to date, never installed, never removed.
+    - The inventory is read per tiered ref. An ``InventoryError`` for a ref is a
+      failure for that plugin and the plugin is left ``manual``: an unreadable
+      inventory is never taken to mean "not installed", which would install on
+      a guess.
+    - A resolver error (a malformed tier entry or answer) is one failure and
+      every tiered entry is forced ``manual``.
+    - A recorded answer is acted on without asking. Removals the resolver
+      orders run here; a failed removal is a failure and recurs next pass while
+      the inventory still shows the plugin. Removals it cannot perform (a
+      project-scope install, an unconfirmed user-scope install) are action
+      lines every pass, never ok entries, and this step never writes the
+      tracked ``.claude/settings.json``.
+    """
+    from . import plugin_tiers as _tiers
+    from . import profiles as _profiles
+
+    plugins = manifest.get("plugins") if manifest else None
+    if not isinstance(plugins, list):
+        return manifest, []
+    tiered = [i for i, e in enumerate(plugins) if isinstance(e, dict) and "tier" in e]
+    if not tiered:
+        return manifest, []
+
+    def _all_manual():
+        return _with_plugins(
+            manifest, plugins, {i: _manual_entry(plugins[i]) for i in tiered})
+
+    if profile_state.status == "invalid":
+        # The declaration errors are already reported by _report_profile_state;
+        # a second failure for the same defect would only be noise.
+        quiet_entries.append(
+            "plugin tiers: profile declaration invalid - tiered plugins kept manual")
+        return _all_manual(), []
+
+    active = profile_state.status == "selected"
+    failures = []
+    resolver_index = list(tiered)        # positions handed to the resolver
+    replacements = {}
+    installs_by_ref = {}
+
+    if active:
+        refs = []
+        for i in tiered:
+            ref = plugins[i].get("ref")
+            if isinstance(ref, str) and ref.strip() and ref.strip() not in refs:
+                refs.append(ref.strip())
+        installs_by_ref, inventory_errors = _plugin_tier_inventory(refs, project_dir)
+        for i in tiered:
+            ref = plugins[i].get("ref")
+            ref = ref.strip() if isinstance(ref, str) else ref
+            error = inventory_errors.get(ref)
+            if error is None:
+                continue
+            resolver_index.remove(i)
+            replacements[i] = _manual_entry(plugins[i])
+            message = f"plugin {ref}: installed state unreadable - {error}"
+            _append_detail(
+                action_entries, message,
+                display=f"plugin {_short_plugin_name(ref)}: state unreadable")
+            failures.append(_plugin_tier_failure(
+                ref, message,
+                f"Bootstrap could not read the installed state of plugin {ref} "
+                f"({error}), so it neither installs nor removes it. Repair the "
+                "file named in the error, then ask the user to type 'fix-all' "
+                "to re-run bootstrap."))
+        if profile_state.answers_stale:
+            quiet_entries.append(
+                "plugin tiers: recorded plugin answers belong to a different "
+                "profile and are ignored")
+
+    inventory = [
+        {"ref": ref, "scope": inst.scope,
+         "project_path": inst.project_path or None,
+         "installed": not inst.dormant}
+        for ref, found in installs_by_ref.items() for inst in found
+    ]
+    try:
+        resolution = _tiers.resolve_plugin_tiers(
+            [plugins[i] for i in resolver_index],
+            _profiles.answers_by_ref(profile_state),
+            inventory,
+            profile_active=active,
+        )
+    except _tiers.PluginTierError as exc:
+        message = f"plugin tiers: {exc}"
+        _append_detail(action_entries, message, display="plugin tiers: invalid entry")
+        failures.append(_plugin_tier_failure(
+            "plugin tiers", message,
+            f"A tiered plugins[] entry or recorded answer is malformed ({exc}). "
+            "Fix it in the bootstrap.json (or bootstrap.local.json) that holds "
+            "it, then ask the user to type 'fix-all' to re-run bootstrap. No "
+            "tiered plugin was installed or removed this pass."))
+        return _all_manual(), failures
+
+    for index, entry in zip(resolver_index, resolution.plugins):
+        rewritten = dict(entry)
+        if rewritten.get("install") == "auto":
+            rewritten[_TIER_INSTALL_KEY] = True
+        replacements[index] = rewritten
+
+    if resolution.questions:
+        quiet_entries.append(
+            "plugin tiers: %d plugin question(s) unanswered (%s) - run the "
+            "profile setup to answer" % (
+                len(resolution.questions),
+                ", ".join(q.ref for q in resolution.questions)))
+
+    failures.extend(_run_plugin_uninstalls(
+        resolution, installs_by_ref, project_dir, action_entries, quiet_entries))
+
+    for item in resolution.unsatisfied:
+        # Never ok: the plugin is still installed and bootstrap did not remove
+        # it, so it stays visible until the inventory agrees.
+        _append_detail(
+            action_entries,
+            f"plugin {item.ref}: still installed - {item.reason}",
+            display=f"plugin {_short_plugin_name(item.ref)}: still installed")
+
+    return _with_plugins(manifest, plugins, replacements), failures
+
+
+def _run_plugin_uninstalls(resolution, installs_by_ref, project_dir,
+                           action_entries, quiet_entries):
+    """Uninstall what the resolver ordered removed; return the failures.
+
+    One ``uninstall_installs`` call per (ref, scope): it runs one command per
+    distinct mutation, so a chimera plus a normal user record, or two local
+    records for this project, are a single command. Project-scope installs
+    never reach it (the resolver lists them unsatisfied); if one ever did,
+    ``uninstall_installs`` raises ``ValueError`` and the pass fails loudly.
+    """
+    from .marketplace_lifecycle import resolve_claude_cli, uninstall_installs
+
+    orders = []
+    for order in resolution.uninstalls:
+        if (order.ref, order.scope) not in [(o.ref, o.scope) for o in orders]:
+            orders.append(order)
+    if not orders:
+        return []
+    if not resolve_claude_cli():
+        # Same stand-down as _phase_plugins: the `claude` tool entry owns the
+        # actionable report. The plugins stay installed, so the order recurs.
+        _append_detail(
+            action_entries,
+            f"plugins: {len(orders)} uninstall(s) pending - claude CLI "
+            "unavailable (see the `claude` tool entry)",
+            display="plugins: uninstalls pending")
+        return []
+
+    failures = []
+    for order in orders:
+        targets = [i for i in installs_by_ref.get(order.ref, ())
+                   if i.scope == order.scope]
+        if not targets:
+            # The order was derived from this very inventory; an empty target
+            # list would report an uninstall that ran nothing.
+            raise RuntimeError(
+                f"plugin tiers: uninstall ordered for {order.ref} at "
+                f"{order.scope} scope but the inventory holds no such install")
+        results = uninstall_installs(order.ref, targets, project_dir)
+        bad = [r for r in results if not r.passed]
+        if not bad:
+            _append_detail(
+                action_entries,
+                f"plugin {order.ref}: uninstalled at {order.scope} scope "
+                "(recorded answer: not wanted)",
+                display=f"plugin {_short_plugin_name(order.ref)}: uninstalled")
+            continue
+        for result in bad:
+            if result.detail:
+                quiet_entries.append(
+                    f"plugin {order.ref}: uninstall failed, full CLI output:"
+                    f"\n{result.detail}")
+            message = (f"plugin {order.ref}: uninstall at {order.scope} scope "
+                       f"failed - {result.message}")
+            _append_detail(
+                action_entries, message,
+                display=f"plugin {_short_plugin_name(order.ref)}: uninstall failed")
+            failures.append(_plugin_tier_failure(
+                order.ref, message,
+                f"Bootstrap could not uninstall plugin {order.ref} at "
+                f"{order.scope} scope, which the user's recorded profile answer "
+                f"says they do not want ({result.message}). Run `claude plugin "
+                f"uninstall {_cli_ref_of(order.ref)} --scope {order.scope}` from "
+                "the project root, then ask the user to type 'fix-all' to "
+                "re-run bootstrap."))
     return failures
 
 
@@ -6511,7 +6810,7 @@ def _phase_plugins(ctx):
     Failures and one-off warnings stay per-line to preserve detail.
     """
     from .marketplace_lifecycle import (
-        check_plugin_installed, install_plugin,
+        LifecycleResult, check_plugin_installed, install_plugin,
         enable_plugin_in_claude, disable_plugin_at_scope,
         check_plugin_enabled_at_scope,
         enable_plugin_at_scope,
@@ -6586,11 +6885,23 @@ def _phase_plugins(ctx):
 
         # Check if plugin is installed (global registry, handles both ref formats)
         install_result = check_plugin_installed(plugin_ref)
+        if plugin_def.get(_TIER_INSTALL_KEY) and install_result.passed:
+            # The tier resolver asked "is it installed for THIS project" and the
+            # answer was no; the registry's record belongs to another project's
+            # local install or is dormant. Install here rather than trusting it.
+            install_result = LifecycleResult(
+                passed=False, ref=plugin_ref,
+                message="not installed for this project")
         if not install_result.passed:
             if install_mode == "manual":
                 # User is expected to install via `claude plugin install ...`;
                 # we only manage updates once they do. Don't surface a failure.
                 ctx.ok(f"plugin {plugin_ref}: not installed (install: manual; run `claude plugin install {cli_ref}` to enable)")
+                continue
+            if not enabled:
+                # An entry declared enabled: false is never installed. It is
+                # only ever disabled when it already exists (the branch below).
+                ctx.ok(f"plugin {plugin_ref}: not installed (enabled: false; not installing)")
                 continue
             _mkt = plugin_ref.split(":", 1)[0] if ":" in plugin_ref else ""
             if _mkt and _mkt in unusable:
@@ -6654,9 +6965,16 @@ def _phase_plugins(ctx):
             # An add is a remediation, a refusal is a defect left unrepaired,
             # and an unreadable registry is a failed check -- all three are
             # always-visible action entries, never verbose-only ok entries.
-            _scope_sync = ensure_registry_scope(plugin_ref, desired_scope)
-            if _scope_sync.added or _scope_sync.refused or not _scope_sync.passed:
-                ctx.action(f"plugin {plugin_ref}: {_scope_sync.message}")
+            #
+            # Not for local scope: a local install is recorded WITH its
+            # projectPath, which ensure_registry_scope never touches, so the
+            # only records it could rewrite are pathless ones -- another
+            # scope's -- and stamping "local" on those manufactures the orphan
+            # shape registry_repair deletes.
+            if desired_scope != "local":
+                _scope_sync = ensure_registry_scope(plugin_ref, desired_scope)
+                if _scope_sync.added or _scope_sync.refused or not _scope_sync.passed:
+                    ctx.action(f"plugin {plugin_ref}: {_scope_sync.message}")
 
         if install_mode == "manual":
             # Manual-install plugins: only manage version updates. Skip

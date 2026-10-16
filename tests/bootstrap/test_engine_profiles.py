@@ -259,6 +259,55 @@ class TestProfilePromptDirective:
         assert directive == ""
 
 
+class TestProfilePromptSwitch:
+    """``profile_prompt: false`` in a tracked project layer turns the built-in
+    directive off for that project: no directive, no skipped-prompt note, and
+    no prompt marker written."""
+
+    def test_no_directive_when_the_project_turned_the_prompt_off(self, tmp_path):
+        state = _state("unselected", profile_prompt=False,
+                       available=(profiles.ProfileInfo(name="engineer"),))
+        directive = engine._profile_prompt_directive(
+            state, str(tmp_path / "markers"), "/plugin/scripts/bootstrap.sh",
+            env=ATTENDED_ENV)
+        assert directive == ""
+
+    def test_default_still_prompts(self, tmp_path):
+        state = _state("unselected",
+                       available=(profiles.ProfileInfo(name="engineer"),))
+        assert state.profile_prompt is True
+        assert engine._profile_prompt_directive(
+            state, str(tmp_path / "markers"), "/plugin/scripts/bootstrap.sh",
+            env=ATTENDED_ENV) != ""
+
+    def test_no_attended_note_when_the_prompt_is_off(self):
+        state = _state("unselected", profile_prompt=False)
+        assert engine._profile_attended_note(state, {}) is None
+
+    def test_emit_writes_no_pending_prompt_and_no_marker(self, tmp_path, monkeypatch):
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        state = _state("unselected", profile_prompt=False,
+                       available=(profiles.ProfileInfo(name="engineer"),))
+        monkeypatch.setattr(os, "environ", dict(ATTENDED_ENV))
+        calls = []
+        monkeypatch.setattr(
+            profiles, "mark_prompted",
+            lambda env, marker_dir: calls.append((env, marker_dir)))
+        monkeypatch.setattr(engine, "_clear_project_cooldown", lambda *a, **k: None)
+        monkeypatch.setattr(engine, "_restamp_project_cooldown", lambda *a, **k: None)
+
+        engine._emit_pass_results(
+            all_failures=[], current_os="macos", display_content="",
+            bootstrap_label="bootstrap", data_dir=str(data_dir),
+            args=_Args(), recorder=None, profile_state=state,
+            plugin_root=str(tmp_path / "plugin"),
+        )
+
+        assert calls == []
+        assert not (data_dir / "bootstrap_display.pending").exists()
+
+
 class TestProfileAttendedNote:
     """Covers only the PURE decision (does _profile_attended_note return
     text) -- NOT whether that text reaches bootstrap.log. This class alone

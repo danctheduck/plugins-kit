@@ -21,6 +21,13 @@ ensure-bootstrap SessionStart hook into a project (install_bootstrap_hook.py):
                      and return Codex hook JSON with any project remediation.
     bootstrap reset  Clear the cooldown stamp so the NEXT session start runs a
                      real pass. Not a pass itself.
+    bootstrap profile
+                     Show or change the profile selection. `status --json` is
+                     the cheap read a hook calls (it lists the verbs this
+                     install has); `choices --for` previews a profile's plugin
+                     questions; `apply` records a profile and its answers under
+                     the engine lock and runs a pass; `clear --all` resets the
+                     project's selection and answers under the same lock.
 
 Why the status probe is not "try to acquire and release": acquiring clears a
 stale lock and holds the mutex for an instant, so a mere status check could
@@ -853,6 +860,10 @@ class ProfileEngineMissing(RuntimeError):
     """The installed bootstrap engine does not provide profile resolution."""
 
 
+class ProfileInventoryError(RuntimeError):
+    """The installed-plugin registry or a settings file could not be read."""
+
+
 def _load_profile_state(project_dir):
     """Resolve the four layered manifests plus their profile state.
 
@@ -920,6 +931,9 @@ def _profile_state_json(state):
         "warnings": list(state.warnings),
         "errors": list(state.errors),
         "write_target": state.write_target,
+        # Verbs this CLI really provides, so a project hook can stay silent on
+        # an older bootstrap instead of calling a verb that is not there.
+        "capabilities": _profile_capabilities(),
         # Overflow (>MAX_PROFILE_OPTIONS profiles): the question then names no
         # profile and offers only TYPED_CHOICE_LABEL, so the agent needs the
         # full listing to print beforehand and a flag telling it to expect the
@@ -962,10 +976,18 @@ def _print_profile_status(state):
 
 
 def cmd_profile(args) -> int:
-    if getattr(args, "profile_command", None) == "set":
+    command = getattr(args, "profile_command", None)
+    if command == "set":
         return cmd_profile_set(args)
-    if getattr(args, "profile_command", None) == "clear":
+    if command == "clear":
+        if getattr(args, "all", False):
+            return cmd_profile_clear_all(args)
         return cmd_profile_clear(args)
+    if command == "choices":
+        return cmd_profile_choices(args)
+    if command == "apply":
+        return cmd_profile_apply(args)
+    # Bare `profile` and `profile status` are the same cheap read.
     return cmd_profile_status(args)
 
 
@@ -1094,6 +1116,450 @@ def cmd_profile_clear(args) -> int:
 
 
 # --------------------------------------------------------------------------
+# profile choices / apply / clear --all  (the contract a project's profile
+# skill and SessionStart hook call; see skills/bootstrap/references/bootstrap-cli.md)
+#
+# Exit codes: 0 ok, 1 write or pass failure, 2 a pass is running (nothing
+# written) or the marketplace is ambiguous, 3 validation refusal.
+# --------------------------------------------------------------------------
+
+EXIT_REFUSED = 3
+
+#: Capability names, in the order they are reported, and the library symbols
+#: each one needs. `profile status --json` lists the ones this install has.
+_CAPABILITY_NEEDS = (
+    ("choices_for", ("bootstrap_lib.plugin_tiers", "resolve_plugin_tiers"),
+     ("bootstrap_lib.marketplace_lifecycle", "plugin_installs")),
+    ("apply", ("bootstrap_lib.profiles", "write_selection_with_answers"),
+     ("bootstrap_lib.proc_lock", "engine_lock")),
+    ("clear_all", ("bootstrap_lib.profiles", "clear_selection"),
+     ("bootstrap_lib.proc_lock", "engine_lock")),
+    ("unset", ("bootstrap_lib.profiles", "UNSET_SELECTION"),
+     ("bootstrap_lib.profiles", "clear_selection")),
+)
+
+
+def _profile_capabilities() -> list:
+    """The profile verbs this install provides, probed, never assumed.
+
+    Import only: no registry, settings or network access, so `profile status`
+    stays the cheap read a hook can run at every session start.
+    """
+    import importlib
+    found = []
+    for name, *needs in _CAPABILITY_NEEDS:
+        try:
+            ok = all(hasattr(importlib.import_module(module), symbol)
+                     for module, symbol in needs)
+        except ImportError:
+            ok = False
+        if ok:
+            found.append(name)
+    return found
+
+
+class _Refusal(Exception):
+    """A request the CLI will not act on (exit 3). `reason` is a stable code."""
+
+    def __init__(self, reason, message, refs=()):
+        super().__init__(message)
+        self.reason = reason
+        self.message = message
+        self.refs = list(refs)
+
+
+def _report_refusal(verb, refusal) -> int:
+    """Message on stderr, one JSON object on stdout for the calling skill."""
+    sys.stderr.write("bootstrap profile %s: %s\n" % (verb, refusal.message))
+    print(json.dumps({"refused": refusal.reason, "message": refusal.message,
+                      "refs": refusal.refs}, indent=2, sort_keys=True))
+    return EXIT_REFUSED
+
+
+def _engine_lock(data_dir):
+    """proc_lock.engine_lock, importable from an installed plugin tree."""
+    from bootstrap_lib.proc_lock import engine_lock
+    return engine_lock(data_dir)
+
+
+def _read_layer(path, problems):
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError) as exc:
+        problems.append("%s: %s" % (path, exc))
+        return None
+    if not isinstance(data, dict):
+        problems.append("%s: manifest is not a JSON object" % path)
+        return None
+    return data
+
+
+def _read_layers(project_dir):
+    """The four layered manifests as `(path, kind, data)`, lowest priority first.
+
+    The same files, kinds and order as `engine._load_layered_manifests_ex`
+    without its deprecated legacy layer. A candidate profile has to be applied
+    to these layers BEFORE anything is written, and the engine's loader only
+    resolves what is already on disk; a test pins the two readers to the same
+    answer for the current selection.
+    """
+    home = os.environ.get("HOME") or os.path.expanduser("~")
+    user_dir = os.path.join(home, ".claude")
+    project_claude = os.path.join(str(project_dir), ".claude")
+    specs = (
+        (os.path.join(user_dir, "bootstrap.json"), "user"),
+        (os.path.join(user_dir, "bootstrap.local.json"), "user_local"),
+        (os.path.join(project_claude, "bootstrap.json"), "project"),
+        (os.path.join(project_claude, "bootstrap.local.json"), "project_local"),
+    )
+    layers, problems = [], []
+    for path, kind in specs:
+        if os.path.isfile(path):
+            layers.append((path, kind, _read_layer(path, problems)))
+    return layers, problems
+
+
+def _candidate(project_dir, name):
+    """Apply profile `name` to the current layers without writing anything.
+
+    Returns `(effective_manifest, ProfileState)` with `status == "selected"`.
+    Raises :class:`_Refusal` for a reserved or undeclared name, an unreadable
+    layer, or an invalid declaration.
+    """
+    if (not isinstance(name, str)
+            or not bootstrap_profiles.PROFILE_NAME_RE.match(name)
+            or name in (bootstrap_profiles.NONE_SELECTION,
+                        bootstrap_profiles.UNSET_SELECTION)):
+        raise _Refusal("not_a_profile",
+                       "'%s' is not a selectable profile name" % (name,))
+    layers, problems = _read_layers(project_dir)
+    if problems:
+        raise _Refusal("unreadable_layer",
+                       "cannot read the layered manifests: " + "; ".join(problems))
+    candidate_layers, replaced = [], False
+    for path, kind, data in layers:
+        if kind == "project_local":
+            # The candidate selection replaces whatever is selected now.
+            data = dict(data)
+            data["profile"] = name
+            replaced = True
+        candidate_layers.append((path, kind, data))
+    if not replaced:
+        candidate_layers.append(
+            (_project_local_profile_path(project_dir), "project_local",
+             {"profile": name}))
+    home = os.environ.get("HOME") or os.path.expanduser("~")
+    effective, state = bootstrap_profiles.resolve_layers(
+        candidate_layers, project_dir=str(project_dir), home=home)
+    declared = sorted(info.name for info in state.available)
+    if state.status == "invalid":
+        raise _Refusal("invalid_declaration",
+                       "the profile declarations are invalid: "
+                       + "; ".join(state.errors or ("unreadable local layer",)))
+    if state.status != "selected":
+        raise _Refusal("unknown_profile",
+                       "'%s' is not a declared profile (available: %s)"
+                       % (name, ", ".join(declared) or "none"))
+    return effective, state
+
+
+def _tier_modules():
+    """`(plugin_tiers, marketplace_lifecycle)`, or ProfileEngineMissing."""
+    try:
+        from bootstrap_lib import marketplace_lifecycle, plugin_tiers
+        marketplace_lifecycle.plugin_installs
+    except (ImportError, AttributeError) as exc:
+        raise ProfileEngineMissing(
+            "bootstrap profile choices/apply need bootstrap_lib.plugin_tiers and "
+            "marketplace_lifecycle.plugin_installs; the installed bootstrap "
+            "plugin predates them -- update it and retry.") from exc
+    return plugin_tiers, marketplace_lifecycle
+
+
+def _inventory(entries, project_dir):
+    """Installed inventory for every questionable tiered entry, as plain dicts.
+
+    One record per applicable install (dormant ones included, flagged
+    `installed: False`), which is the shape `resolve_plugin_tiers` takes.
+    """
+    _tiers, lifecycle = _tier_modules()
+    inventory, seen = [], set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        ref = entry.get("ref")
+        if (entry.get("tier") not in bootstrap_profiles.QUESTIONED_TIERS
+                or not isinstance(ref, str) or ref in seen):
+            continue
+        seen.add(ref)
+        try:
+            installs = lifecycle.plugin_installs(
+                ref.strip(), str(project_dir), include_dormant=True)
+        except lifecycle.InventoryError as exc:
+            raise ProfileInventoryError(str(exc)) from exc
+        for install in installs:
+            inventory.append({
+                "ref": ref.strip(), "scope": install.scope,
+                "project_path": install.project_path or None,
+                "installed": not install.dormant,
+            })
+    return inventory
+
+
+def _resolve_candidate(project_dir, name):
+    """`(ProfileState, TierResolution, entries)` for `name`, nothing written.
+
+    No answers are passed: the questions are the ones a fresh run of the
+    profile skill would ask. Raises :class:`_Refusal`, ProfileEngineMissing,
+    or the lifecycle module's InventoryError for an unreadable registry.
+    """
+    effective, state = _candidate(project_dir, name)
+    tiers, _lifecycle = _tier_modules()
+    entries = effective.get("plugins") or []
+    try:
+        resolution = tiers.resolve_plugin_tiers(
+            entries, {}, _inventory(entries, project_dir))
+    except tiers.PluginTierError as exc:
+        raise _Refusal("invalid_tier_data", str(exc))
+    return state, resolution, entries
+
+
+def _question_json(question) -> dict:
+    return {
+        "ref": question.ref,
+        "tier": question.tier,
+        "why_lines": [{"kind": kind, "text": text}
+                      for kind, text in question.why_lines],
+        "why_install": question.why_install,
+        "why_skip": question.why_skip,
+        "scopes": list(question.scopes),
+        "needs_user_scope_confirm": question.needs_user_scope_confirm,
+    }
+
+
+def cmd_profile_choices(args) -> int:
+    """`profile choices --for NAME [--json]`: the questions the skill would ask.
+
+    Read-only: nothing is written and no pass runs. Exit 0 with the questions
+    (possibly none), 3 for a name that cannot be selected, 1 when the installed
+    bootstrap is too old or the registry cannot be read, 2 for an ambiguous
+    marketplace.
+    """
+    resolved = _profile_context(args)
+    if resolved is None:
+        return 2
+    _data_dir, _plugin_root, project_dir = resolved
+    try:
+        state, resolution, _entries = _resolve_candidate(project_dir, args.for_profile)
+    except _Refusal as refusal:
+        return _report_refusal("choices", refusal)
+    except (ProfileEngineMissing, ProfileInventoryError) as exc:
+        sys.stderr.write("bootstrap profile choices: %s\n" % exc)
+        return 1
+
+    questions = [_question_json(q) for q in resolution.questions]
+    if args.json:
+        print(json.dumps({
+            "profile": args.for_profile,
+            "chain": list(state.chain),
+            "warnings": list(state.warnings),
+            "questions": questions,
+        }, indent=2, sort_keys=True))
+        return 0
+
+    print("profile: %s (applies: %s)" % (args.for_profile, " -> ".join(state.chain)))
+    for warning in state.warnings:
+        print("warning: %s" % warning)
+    if not questions:
+        print("no questions: nothing to install or uninstall is optional")
+    for question in questions:
+        print("[%s] %s" % (question["tier"], question["ref"]))
+        for line in question["why_lines"]:
+            print("  %s: %s" % (line["kind"], line["text"]))
+        if question["scopes"]:
+            print("  installed at: %s" % ", ".join(question["scopes"]))
+        if question["needs_user_scope_confirm"]:
+            print("  removing it touches a user-scope install: needs the "
+                  "user-scope double-check")
+    return 0
+
+
+def _load_answers(value):
+    """The `--answers` argument: a JSON object, or the path of a file holding one."""
+    if value is None:
+        return {}
+    text = value.strip()
+    if not text.startswith("{"):
+        try:
+            with open(value, "r", encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError as exc:
+            raise _Refusal("unreadable_answers",
+                           "--answers is neither a JSON object nor a readable "
+                           "file: %s" % exc)
+    try:
+        answers = json.loads(text)
+    except ValueError as exc:
+        raise _Refusal("malformed_answers", "--answers is not valid JSON: %s" % exc)
+    if not isinstance(answers, dict):
+        raise _Refusal("malformed_answers",
+                       "--answers must be a JSON object of plugin refs")
+    return answers
+
+
+def _check_answers(answers, entries, resolution):
+    """Refuse an answer the candidate profile does not ask, or a user-scope
+    removal the user has not double-checked. Raises :class:`_Refusal`."""
+    tiers = {}
+    for entry in entries:
+        if isinstance(entry, dict) and isinstance(entry.get("ref"), str):
+            tiers[entry["ref"].strip()] = entry.get("tier")
+    questions = {q.ref: q for q in resolution.questions}
+    needs_confirm = []
+    for ref, value in answers.items():
+        key = ref.strip() if isinstance(ref, str) else ref
+        if tiers.get(key) not in bootstrap_profiles.QUESTIONED_TIERS:
+            raise _Refusal(
+                "unknown_answer_ref",
+                "'%s' is not a recommended or not-recommended plugin of this "
+                "profile" % (ref,), [ref])
+        if not isinstance(value, dict) or not isinstance(value.get("want"), bool):
+            raise _Refusal("malformed_answer",
+                           "answer for '%s' must be an object with a boolean "
+                           "'want'" % (ref,), [ref])
+        scope = value.get("scope")
+        if scope is not None and scope != bootstrap_profiles.ANSWER_SCOPE_USER:
+            raise _Refusal("malformed_answer",
+                           "answer for '%s': 'scope' must be 'user' when present"
+                           % (ref,), [ref])
+        if scope is not None and value["want"]:
+            raise _Refusal("malformed_answer",
+                           "answer for '%s': 'scope' only applies to a plugin "
+                           "the user does not want" % (ref,), [ref])
+        question = questions.get(key)
+        if (value["want"] is False and scope is None and question is not None
+                and question.needs_user_scope_confirm):
+            needs_confirm.append(key)
+    if needs_confirm:
+        raise _Refusal(
+            "user_scope_confirmation_required",
+            "removing %s touches a user-scope install; ask the user to confirm "
+            "and answer with scope 'user', or keep the plugin"
+            % ", ".join(needs_confirm), needs_confirm)
+
+
+def cmd_profile_apply(args) -> int:
+    """`profile apply --profile NAME --answers JSON|FILE`: select and record.
+
+    Takes the engine lock (non-blocking), re-reads and re-validates under it,
+    writes the profile and its answers in ONE replace of the project-local
+    file, releases the lock, then launches the convergence pass `profile set`
+    launches. Exit 2 with nothing written when a pass holds the lock, 3 for a
+    refusal (a user-scope removal needs `"scope": "user"` on its answer), 1 for
+    a write or pass failure.
+    """
+    resolved = _profile_context(args)
+    if resolved is None:
+        return 2
+    data_dir, plugin_root, project_dir = resolved
+    try:
+        answers = _load_answers(args.answers)
+    except _Refusal as refusal:
+        return _report_refusal("apply", refusal)
+
+    target = _project_local_profile_path(project_dir)
+    try:
+        with _engine_lock(data_dir) as acquired:
+            if not acquired:
+                info = holder(data_dir) or {}
+                sys.stderr.write(
+                    "bootstrap profile apply: a bootstrap pass is running (pid "
+                    "%s); nothing was written. Retry after it finishes.\n"
+                    % info.get("pid"))
+                return 2
+            # Everything the write depends on is read HERE, under the lock: a
+            # writer that changed a layer or the registry since the caller
+            # last looked is seen, and nothing it wrote is lost.
+            _state, resolution, entries = _resolve_candidate(project_dir, args.profile)
+            _check_answers(answers, entries, resolution)
+            bootstrap_profiles.write_selection_with_answers(
+                target, args.profile, answers)
+    except _Refusal as refusal:
+        return _report_refusal("apply", refusal)
+    except (ProfileEngineMissing, ProfileInventoryError,
+            bootstrap_profiles.ProfileWriteError) as exc:
+        sys.stderr.write("bootstrap profile apply: %s\n" % exc)
+        return 1
+
+    _exclude_from_vcs(project_dir, "apply")
+    print("profile '%s' and %d plugin answer(s) written to %s"
+          % (args.profile, len(answers), target))
+    if not plugin_root:
+        sys.stderr.write(
+            "bootstrap profile apply: selection written, but no bootstrap plugin "
+            "tree was found to converge it; run 'bootstrap run' manually.\n")
+        return 1
+    return _launch_pass(plugin_root, data_dir, project_dir)
+
+
+def _exclude_from_vcs(project_dir, verb):
+    try:
+        detail = bootstrap_profiles.ensure_vcs_excluded(project_dir)
+    except bootstrap_profiles.ProfileWriteError as exc:
+        sys.stderr.write("bootstrap profile %s: warning: %s\n" % (verb, exc))
+    else:
+        if detail:
+            print("git: %s" % detail)
+
+
+def cmd_profile_clear_all(args) -> int:
+    """`profile clear --all`: profile -> "unset", answers removed, no pass.
+
+    Writes the project-local file under the engine lock. "unset" there masks a
+    `profile` left in the user-level bootstrap.local.json, which is reported
+    because that selection still applies to other projects.
+    """
+    resolved = _profile_context(args)
+    if resolved is None:
+        return 2
+    data_dir, _plugin_root, project_dir = resolved
+    target = _project_local_profile_path(project_dir)
+    try:
+        with _engine_lock(data_dir) as acquired:
+            if not acquired:
+                info = holder(data_dir) or {}
+                sys.stderr.write(
+                    "bootstrap profile clear: a bootstrap pass is running (pid "
+                    "%s); nothing was written. Retry after it finishes.\n"
+                    % info.get("pid"))
+                return 2
+            bootstrap_profiles.clear_selection(target)
+    except bootstrap_profiles.ProfileWriteError as exc:
+        sys.stderr.write("bootstrap profile clear: %s\n" % exc)
+        return 1
+
+    _exclude_from_vcs(project_dir, "clear")
+    print("profile selection and plugin answers cleared in %s" % target)
+    _warn_user_level_profile()
+    return 0
+
+
+def _warn_user_level_profile():
+    path = _user_local_profile_path()
+    problems = []
+    data = _read_layer(path, problems) if os.path.isfile(path) else None
+    if problems:
+        sys.stderr.write("bootstrap profile clear: warning: %s\n" % problems[0])
+        return
+    if data and data.get("profile") not in (None, bootstrap_profiles.UNSET_SELECTION):
+        sys.stderr.write(
+            "bootstrap profile clear: warning: %s selects profile '%s'. It is "
+            "masked in this project by 'unset' but still applies to your other "
+            "projects.\n" % (path, data["profile"]))
+
+
+# --------------------------------------------------------------------------
 # install-hook
 # --------------------------------------------------------------------------
 
@@ -1171,8 +1637,8 @@ def main(argv=None) -> int:
 
     profile_parser = sub.add_parser(
         "profile",
-        help="show the bootstrap profile selection, or switch it with "
-             "'set <name|none>' / 'clear'")
+        help="show the bootstrap profile selection, or change it with "
+             "'set <name|none>' / 'clear' / 'choices' / 'apply'")
     # SUPPRESS here too: `--json` is declared on BOTH this parser and the root
     # `parser` above (for the unrelated bare `bootstrap --json` status
     # probe), so `bootstrap --json profile ...` has the identical
@@ -1209,9 +1675,48 @@ def main(argv=None) -> int:
                              help="project directory (default: the working "
                                   "directory)")
 
+    status_parser = profile_sub.add_parser(
+        "status", help="cheap read of the selection and the verbs this "
+                       "bootstrap provides (the form a hook calls)")
+    status_parser.add_argument("--json", action="store_true",
+                               default=argparse.SUPPRESS,
+                               help="machine-readable status, including "
+                                    "'capabilities'")
+    status_parser.add_argument("--project-dir", default=argparse.SUPPRESS,
+                               help="project directory (default: the working "
+                                    "directory)")
+
+    choices_parser = profile_sub.add_parser(
+        "choices", help="the questions selecting a profile would ask; read-only")
+    choices_parser.add_argument("--for", dest="for_profile", required=True,
+                                metavar="NAME", help="the candidate profile")
+    choices_parser.add_argument("--json", action="store_true",
+                                default=argparse.SUPPRESS,
+                                help="machine-readable questions")
+    choices_parser.add_argument("--project-dir", default=argparse.SUPPRESS,
+                                help="project directory (default: the working "
+                                     "directory)")
+
+    apply_parser = profile_sub.add_parser(
+        "apply", help="select a profile and record its plugin answers in one "
+                      "locked write, then run a convergence pass")
+    apply_parser.add_argument("--profile", required=True, metavar="NAME",
+                              help="a declared profile name")
+    apply_parser.add_argument("--answers", default=None, metavar="JSON|FILE",
+                              help="a JSON object {ref: {\"want\": bool, "
+                                   "\"scope\": \"user\" (optional)}} or the "
+                                   "path of a file holding one")
+    apply_parser.add_argument("--project-dir", default=argparse.SUPPRESS,
+                              help="project directory (default: the working "
+                                   "directory)")
+
     clear_parser = profile_sub.add_parser(
         "clear", help="remove the profile selection")
     clear_target = clear_parser.add_mutually_exclusive_group()
+    clear_target.add_argument("--all", action="store_true",
+                              help="set the project-local profile to 'unset' "
+                                   "and remove its plugin answers, under the "
+                                   "engine lock; no pass runs")
     clear_target.add_argument("--user", action="store_true",
                                help="clear from ~/.claude/bootstrap.local.json")
     clear_target.add_argument("--project", action="store_true",

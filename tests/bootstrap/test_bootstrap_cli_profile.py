@@ -504,3 +504,633 @@ class TestClear:
         ])
         assert rc == 0
         assert not user_local(env).exists()
+
+
+# ==========================================================================
+# Plugin-tier contract: status capabilities, choices, apply, clear --all
+# ==========================================================================
+
+from bootstrap_lib import marketplace_lifecycle, plugin_tiers  # noqa: E402
+
+EXIT_REFUSED = cli.EXIT_REFUSED
+CAPABILITIES = ["choices_for", "apply", "clear_all", "unset"]
+
+PROTOTYPING = "mkt:prototyping"
+ENG_ADV = "mkt:engineering-advanced"
+SANDBOX = "mkt:claude-sandbox"
+
+
+def _tiered(ref, tier, why_install, why_skip):
+    return {"ref": ref, "tier": tier, "install": "manual",
+            "why_install": why_install, "why_skip": why_skip}
+
+
+# Base: one not-recommended plugin every profile inherits. designer: one
+# recommended and one not-recommended of its own. engineer: nothing extra.
+TIERED_MANIFEST = {
+    "plugins": [_tiered(SANDBOX, "not_recommended",
+                        "Sandboxes agent shells.", "Rarely needed here.")],
+    "profiles": {
+        "designer": {
+            "description": "Design tools.",
+            "plugins": [
+                _tiered(PROTOTYPING, "recommended",
+                        "Mock up ideas fast.", "Adds commands you may not use."),
+                _tiered(ENG_ADV, "not_recommended",
+                        "Deep engineering tooling.", "Engineering only."),
+            ],
+        },
+        "engineer": {"description": "Engineering tools."},
+    },
+}
+
+
+def _registry_path(env):
+    return env.home / ".claude" / "plugins" / "installed_plugins.json"
+
+
+def _cli_ref(ref):
+    marketplace, name = ref.split(":")
+    return "%s@%s" % (name, marketplace)
+
+
+def _install(env, ref, scope, *, enabled=True):
+    """Register `ref` at `scope` for env.project and (when `enabled`) enable it."""
+    path = _registry_path(env)
+    registry = (json.loads(path.read_text())
+                if path.exists() else {"version": 2, "plugins": {}})
+    where = env.home / "cache" / ref.replace(":", "_") / scope
+    where.mkdir(parents=True, exist_ok=True)
+    record = {"scope": scope, "installPath": str(where), "version": "1.0.0"}
+    if scope != "user":
+        record["projectPath"] = str(env.project)
+    registry["plugins"].setdefault(_cli_ref(ref), []).append(record)
+    _write_json(path, registry)
+    settings = {
+        "user": env.home / ".claude" / "settings.json",
+        "project": env.project / ".claude" / "settings.json",
+        "local": env.project / ".claude" / "settings.local.json",
+    }[scope]
+    current = json.loads(settings.read_text()) if settings.exists() else {}
+    current.setdefault("enabledPlugins", {})[_cli_ref(ref)] = enabled
+    _write_json(settings, current)
+
+
+@pytest.fixture
+def tiered(env):
+    _write_json(project_manifest(env), TIERED_MANIFEST)
+    return env
+
+
+@pytest.fixture
+def passes(monkeypatch):
+    """Replace the convergence pass; record each launch. Never runs a pass."""
+    calls = []
+    monkeypatch.setattr(cli, "find_plugin_root", lambda m, f="": "/plug")
+
+    def fake_launch(plugin_root, data_dir, project_dir, forward=()):
+        calls.append((plugin_root, data_dir, str(project_dir)))
+        return 0
+
+    monkeypatch.setattr(cli, "_launch_pass", fake_launch)
+    return calls
+
+
+def _json_out(capsys):
+    return json.loads(capsys.readouterr().out)
+
+
+# --------------------------------------------------------------------------
+# `profile status --json` and the capabilities list
+# --------------------------------------------------------------------------
+
+class TestStatusCapabilities:
+
+    def test_status_is_an_alias_of_bare_profile_json(self, tiered, capsys):
+        assert cli.main(["profile", "--json", "--project-dir", str(tiered.project)]) == 0
+        bare = _json_out(capsys)
+        assert cli.main(["profile", "status", "--json",
+                         "--project-dir", str(tiered.project)]) == 0
+        assert _json_out(capsys) == bare
+
+    def test_capabilities_list_is_reported(self, tiered, capsys):
+        assert cli.main(["profile", "status", "--json",
+                         "--project-dir", str(tiered.project)]) == 0
+        assert _json_out(capsys)["capabilities"] == CAPABILITIES
+
+    def test_capability_is_dropped_when_the_library_lacks_its_symbol(
+            self, tiered, monkeypatch, capsys):
+        monkeypatch.delattr(plugin_tiers, "resolve_plugin_tiers")
+        monkeypatch.delattr(bootstrap_profiles, "write_selection_with_answers")
+        assert cli.main(["profile", "status", "--json",
+                         "--project-dir", str(tiered.project)]) == 0
+        assert _json_out(capsys)["capabilities"] == ["clear_all", "unset"]
+
+    def test_status_never_reads_the_registry_or_runs_a_pass(
+            self, tiered, monkeypatch, capsys):
+        def boom(*a, **k):
+            raise AssertionError("status must not touch the installed inventory")
+
+        monkeypatch.setattr(marketplace_lifecycle, "plugin_installs", boom)
+        monkeypatch.setattr(cli, "_launch_pass", boom)
+        monkeypatch.setattr(cli.subprocess, "Popen", boom)
+        assert cli.main(["profile", "status", "--json",
+                         "--project-dir", str(tiered.project)]) == 0
+        assert _json_out(capsys)["status"] == "unselected"
+
+    def test_project_dir_before_status_is_honored(self, tiered, capsys):
+        assert cli.main(["profile", "--project-dir", str(tiered.project),
+                         "status", "--json"]) == 0
+        assert _json_out(capsys)["status"] == "unselected"
+
+
+# --------------------------------------------------------------------------
+# `profile choices --for`
+# --------------------------------------------------------------------------
+
+def _choices(env, name, capsys):
+    rc = cli.main(["profile", "choices", "--for", name, "--json",
+                   "--project-dir", str(env.project)])
+    return rc, json.loads(capsys.readouterr().out)
+
+
+class TestChoices:
+
+    def test_json_shape_and_order(self, tiered, capsys):
+        _install(tiered, SANDBOX, "local")
+        _install(tiered, ENG_ADV, "user")
+
+        rc, payload = _choices(tiered, "designer", capsys)
+
+        assert rc == 0
+        assert payload["profile"] == "designer"
+        assert payload["chain"] == ["designer"]
+        # Recommended questions first, then not-recommended, each in manifest
+        # order (base entries precede the profile's own).
+        assert [q["ref"] for q in payload["questions"]] == [PROTOTYPING, SANDBOX, ENG_ADV]
+        recommended, sandbox, eng = payload["questions"]
+        assert recommended == {
+            "ref": PROTOTYPING, "tier": "recommended",
+            "why_lines": [{"kind": "why_install", "text": "Mock up ideas fast."},
+                          {"kind": "why_skip", "text": "Adds commands you may not use."}],
+            "why_install": "Mock up ideas fast.",
+            "why_skip": "Adds commands you may not use.",
+            "scopes": [], "needs_user_scope_confirm": False,
+        }
+        # A not-recommended plugin lists the skip reason first.
+        assert [l["kind"] for l in sandbox["why_lines"]] == ["why_skip", "why_install"]
+        assert sandbox["scopes"] == ["local"]
+        assert sandbox["needs_user_scope_confirm"] is False
+        assert eng["scopes"] == ["user"]
+        assert eng["needs_user_scope_confirm"] is True
+
+    def test_installed_recommended_and_uninstalled_not_recommended_are_not_asked(
+            self, tiered, capsys):
+        _install(tiered, PROTOTYPING, "local")
+        rc, payload = _choices(tiered, "designer", capsys)
+        assert rc == 0
+        assert payload["questions"] == []
+
+    def test_a_dormant_record_counts_as_not_installed(self, tiered, capsys):
+        _install(tiered, PROTOTYPING, "project", enabled=False)
+        rc, payload = _choices(tiered, "designer", capsys)
+        assert [q["ref"] for q in payload["questions"]] == [PROTOTYPING]
+
+    def test_base_entries_apply_to_a_profile_with_no_plugins_of_its_own(
+            self, tiered, capsys):
+        _install(tiered, SANDBOX, "local")
+        rc, payload = _choices(tiered, "engineer", capsys)
+        assert [q["ref"] for q in payload["questions"]] == [SANDBOX]
+
+    def test_is_read_only_runs_no_pass_and_works_while_a_pass_runs(
+            self, tiered, monkeypatch, capsys):
+        _install(tiered, SANDBOX, "local")
+        local = project_local(tiered)
+        _write_json(local, {"profile": "engineer", "tools": []})
+        before = local.read_bytes()
+
+        def boom(*a, **k):
+            raise AssertionError("choices must not launch a pass")
+
+        monkeypatch.setattr(cli, "_launch_pass", boom)
+        monkeypatch.setattr(cli.subprocess, "Popen", boom)
+        with proc_lock.engine_lock(str(tiered.data_dir)):
+            rc, payload = _choices(tiered, "designer", capsys)
+
+        assert rc == 0 and payload["questions"]
+        assert local.read_bytes() == before
+        assert not user_local(tiered).exists()
+
+    @pytest.mark.parametrize("bound", ["engineer", "designer"])
+    def test_recorded_answers_do_not_hide_questions(self, tiered, bound, capsys):
+        """choices describes a fresh run, whatever was answered before."""
+        _install(tiered, SANDBOX, "local")
+        _write_json(project_local(tiered), {
+            "profile": bound,
+            "plugin_choices": {"profile": bound, "answers": {
+                SANDBOX: {"want": False, "decided": "2026-10-01"}}}})
+        rc, payload = _choices(tiered, "designer", capsys)
+        assert SANDBOX in [q["ref"] for q in payload["questions"]]
+        assert payload["warnings"] == []
+
+    @pytest.mark.parametrize("name", ["ghost", "none", "unset", "Bad Name"])
+    def test_an_unselectable_name_is_refused_with_exit_3(self, tiered, name, capsys):
+        rc, payload = _choices(tiered, name, capsys)
+        assert rc == EXIT_REFUSED
+        assert payload["refused"] in ("not_a_profile", "unknown_profile")
+
+    def test_invalid_declarations_are_refused(self, env, capsys):
+        _write_json(project_manifest(env), INVALID_PROFILES)
+        rc, payload = _choices(env, "engineer", capsys)
+        assert rc == EXIT_REFUSED
+        assert payload["refused"] == "invalid_declaration"
+
+    def test_an_unreadable_registry_fails_loudly(self, tiered, capsys):
+        _registry_path(tiered).parent.mkdir(parents=True, exist_ok=True)
+        _registry_path(tiered).write_text("{not json")
+        rc = cli.main(["profile", "choices", "--for", "designer", "--json",
+                       "--project-dir", str(tiered.project)])
+        assert rc == 1
+        assert "cannot read registry" in capsys.readouterr().err
+
+    def test_human_output_lists_questions_in_tier_order(self, tiered, capsys):
+        _install(tiered, ENG_ADV, "user")
+        rc = cli.main(["profile", "choices", "--for", "designer",
+                       "--project-dir", str(tiered.project)])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert out.index(PROTOTYPING) < out.index(ENG_ADV)
+        assert "installed at: user" in out
+        assert "user-scope double-check" in out
+
+
+# --------------------------------------------------------------------------
+# `profile apply`
+# --------------------------------------------------------------------------
+
+def _apply(env, capsys, answers=None, profile="designer"):
+    argv = ["profile", "apply", "--profile", profile,
+            "--project-dir", str(env.project)]
+    if answers is not None:
+        argv += ["--answers", json.dumps(answers)]
+    rc = cli.main(argv)
+    return rc, capsys.readouterr()
+
+
+class TestApply:
+
+    def test_writes_profile_and_answers_in_one_file_and_launches_the_pass(
+            self, tiered, passes, capsys):
+        _install(tiered, SANDBOX, "local")
+        local = project_local(tiered)
+        _write_json(local, {"tools": [{"name": "uv"}]})
+
+        rc, _out = _apply(tiered, capsys, {
+            PROTOTYPING: {"want": True}, SANDBOX: {"want": False}})
+
+        assert rc == 0
+        written = json.loads(local.read_text())
+        assert written["profile"] == "designer"
+        assert written["tools"] == [{"name": "uv"}]
+        assert written["plugin_choices"]["profile"] == "designer"
+        answers = written["plugin_choices"]["answers"]
+        assert answers[PROTOTYPING]["want"] is True
+        assert answers[SANDBOX]["want"] is False
+        assert all(a["decided"] for a in answers.values())
+        assert passes == [("/plug", str(tiered.data_dir), str(tiered.project))]
+
+    def test_a_pass_started_after_apply_sees_profile_and_answers_together(
+            self, tiered, monkeypatch, capsys):
+        _install(tiered, SANDBOX, "local")
+        monkeypatch.setattr(cli, "find_plugin_root", lambda m, f="": "/plug")
+        monkeypatch.setattr(cli, "FINAL_GRACE_SECONDS", 0.0)
+        monkeypatch.setattr(cli, "POLL_INTERVAL", 0.0)
+        seen = {}
+
+        def fake_popen(cmd, **kw):
+            _m, _e, state = bootstrap_engine._load_layered_manifests_ex(
+                str(tiered.project))
+            seen["status"] = state.status
+            seen["selected"] = state.selected
+            seen["answers"] = bootstrap_profiles.answers_by_ref(state)
+            seen["lock_holder"] = cli.holder(str(tiered.data_dir))
+            return _ExitedProcess()
+
+        monkeypatch.setattr(cli.subprocess, "Popen", fake_popen)
+
+        rc, _out = _apply(tiered, capsys, {SANDBOX: {"want": False}})
+
+        assert rc == 0
+        assert seen["status"] == "selected" and seen["selected"] == "designer"
+        assert seen["answers"] == {SANDBOX: {"want": False, "scope": None}}
+        # The lock is released BEFORE the pass starts, so the pass can take it.
+        assert seen["lock_holder"] is None
+
+    def test_pass_exit_code_is_returned(self, tiered, monkeypatch, capsys):
+        monkeypatch.setattr(cli, "find_plugin_root", lambda m, f="": "/plug")
+        monkeypatch.setattr(cli, "_launch_pass", lambda *a, **k: 1)
+        rc, _out = _apply(tiered, capsys)
+        assert rc == 1
+        assert json.loads(project_local(tiered).read_text())["profile"] == "designer"
+
+    def test_no_answers_clears_stale_answers(self, tiered, passes, capsys):
+        _write_json(project_local(tiered), {
+            "profile": "designer",
+            "plugin_choices": {"profile": "designer", "answers": {
+                SANDBOX: {"want": False, "decided": "2026-10-01"}}}})
+        rc, _out = _apply(tiered, capsys)
+        assert rc == 0
+        written = json.loads(project_local(tiered).read_text())
+        assert written["profile"] == "designer"
+        assert "plugin_choices" not in written
+
+    def test_answers_may_come_from_a_file(self, tiered, passes, tmp_path, capsys):
+        answers = tmp_path / "answers.json"
+        answers.write_text(json.dumps({PROTOTYPING: {"want": True}}))
+        rc = cli.main(["profile", "apply", "--profile", "designer",
+                       "--answers", str(answers), "--project-dir", str(tiered.project)])
+        assert rc == 0
+        recorded = json.loads(project_local(tiered).read_text())["plugin_choices"]
+        assert list(recorded["answers"]) == [PROTOTYPING]
+
+    def test_no_plugin_tree_reports_written_but_not_converged(self, tiered, capsys):
+        rc, out = _apply(tiered, capsys)
+        assert rc == 1
+        assert "no bootstrap plugin tree" in out.err
+        assert json.loads(project_local(tiered).read_text())["profile"] == "designer"
+
+    # -- the lock ----------------------------------------------------------
+
+    def test_refuses_while_a_pass_holds_the_lock_and_writes_nothing(
+            self, tiered, passes, capsys):
+        local = project_local(tiered)
+        _write_json(local, {"profile": "engineer", "tools": []})
+        before = local.read_bytes()
+
+        with proc_lock.engine_lock(str(tiered.data_dir)):
+            rc, out = _apply(tiered, capsys, {PROTOTYPING: {"want": True}})
+
+        assert rc == 2
+        assert "running" in out.err
+        assert local.read_bytes() == before, "file must be byte-identical"
+        assert passes == []
+
+    def test_lock_held_with_no_prior_file_creates_nothing(self, tiered, passes, capsys):
+        with proc_lock.engine_lock(str(tiered.data_dir)):
+            rc, _out = _apply(tiered, capsys)
+        assert rc == 2
+        assert not project_local(tiered).exists()
+
+    @staticmethod
+    def _interleave(monkeypatch, between):
+        """Run `between()` after the CLI has started and before it holds the
+        lock: the window a concurrent writer can land in."""
+        real = cli._engine_lock
+        calls = []
+
+        def racing(data_dir):
+            calls.append(data_dir)
+            between()
+            return real(data_dir)
+
+        monkeypatch.setattr(cli, "_engine_lock", racing)
+        return calls
+
+    def test_interleaved_writer_to_the_local_file_is_not_lost(
+            self, tiered, passes, monkeypatch, capsys):
+        local = project_local(tiered)
+        _write_json(local, {"profile": "engineer", "tools": []})
+
+        def concurrent_writer():
+            _write_json(local, {"profile": "engineer", "tools": [{"name": "late"}]})
+
+        calls = self._interleave(monkeypatch, concurrent_writer)
+        rc, _out = _apply(tiered, capsys, {PROTOTYPING: {"want": True}})
+
+        assert calls, "the CLI must go through the lock"
+        assert rc == 0
+        written = json.loads(local.read_text())
+        assert written["tools"] == [{"name": "late"}], "the concurrent write was lost"
+        assert written["profile"] == "designer"
+        assert PROTOTYPING in written["plugin_choices"]["answers"]
+
+    def test_validation_reads_state_under_the_lock_not_before(
+            self, tiered, passes, monkeypatch, capsys):
+        """A profile removed between the CLI starting and its lock is refused."""
+        def concurrent_writer():
+            _write_json(project_manifest(tiered), {
+                "profiles": {"engineer": {"description": "Engineering tools."}}})
+
+        self._interleave(monkeypatch, concurrent_writer)
+        rc, out = _apply(tiered, capsys, {PROTOTYPING: {"want": True}})
+
+        assert rc == EXIT_REFUSED
+        assert json.loads(out.out)["refused"] == "unknown_profile"
+        assert not project_local(tiered).exists()
+        assert passes == []
+
+    def test_a_user_install_added_in_the_window_needs_the_double_check(
+            self, tiered, passes, monkeypatch, capsys):
+        self._interleave(monkeypatch, lambda: _install(tiered, ENG_ADV, "user"))
+        rc, out = _apply(tiered, capsys, {ENG_ADV: {"want": False}})
+
+        assert rc == EXIT_REFUSED
+        assert json.loads(out.out)["refused"] == "user_scope_confirmation_required"
+        assert not project_local(tiered).exists()
+
+    # -- validation --------------------------------------------------------
+
+    def test_a_no_on_a_user_install_without_confirmation_is_refused(
+            self, tiered, passes, capsys):
+        _install(tiered, ENG_ADV, "user")
+        _install(tiered, SANDBOX, "local")
+        local = project_local(tiered)
+        _write_json(local, {"profile": "engineer"})
+        before = local.read_bytes()
+
+        rc, out = _apply(tiered, capsys, {
+            ENG_ADV: {"want": False}, SANDBOX: {"want": False}})
+
+        assert rc == EXIT_REFUSED
+        payload = json.loads(out.out)
+        assert payload["refused"] == "user_scope_confirmation_required"
+        assert payload["refs"] == [ENG_ADV]
+        assert local.read_bytes() == before
+        assert passes == []
+
+    def test_a_confirmed_user_scope_no_is_recorded_with_its_scope(
+            self, tiered, passes, capsys):
+        _install(tiered, ENG_ADV, "user")
+        rc, _out = _apply(tiered, capsys, {ENG_ADV: {"want": False, "scope": "user"}})
+        assert rc == 0
+        recorded = json.loads(project_local(tiered).read_text())
+        assert recorded["plugin_choices"]["answers"][ENG_ADV]["scope"] == "user"
+
+    def test_keeping_a_user_install_needs_no_confirmation(self, tiered, passes, capsys):
+        _install(tiered, ENG_ADV, "user")
+        rc, _out = _apply(tiered, capsys, {ENG_ADV: {"want": True}})
+        assert rc == 0
+
+    @pytest.mark.parametrize("answers, reason", [
+        ({"mkt:nope": {"want": True}}, "unknown_answer_ref"),
+        ({PROTOTYPING: {"want": "yes"}}, "malformed_answer"),
+        ({PROTOTYPING: True}, "malformed_answer"),
+        ({PROTOTYPING: {"want": True, "scope": "user"}}, "malformed_answer"),
+        ({SANDBOX: {"want": False, "scope": "project"}}, "malformed_answer"),
+    ])
+    def test_bad_answers_are_refused_before_anything_is_written(
+            self, tiered, passes, answers, reason, capsys):
+        rc, out = _apply(tiered, capsys, answers)
+        assert rc == EXIT_REFUSED
+        assert json.loads(out.out)["refused"] == reason
+        assert not project_local(tiered).exists()
+        assert passes == []
+
+    @pytest.mark.parametrize("value", ["{not json", "[1, 2]", "no-such-file.json"])
+    def test_unusable_answers_argument_is_refused(self, tiered, passes, value):
+        rc = cli.main(["profile", "apply", "--profile", "designer",
+                       "--answers", value, "--project-dir", str(tiered.project)])
+        assert rc == EXIT_REFUSED
+        assert not project_local(tiered).exists()
+
+    @pytest.mark.parametrize("name", ["ghost", "none", "unset"])
+    def test_an_unselectable_profile_is_refused_and_nothing_is_written(
+            self, tiered, passes, name, capsys):
+        rc, _out = _apply(tiered, capsys, None, name)
+        assert rc == EXIT_REFUSED
+        assert not project_local(tiered).exists()
+        assert passes == []
+
+    def test_a_malformed_local_file_is_never_rewritten(self, tiered, passes, capsys):
+        local = project_local(tiered)
+        local.parent.mkdir(parents=True, exist_ok=True)
+        local.write_text("{broken")
+        rc, _out = _apply(tiered, capsys)
+        assert rc == EXIT_REFUSED
+        assert local.read_text() == "{broken"
+
+    def test_user_level_profile_does_not_change_where_apply_writes(
+            self, tiered, passes, capsys):
+        _write_json(user_local(tiered), {"profile": "engineer"})
+        rc, _out = _apply(tiered, capsys)
+        assert rc == 0
+        assert json.loads(user_local(tiered).read_text()) == {"profile": "engineer"}
+        assert json.loads(project_local(tiered).read_text())["profile"] == "designer"
+
+
+# --------------------------------------------------------------------------
+# `profile clear --all`
+# --------------------------------------------------------------------------
+
+class TestClearAll:
+
+    def test_sets_unset_removes_answers_keeps_the_rest_and_runs_no_pass(
+            self, tiered, monkeypatch, capsys):
+        def boom(*a, **k):
+            raise AssertionError("clear --all must not launch a pass")
+
+        monkeypatch.setattr(cli, "_launch_pass", boom)
+        monkeypatch.setattr(cli.subprocess, "Popen", boom)
+        _write_json(project_local(tiered), {
+            "profile": "designer", "tools": [{"name": "uv"}],
+            "plugin_choices": {"profile": "designer", "answers": {
+                SANDBOX: {"want": False, "decided": "2026-10-01"}}}})
+
+        rc = cli.main(["profile", "clear", "--all", "--project-dir", str(tiered.project)])
+
+        assert rc == 0
+        assert json.loads(project_local(tiered).read_text()) == {
+            "profile": "unset", "tools": [{"name": "uv"}]}
+
+    def test_creates_the_file_when_none_existed(self, tiered, capsys):
+        rc = cli.main(["profile", "clear", "--all", "--project-dir", str(tiered.project)])
+        assert rc == 0
+        assert json.loads(project_local(tiered).read_text()) == {"profile": "unset"}
+
+    def test_refuses_while_a_pass_holds_the_lock_and_writes_nothing(
+            self, tiered, capsys):
+        local = project_local(tiered)
+        _write_json(local, {"profile": "designer"})
+        before = local.read_bytes()
+
+        with proc_lock.engine_lock(str(tiered.data_dir)):
+            rc = cli.main(["profile", "clear", "--all",
+                           "--project-dir", str(tiered.project)])
+
+        assert rc == 2
+        assert "running" in capsys.readouterr().err
+        assert local.read_bytes() == before
+
+    def test_user_level_profile_is_masked_and_reported(self, tiered, capsys):
+        _write_json(user_local(tiered), {"profile": "designer"})
+        cli.main(["profile", "status", "--json", "--project-dir", str(tiered.project)])
+        assert _json_out(capsys)["selected"] == "designer"
+
+        rc = cli.main(["profile", "clear", "--all", "--project-dir", str(tiered.project)])
+
+        assert rc == 0
+        assert "masked" in capsys.readouterr().err
+        cli.main(["profile", "status", "--json", "--project-dir", str(tiered.project)])
+        status = _json_out(capsys)
+        assert status["status"] == "unselected" and status["selected"] is None
+        # The user-level file itself is untouched.
+        assert json.loads(user_local(tiered).read_text()) == {"profile": "designer"}
+
+    def test_no_warning_when_there_is_no_user_level_profile(self, tiered, capsys):
+        rc = cli.main(["profile", "clear", "--all", "--project-dir", str(tiered.project)])
+        assert rc == 0
+        assert "masked" not in capsys.readouterr().err
+
+    def test_a_malformed_local_file_is_not_rewritten(self, tiered, capsys):
+        local = project_local(tiered)
+        local.parent.mkdir(parents=True, exist_ok=True)
+        local.write_text("{broken")
+        rc = cli.main(["profile", "clear", "--all", "--project-dir", str(tiered.project)])
+        assert rc == 1
+        assert local.read_text() == "{broken"
+
+    @pytest.mark.parametrize("other", ["--user", "--project"])
+    def test_all_excludes_the_target_flags(self, tiered, other):
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["profile", "clear", "--all", other,
+                      "--project-dir", str(tiered.project)])
+        assert exc.value.code == 2
+
+    def test_plain_clear_is_unchanged(self, tiered, capsys):
+        _write_json(project_local(tiered), {"profile": "designer"})
+        rc = cli.main(["profile", "clear", "--project", "--project-dir", str(tiered.project)])
+        assert rc == 0
+        assert "profile" not in json.loads(project_local(tiered).read_text())
+
+
+# --------------------------------------------------------------------------
+# The candidate reader and the engine reader must not drift apart.
+# --------------------------------------------------------------------------
+
+class TestLayerReaderParity:
+
+    @pytest.mark.parametrize("local, user", [
+        (None, None),
+        (None, {"profile": "designer"}),
+        ({"profile": "designer"}, None),
+        ({"profile": "unset"}, {"profile": "engineer"}),
+        ({"profile": "designer", "plugin_choices": {
+            "profile": "designer",
+            "answers": {SANDBOX: {"want": False, "decided": "2026-10-01"}}}}, None),
+        ({"profile": "engineer", "plugin_choices": {
+            "profile": "designer", "answers": {}}}, {"profile": "designer"}),
+    ])
+    def test_cli_layers_resolve_like_the_engines(self, tiered, local, user):
+        if local is not None:
+            _write_json(project_local(tiered), local)
+        if user is not None:
+            _write_json(user_local(tiered), user)
+
+        layers, problems = cli._read_layers(tiered.project)
+        mine = bootstrap_profiles.resolve_layers(
+            layers, project_dir=str(tiered.project), home=str(tiered.home))
+        theirs = bootstrap_engine._load_layered_manifests_ex(str(tiered.project))
+
+        assert problems == []
+        assert mine[0] == theirs[0]
+        assert mine[1] == theirs[2]
