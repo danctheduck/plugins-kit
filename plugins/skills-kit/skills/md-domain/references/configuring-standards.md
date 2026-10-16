@@ -188,9 +188,6 @@ through `audit-framework.yaml`.
 
 | Rule id | Meaning |
 |---------|---------|
-| `discipline-rule-counter` | A discipline-skill body carries at least one rule+counter pair. |
-| `discipline-red-flags` | A discipline-skill body carries a "Red flags" list. |
-| `discipline-pressure-test` | A discipline-skill applies adversarial pressure testing to its own rules. |
 | `domain-identity-sentence` | A domain-skill body carries a single-sentence identity after the H1. |
 | `domain-companion-declaration` | A domain-skill declares its companions (siblings, or an explicit "no sibling"). |
 | `domain-orientation` | A domain-skill body carries orientation content (at least one H2 beyond the index). |
@@ -228,6 +225,9 @@ source of each statement, severity and threshold default.
 | `technique-ordered-steps` | `skill_md` | fail | A technique-skill body has an ordered-step sequence. |
 | `step-tracking` | `skill_md` | fail | A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation. |
 | `technique-prohibited-pressure-test` | `skill_md` | fail | A technique-skill body omits adversarial RED/GREEN/REFACTOR pressure testing. |
+| `discipline-rule-counter` | `skill_md` | fail | A discipline-skill body carries at least one rule+counter pair. |
+| `discipline-red-flags` | `skill_md` | fail | A discipline-skill body carries a "Red flags" list. |
+| `discipline-pressure-test` | `skill_md` | fail | A discipline-skill applies adversarial pressure testing to its own rules. |
 | `desc-160-char` | `skill_md` | fail | The description frontmatter field is at most `desc_max_chars` characters. |
 | `desc-directive-form` | `skill_md` | fail | The description opens with "Use when..." or "Invoke when...". |
 | `desc-exclusion-clause` | `skill_md` | fail | The description carries a "Do NOT use for..." exclusion clause. |

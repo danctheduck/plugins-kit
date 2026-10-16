@@ -54,8 +54,9 @@ ROWS_BY_TYPE = {
                       "pattern-prohibited-rule-counter"],
     "technique-skill": ["technique-ordered-steps", "step-tracking",
                         "technique-prohibited-pressure-test"],
+    "discipline-skill": ["discipline-rule-counter", "discipline-red-flags", "discipline-pressure-test"],
 }
-MIGRATED_TYPES = ("reference-skill", "pattern-skill", "technique-skill")
+MIGRATED_TYPES = ("reference-skill", "pattern-skill", "technique-skill", "discipline-skill")
 LEGACY_IDS = [rid for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]]
 TYPE_OF = {rid: t for t in MIGRATED_TYPES for rid in ROWS_BY_TYPE[t]}
 
@@ -68,6 +69,7 @@ SEVERITY = {
     "pattern-prohibited-rule-counter": "fail",
     "technique-ordered-steps": "fail", "step-tracking": "fail",
     "technique-prohibited-pressure-test": "fail",
+    "discipline-rule-counter": "fail", "discipline-red-flags": "fail", "discipline-pressure-test": "fail",
 }
 
 H1 = "# Subject skill\n\n"
@@ -151,6 +153,21 @@ CASES = [
      ("prohibited: adversarial pressure testing", PASS, "")),
     ("technique-prohibited-pressure-test", "hit", H1 + "Apply RED -> GREEN -> REFACTOR.\n", (),
      ("prohibited: adversarial pressure testing", FAIL, "RED/GREEN/REFACTOR markers present")),
+    ("discipline-rule-counter", "miss", BLANK, (),
+     (">=1 rule + counter pair", FAIL, "no rule+counter / rationalization markers")),
+    ("discipline-rule-counter", "hit-table", H1 + "| excuse | reality |\n|---|---|\n| a | b |\n", (),
+     (">=1 rule + counter pair", PASS, "")),
+    ("discipline-rule-counter", "hit-record", H1 + "excuse: too slow\nreality: costs more\n", (),
+     (">=1 rule + counter pair", PASS, "")),
+    ("discipline-red-flags", "miss", BLANK, (),
+     ("red flags list", FAIL, "no 'Red flags' heading")),
+    ("discipline-red-flags", "hit", H1 + "## Red flags\n\n- bad\n", (),
+     ("red flags list", PASS, "")),
+    ("discipline-pressure-test", "miss", BLANK, (),
+     ("adversarial pressure testing applied", FAIL, "no RED/GREEN/REFACTOR markers")),
+    ("discipline-pressure-test", "markers-present-needs-judgment", H1 + "Run RED -> GREEN -> REFACTOR on each rule.\n", (),
+     ("adversarial pressure testing applied", JUDGMENT,
+      "RED/GREEN/REFACTOR markers present; agent must verify pressure testing was applied to this skill's own rules")),
 ]
 
 # A marker that appears ONLY inside a fenced block must not count: the id, the
@@ -169,12 +186,17 @@ FENCED = [
     ("technique-ordered-steps", H1 + "```text\n1. a\n2. b\n```\n", FAIL),
     ("step-tracking", H1 + STEPS_2 + "```text\n3. c\n4. d\n5. e\n```\n", NA),
     ("technique-prohibited-pressure-test", H1 + "```markdown\nRED -> GREEN -> REFACTOR\n```\n", PASS),
+    ("discipline-rule-counter",
+     H1 + "```markdown\n| excuse | reality |\n|---|---|\n| a | b |\n```\n", FAIL),
+    ("discipline-red-flags", H1 + "```markdown\n## Red flags\n```\n", FAIL),
+    ("discipline-pressure-test", H1 + "```markdown\nRED -> GREEN -> REFACTOR\n```\n", FAIL),
 ]
 
 CONTRACT_BLOCK = {
     "reference-skill": "```yaml\nreference_skill:\n  _schema_version: \"1\"\n```\n",
     "pattern-skill": "```yaml\npattern_skill:\n  _schema_version: \"1\"\n```\n",
     "technique-skill": "```yaml\ntechnique_skill:\n  _schema_version: \"1\"\n```\n",
+    "discipline-skill": "```yaml\ndiscipline_skill:\n  _schema_version: \"1\"\n```\n",
 }
 
 

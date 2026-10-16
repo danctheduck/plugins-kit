@@ -103,4 +103,19 @@ standards_set:
       severity: fail
       keywords: [technique-skill, prohibited pressure testing, red green refactor, legacy heuristics]
       enforcement: mechanical
+    - id: discipline-rule-counter
+      statement: A discipline-skill body carries at least one rule+counter pair.
+      severity: fail
+      keywords: [discipline-skill, rule and counter, excuse and reality, legacy heuristics]
+      enforcement: mechanical
+    - id: discipline-red-flags
+      statement: A discipline-skill body carries a "Red flags" list.
+      severity: fail
+      keywords: [discipline-skill, red flags, rationalization list, legacy heuristics]
+      enforcement: mechanical
+    - id: discipline-pressure-test
+      statement: A discipline-skill applies adversarial pressure testing to its own rules.
+      severity: fail
+      keywords: [discipline-skill, pressure testing, red green refactor, legacy heuristics]
+      enforcement: mechanical
 ```

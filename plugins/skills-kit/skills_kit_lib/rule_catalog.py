@@ -21,7 +21,7 @@ field, it carries the judgment criteria an agent applies inside a workflow lane
 
 Criteria declared by the shipped standards layer (defaults/standards/) are not
 catalogued here: the shipped file is their source, and the resolver rejects a
-criterion id that repeats a catalog id. Twenty-eight ids live there: desc-160-char,
+criterion id that repeats a catalog id. Thirty-one ids live there: desc-160-char,
 desc-directive-form, desc-exclusion-clause, skill-type-tag, skill-type-valid,
 body-line-count, body-token-count, body-size-signal, refs-one-hop-deep,
 facts-floor, facts-gotcha, facts-example and caution-floor (SKILL-standards.md),
@@ -29,7 +29,9 @@ ref-example-block, ref-gotcha-block, ref-prohibited-discipline,
 ref-prohibited-checklist, pattern-recognition-block, pattern-counter-example,
 pattern-prohibited-bundle, pattern-prohibited-checklist,
 pattern-prohibited-rule-counter, technique-ordered-steps, step-tracking and
-technique-prohibited-pressure-test (SKILL-legacy-standards.md), and claude-md-import-size,
+technique-prohibited-pressure-test, discipline-rule-counter,
+discipline-red-flags and discipline-pressure-test (SKILL-legacy-standards.md),
+and claude-md-import-size,
 claude-md-size-signal and claude-md-record-floor (CLAUDE-md-standards.md).
 
 This module is the single source consumed by the standards resolver (for the
@@ -64,7 +66,7 @@ RULES: dict[str, tuple[str, str, str]] = {
     "mixed-type": ("architectural", "contract", "A SKILL.md declares exactly one skill-type root -- no drift across two type contracts (consumes `mixed_min_score`)."),
     "cross-block-drift": ("architectural", "contract", "Multiple YAML blocks in one document do not disagree about the document's type."),
     # -- optional: description hygiene ------------------------------------
-    # The twenty-eight shipped-criterion ids are not here: desc-160-char,
+    # The thirty-one shipped-criterion ids are not here: desc-160-char,
     # desc-directive-form, desc-exclusion-clause, skill-type-tag,
     # skill-type-valid, body-line-count, body-token-count, body-size-signal,
     # refs-one-hop-deep, facts-floor, facts-gotcha, facts-example and
@@ -72,8 +74,9 @@ RULES: dict[str, tuple[str, str, str]] = {
     # ref-gotcha-block, ref-prohibited-discipline, ref-prohibited-checklist,
     # pattern-recognition-block, pattern-counter-example,
     # pattern-prohibited-bundle, pattern-prohibited-checklist,
-    # pattern-prohibited-rule-counter, technique-ordered-steps, step-tracking
-    # and technique-prohibited-pressure-test
+    # pattern-prohibited-rule-counter, technique-ordered-steps, step-tracking,
+    # technique-prohibited-pressure-test, discipline-rule-counter,
+    # discipline-red-flags and discipline-pressure-test
     # (defaults/standards/SKILL-legacy-standards.md), and claude-md-import-size,
     # claude-md-size-signal and claude-md-record-floor
     # (defaults/standards/CLAUDE-md-standards.md). They are criteria of the
@@ -81,9 +84,6 @@ RULES: dict[str, tuple[str, str, str]] = {
     # criterion id may not repeat a catalog id.
     # -- optional: record floors ------------------------------------------
     # -- optional: legacy per-type heuristic rows -------------------------
-    "discipline-rule-counter": ("optional", "legacy-heuristics", "A discipline-skill body carries at least one rule+counter pair."),
-    "discipline-red-flags": ("optional", "legacy-heuristics", 'A discipline-skill body carries a "Red flags" list.'),
-    "discipline-pressure-test": ("optional", "legacy-heuristics", "A discipline-skill applies adversarial pressure testing to its own rules."),
     "domain-identity-sentence": ("optional", "legacy-heuristics", "A domain-skill body carries a single-sentence identity after the H1."),
     "domain-companion-declaration": ("optional", "legacy-heuristics", 'A domain-skill declares its companions (siblings, or an explicit "no sibling").'),
     "domain-orientation": ("optional", "legacy-heuristics", "A domain-skill body carries orientation content (at least one H2 beyond the index)."),

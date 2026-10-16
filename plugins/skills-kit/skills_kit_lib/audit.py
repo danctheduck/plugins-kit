@@ -502,9 +502,25 @@ def _eval_step_tracking(ctx: SkillContext, th: dict[str, int]) -> tuple[str, boo
     )
 
 
+def _eval_pressure_test(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool | str, str]:
+    """A discipline-skill must apply adversarial pressure testing to its own
+    rules. Markers present is not a pass: whether the testing was actually
+    applied to this skill's rules is for the agent, so that outcome is JUDGMENT
+    whatever the severity; no markers is the miss."""
+    label = "adversarial pressure testing applied"
+    if has_red_green_refactor(ctx.body.text):
+        return (
+            label,
+            JUDGMENT,
+            "RED/GREEN/REFACTOR markers present; agent must verify pressure testing was applied to this skill's own rules",
+        )
+    return label, False, "no RED/GREEN/REFACTOR markers"
+
+
 _REFERENCE_SKILL_APPLIES = _legacy_applies("reference-skill")
 _PATTERN_SKILL_APPLIES = _legacy_applies("pattern-skill")
 _TECHNIQUE_SKILL_APPLIES = _legacy_applies("technique-skill")
+_DISCIPLINE_SKILL_APPLIES = _legacy_applies("discipline-skill")
 
 
 def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
@@ -722,6 +738,27 @@ MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
         ),
         section="type_specific", bare_severity="fail",
     ),
+    "discipline-rule-counter": MechanicalEvaluator(
+        "skill_md", None,
+        ">=1 rule + counter pair (deferred)", _DISCIPLINE_SKILL_APPLIES,
+        _marker_present(
+            ">=1 rule + counter pair",
+            has_excuse_reality_table,
+            "no rule+counter / rationalization markers",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
+    "discipline-red-flags": MechanicalEvaluator(
+        "skill_md", None,
+        "red flags list (deferred)", _DISCIPLINE_SKILL_APPLIES,
+        _marker_present("red flags list", has_red_flags_list, "no 'Red flags' heading"),
+        section="type_specific", bare_severity="fail",
+    ),
+    "discipline-pressure-test": MechanicalEvaluator(
+        "skill_md", None,
+        "adversarial pressure testing applied (deferred)", _DISCIPLINE_SKILL_APPLIES, _eval_pressure_test,
+        section="type_specific", bare_severity="fail",
+    ),
     "claude-md-import-size": MechanicalEvaluator(
         "claude_md", "import_max_lines",
         "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
@@ -873,37 +910,6 @@ def check_universal(
     return out
 
 
-def check_discipline_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
-    out: list[CheckResult] = []
-    out.append(CheckResult(
-        ">=1 rule + counter pair",
-        PASS if has_excuse_reality_table(body.text) else FAIL,
-        "no rule+counter / rationalization markers" if not has_excuse_reality_table(body.text) else "",
-        rule="discipline-rule-counter",
-    ))
-    out.append(CheckResult(
-        "red flags list",
-        PASS if has_red_flags_list(body.text) else FAIL,
-        "no 'Red flags' heading" if not has_red_flags_list(body.text) else "",
-        rule="discipline-red-flags",
-    ))
-    if has_red_green_refactor(body.text):
-        out.append(CheckResult(
-            "adversarial pressure testing applied",
-            JUDGMENT,
-            "RED/GREEN/REFACTOR markers present; agent must verify pressure testing was applied to this skill's own rules",
-            rule="discipline-pressure-test",
-        ))
-    else:
-        out.append(CheckResult(
-            "adversarial pressure testing applied",
-            FAIL,
-            "no RED/GREEN/REFACTOR markers",
-            rule="discipline-pressure-test",
-        ))
-    return out
-
-
 def check_domain_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
     out: list[CheckResult] = []
     out.append(CheckResult(
@@ -966,7 +972,6 @@ def mixed_type_signal(body_text: str, threshold: int | None = None) -> tuple[int
 
 
 TYPE_RUNNERS = {
-    "discipline-skill": check_discipline_skill,
     "domain-skill": check_domain_skill,
 }
 

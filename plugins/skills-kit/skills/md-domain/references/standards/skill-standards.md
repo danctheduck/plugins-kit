@@ -103,7 +103,11 @@ criteria are `pattern-recognition-block`, `pattern-counter-example`,
 `pattern-prohibited-bundle`, `pattern-prohibited-checklist` and
 `pattern-prohibited-rule-counter`; the technique-skill criteria are
 `technique-ordered-steps`, `step-tracking` and
-`technique-prohibited-pressure-test`. Each switches off with `rules: {<id>: off}`.
+`technique-prohibited-pressure-test`; the discipline-skill criteria are
+`discipline-rule-counter`, `discipline-red-flags` and `discipline-pressure-test`
+(markers present is a judgment-required row, not a pass: the agent verifies the
+testing was applied to the skill's own rules). Each switches off with
+`rules: {<id>: off}`.
 
 ### 2.2 Schemas are floors, not ceilings
 
