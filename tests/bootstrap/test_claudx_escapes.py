@@ -1,11 +1,11 @@
 """claudx containment escapes, reproduced at pytest level without launching claude.
 
-Each reproduction asserts the CONTAINED behavior and is marked
-``xfail(strict=True)``. Today the escape reproduces, so the test is XFAIL and the
-suite stays green; when a fix lands the test XPASSes, which strict turns into a
-failure that tells the fixer to delete the marker. The open-escape ledger lives in
+Each test asserts the CONTAINED behavior of one escape recorded in
 dev/tasks/claudx-shared-lib-escape; the containment mechanics are in
-docs/reference/testing.md ("claudx containment mechanics").
+docs/reference/testing.md ("claudx containment mechanics"). An escape that is
+reproduced but not yet fixed is marked ``xfail(strict=True)`` so a later fix
+XPASSes and strict turns that into a failure telling the fixer to delete the
+marker; none is open in this file today.
 
 Isolation: every subprocess gets HOME and USERPROFILE pointed into tmp_path, so
 nothing here reads or writes the real ``~/.claude``. The "cached bootstrap" is a
@@ -13,20 +13,24 @@ fake whose only effect is a marker file; no real bootstrap pass ever runs (the
 real ``session-bootstrap.sh`` performs persistent PATH writes and installs, which
 a test must never do to its host -- see test_plugin_test_session.py).
 
-Escape 1 -- harvest launches the CACHED engine from the PRODUCTION registry.
-    ``harvest.py`` knows nothing of CLAUDE_PLUGIN_TEST or
-    CLAUDE_BOOTSTRAP_DATA_ROOT: with no ``engine_ran_version`` stamp in the
-    redirected data dir it resolves bootstrap's installPath from
-    ``$HOME/.claude/plugins/installed_plugins.json`` and detaches
-    ``<installPath>/hooks/sessionstart/session-bootstrap.sh``.
-Escape 2 -- the cached script's stand-down is spelling-fragile.
-    The only thing that stops that launched engine is a glob on its own
-    PLUGIN_ROOT (``*/.claude/plugins/cache/*``). An installPath spelled through
-    the target of a ``~/.claude`` link does not match it, so the engine runs.
-Escape 3 -- an inherited re-exec loop flag keeps a child on the wrong interpreter.
-    ``reexec_under_plugin_venv`` returns on ``_BOOTSTRAP_GUARD_VENV_REEXEC``
-    before it looks at ``sys.prefix``, so a child that inherits the flag from
-    another plugin's process never moves into the redirected plugin venv.
+Escape 1 -- harvest launched the CACHED engine from the PRODUCTION registry.
+    With no ``engine_ran_version`` stamp in the redirected data dir, harvest.py
+    resolved bootstrap's installPath from
+    ``$HOME/.claude/plugins/installed_plugins.json`` and detached
+    ``<installPath>/hooks/sessionstart/session-bootstrap.sh``. Fixed: harvest.py
+    stands down when CLAUDE_PLUGIN_TEST is set.
+Escape 2 -- the cached script's stand-down was spelling-fragile.
+    The only thing that stopped that launched engine was a glob on its own
+    PLUGIN_ROOT (``*/.claude/plugins/cache/*``); an installPath spelled through
+    the target of a ``~/.claude`` link missed it. Fixed by the same harvest
+    stand-down: the cached engine is never launched, so its glob is not relied on.
+Escape 3 -- an inherited re-exec loop flag kept a child on the wrong interpreter.
+    ``reexec_under_plugin_venv`` returned on ``_BOOTSTRAP_GUARD_VENV_REEXEC``
+    before it looked at ``sys.prefix``. Fixed: the flag names the interpreter it
+    re-exec'd into and is trusted only for that interpreter.
+Escape 5 -- a ``<PLUGIN>_ROOT`` pointing into the plugin cache reached a claudx
+    session. Fixed: the engine's export and record, and the SessionStart
+    prelude's re-emit, refuse such a value in a claudx session.
 """
 import json
 import os
@@ -43,14 +47,6 @@ BOOTSTRAP = REPO_ROOT / "plugins" / "bootstrap"
 HARVEST_PY = BOOTSTRAP / "bootstrap_lib" / "harvest.py"
 SESSION_HOOK = BOOTSTRAP / "hooks" / "sessionstart" / "session-bootstrap.sh"
 GUARD_PY = BOOTSTRAP / "bootstrap_lib" / "bootstrap_guard.py"
-
-LEDGER = "dev/tasks/claudx-shared-lib-escape"
-
-
-def _escape(n: int) -> "pytest.MarkDecorator":
-    return pytest.mark.xfail(
-        strict=True, reason=f"claudx escape {n}: open; see {LEDGER}"
-    )
 
 
 # --------------------------------------------------------------------------
@@ -120,17 +116,20 @@ class _Harvest:
             encoding="utf-8",
         )
 
-    def run(self) -> subprocess.CompletedProcess:
+    def run(self, *, claudx: bool = True) -> subprocess.CompletedProcess:
         env = dict(os.environ)
+        env.pop("CLAUDE_PLUGIN_TEST", None)
+        env.pop("CLAUDE_BOOTSTRAP_DATA_ROOT", None)
         env.update({
             "HOME": str(self.home),
             "USERPROFILE": str(self.home),
-            "CLAUDE_PLUGIN_TEST": "1",
-            "CLAUDE_BOOTSTRAP_DATA_ROOT": str(self.data_root),
             "CLAUDX_ESCAPE_RAN": self.ran.as_posix(),
             "CLAUDX_ESCAPE_DONE": self.done.as_posix(),
             "CLAUDX_ESCAPE_ESCAPED": self.escaped.as_posix(),
         })
+        if claudx:
+            env["CLAUDE_PLUGIN_TEST"] = "1"
+            env["CLAUDE_BOOTSTRAP_DATA_ROOT"] = str(self.data_root)
         # The argument list the UserPromptSubmit hook passes: no --registry, no
         # --settings, and no engine_ran_version stamp in the redirected data dir.
         return subprocess.run(
@@ -178,7 +177,6 @@ class _Harvest:
         )
 
 
-@_escape(1)
 def test_harvest_does_not_launch_the_cached_engine_in_a_claudx_session(tmp_path):
     """Escape 1. A cached engine that does not stand down (one older than the
     stand-down, or one the stand-down does not recognise) runs a pass against the
@@ -194,23 +192,23 @@ def test_harvest_does_not_launch_the_cached_engine_in_a_claudx_session(tmp_path)
     h.assert_contained()
 
 
-def test_cache_spelled_install_path_is_masked_by_the_stand_down(tmp_path):
-    """Control for escape 2, NOT an xfail: with the install path spelled
-    ``.../.claude/plugins/cache/...`` the shipped stand-down does stop the launched
-    engine. Passing here is what makes the escape-2 failure mean something -- the
-    fixture reaches the real stand-down and it works for this spelling."""
+def test_harvest_still_launches_the_cached_engine_outside_claudx(tmp_path):
+    """Control for escapes 1 and 2, NOT a containment test: outside a claudx
+    session the same fixture DOES launch the cached script. Passing here is what
+    makes the two containment tests mean something -- they go green because
+    harvest.py stands down under CLAUDE_PLUGIN_TEST, not because the fixture
+    never reaches the cached script."""
     h = _Harvest(tmp_path)
     install = h.home / ".claude" / "plugins" / "cache" / "plugins-kit" / "bootstrap" / "9.9.9"
     h.install_fake_cached_bootstrap(
         install, h.home / ".claude" / "plugins" / "installed_plugins.json",
-        with_stand_down=True,
+        with_stand_down=False,
     )
-    proc = h.run()
+    proc = h.run(claudx=False)
     assert proc.returncode == 0, proc.stderr
     assert h.launched, "control needs harvest to have launched the cached script"
     h.wait_for_launched_child()
     assert h.ran.exists(), "the fake cached script never ran"
-    assert not h.escaped.exists(), "the stand-down did not mask a cache-spelled path"
 
 
 def _make_dir_link(link: Path, target: Path) -> bool:
@@ -229,7 +227,6 @@ def _make_dir_link(link: Path, target: Path) -> bool:
         return False
 
 
-@_escape(2)
 def test_stand_down_does_not_depend_on_how_the_cache_path_is_spelled(tmp_path):
     """Escape 2. ``~/.claude`` is a link to a differently named directory (the
     recorded case: ``~/.claude`` -> a settings checkout), and the registry
@@ -264,9 +261,12 @@ def test_stand_down_does_not_depend_on_how_the_cache_path_is_spelled(tmp_path):
 _LOOP_FLAG = "_BOOTSTRAP_GUARD_VENV_REEXEC"
 
 
-def _run_guarded_consumer(tmp_path: Path, *, inherit_flag: bool):
+def _run_guarded_consumer(tmp_path: Path, *, inherited_flag: "str | None"):
     """Run a consumer under an interpreter that is NOT the redirected plugin venv
-    and report the sys.prefix it ends up on after reexec_under_plugin_venv."""
+    and report the sys.prefix it ends up on after reexec_under_plugin_venv.
+
+    ``inherited_flag`` is the value of the loop flag in the child's environment,
+    or None for an absent flag."""
     redirected = tmp_path / "data-dev"
     plugin_venv = redirected / "plugins-kit" / "git-kit" / ".venv"
     # A real, empty venv: the re-exec target must be an executable that starts.
@@ -283,8 +283,8 @@ def _run_guarded_consumer(tmp_path: Path, *, inherit_flag: bool):
     env = dict(os.environ)
     env["CLAUDE_BOOTSTRAP_DATA_ROOT"] = str(redirected)
     env.pop(_LOOP_FLAG, None)
-    if inherit_flag:
-        env[_LOOP_FLAG] = "1"
+    if inherited_flag is not None:
+        env[_LOOP_FLAG] = inherited_flag
     res = subprocess.run(
         [sys.executable, str(script)], env=env,
         capture_output=True, text=True, timeout=60,
@@ -301,10 +301,10 @@ def _on_plugin_venv(prefix: str, plugin_venv: Path) -> bool:
 
 
 def test_guard_reexecs_into_the_redirected_venv_without_an_inherited_flag(tmp_path):
-    """Control for escape 3, NOT an xfail: with no inherited loop flag the guard
+    """Control for escape 3, NOT a containment test: with no inherited loop flag the guard
     moves the process into the existing redirected venv. Proves the fixture's
-    venv is a valid re-exec target, so the xfail below fails on the flag alone."""
-    res, prefix, plugin_venv = _run_guarded_consumer(tmp_path, inherit_flag=False)
+    venv is a valid re-exec target, so the test below fails on the flag alone."""
+    res, prefix, plugin_venv = _run_guarded_consumer(tmp_path, inherited_flag=None)
     assert res.returncode == 0, res.stderr
     assert _on_plugin_venv(prefix, plugin_venv), (
         f"expected re-exec into {plugin_venv}, ended on prefix {prefix!r}; "
@@ -312,17 +312,213 @@ def test_guard_reexecs_into_the_redirected_venv_without_an_inherited_flag(tmp_pa
     )
 
 
-@_escape(3)
 def test_inherited_loop_flag_does_not_leave_a_child_on_the_wrong_interpreter(tmp_path):
     """Escape 3. The flag is process-tree scoped, so a child of another plugin's
-    already re-exec'd process inherits it. Under redirection with the plugin venv
-    PRESENT, the guard returns at the flag check before comparing sys.prefix, and
-    the child imports shared libs from whatever interpreter launched it. Contained
-    means: it re-execs into the redirected venv, or it refuses."""
-    res, prefix, plugin_venv = _run_guarded_consumer(tmp_path, inherit_flag=True)
+    already re-exec'd process inherits it. The guard exports the flag with the
+    interpreter it moved into as the value, so the inherited value here is the
+    other plugin's venv python. Under redirection with THIS plugin's venv present
+    that flag must not stand in for a re-exec: the process re-execs into the
+    redirected venv, or it refuses."""
+    res, prefix, plugin_venv = _run_guarded_consumer(
+        tmp_path,
+        inherited_flag=str(
+            tmp_path / "data-dev" / "plugins-kit" / "p4-kit" / ".venv" / "bin" / "python"
+        ),
+    )
     refused = res.returncode != 0 and not prefix
     assert _on_plugin_venv(prefix, plugin_venv) or refused, (
         f"{_LOOP_FLAG} was inherited, the redirected venv {plugin_venv} exists, and "
         f"the process stayed on sys.prefix={prefix!r} (exit {res.returncode}); "
         "reexec_under_plugin_venv returned on the flag before checking sys.prefix"
     )
+
+
+# --------------------------------------------------------------------------
+# Escape 5: <PLUGIN>_ROOT pointing into the plugin cache
+# --------------------------------------------------------------------------
+
+_CLAUDX = "CLAUDE_PLUGIN_TEST"
+
+
+def _cache_plugin(tmp_path: Path, name: str = "alpha-kit") -> Path:
+    """A plugin install directory inside a ``plugins/cache`` tree, as Claude Code
+    lays one out, holding a bootstrap.json so the engine treats it as a plugin."""
+    install = tmp_path / "plugins" / "cache" / "kit" / name / "1.0.0"
+    install.mkdir(parents=True)
+    (install / "bootstrap.json").write_text("{}", encoding="utf-8")
+    return install
+
+
+def _record(data_dir: Path) -> dict:
+    from bootstrap_lib.env_var_check import plugin_roots_record_path, read_env_record
+    return dict(read_env_record(plugin_roots_record_path(str(data_dir))))
+
+
+def _maintain(data_dir: Path, *plugins):
+    from types import SimpleNamespace
+
+    from bootstrap_lib.engine import _maintain_env_records
+    data_dir.mkdir(parents=True, exist_ok=True)
+    _maintain_env_records(
+        str(data_dir),
+        [SimpleNamespace(name=n, install_path=str(p)) for n, p in plugins],
+        [], [],
+    )
+
+
+class TestRecordRefusesCacheRoots:
+    """The engine's pre-gate record is what the SessionStart prelude re-emits."""
+
+    def test_a_cache_root_is_not_recorded_and_the_refusal_is_loud(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.setenv(_CLAUDX, "1")
+        cache = _cache_plugin(tmp_path)
+        _maintain(tmp_path / "data", ("alpha-kit", cache))
+        assert _record(tmp_path / "data") == {}
+        err = capsys.readouterr().err
+        assert "ALPHA_KIT_ROOT" in err and str(cache) in err, err
+
+    def test_a_root_outside_the_cache_is_still_recorded(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setenv(_CLAUDX, "1")
+        dev = tmp_path / "checkout" / "plugins" / "alpha-kit"
+        dev.mkdir(parents=True)
+        (dev / "bootstrap.json").write_text("{}", encoding="utf-8")
+        _maintain(tmp_path / "data", ("alpha-kit", dev))
+        assert _record(tmp_path / "data") == {"ALPHA_KIT_ROOT": str(dev)}
+        assert capsys.readouterr().err == ""
+
+    def test_outside_claudx_a_cache_root_is_recorded_as_before(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """The refusal is claudx-only: in an ordinary session the cache IS the
+        plugin in use."""
+        monkeypatch.delenv(_CLAUDX, raising=False)
+        cache = _cache_plugin(tmp_path)
+        _maintain(tmp_path / "data", ("alpha-kit", cache))
+        assert _record(tmp_path / "data") == {"ALPHA_KIT_ROOT": str(cache)}
+        assert capsys.readouterr().err == ""
+
+    def test_a_cache_root_reached_through_a_link_is_refused(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Judged by where the directory lives, not by how it is spelled: the
+        link's own path carries no ``plugins/cache`` component."""
+        monkeypatch.setenv(_CLAUDX, "1")
+        cache = _cache_plugin(tmp_path)
+        link = tmp_path / "settings-checkout"
+        if not _make_dir_link(link, cache):
+            pytest.skip("cannot create a directory junction/symlink on this host")
+        try:
+            _maintain(tmp_path / "data", ("alpha-kit", link))
+        finally:
+            try:
+                os.rmdir(link)
+            except OSError:
+                link.unlink()
+        assert _record(tmp_path / "data") == {}
+        assert "ALPHA_KIT_ROOT" in capsys.readouterr().err
+
+
+def _run_engine_pass(tmp_path: Path, install: Path, *, claudx: bool):
+    """One real engine pass over a registry that records ``install`` for
+    alpha-kit, with HOME isolated; returns (result, env_file, data_dir)."""
+    from bootstrap.link_compat import link_tree
+    from bootstrap.test_engine_multiplugin import (
+        BOOTSTRAP_ROOT, _write_minimal_defaults, run_engine,
+    )
+    plugins_dir = tmp_path / "plugins"
+    fake_root = plugins_dir / "bootstrap"
+    fake_root.mkdir(parents=True, exist_ok=True)
+    link_tree(fake_root / "bootstrap_lib", os.path.join(BOOTSTRAP_ROOT, "bootstrap_lib"))
+    link_tree(fake_root / "engine", os.path.join(BOOTSTRAP_ROOT, "engine"))
+    _write_minimal_defaults(fake_root)
+    (fake_root / "bootstrap.json").write_text("{}", encoding="utf-8")
+    (plugins_dir / "installed_plugins.json").write_text(json.dumps({"plugins": {
+        "kit:alpha-kit": [{"installPath": str(install), "version": "1.0.0"}],
+    }}), encoding="utf-8")
+    data_dir = tmp_path / "data" / "kit" / "bootstrap"
+    data_dir.mkdir(parents=True)
+    (data_dir / "config.json").write_text(json.dumps({
+        "schema_version": 3, "enabled_plugins": ["kit:alpha-kit"],
+        "log_level": "info", "log_success_shell": False, "log_success_checks": True,
+    }), encoding="utf-8")
+    home = tmp_path / "_home"
+    home.mkdir()
+    env_file = tmp_path / "env-file.sh"
+    env = {k: v for k, v in os.environ.items() if k not in (_CLAUDX, "CLAUDE_ENV_FILE")}
+    env.update({"HOME": str(home), "USERPROFILE": str(home), "CLAUDE_ENV_FILE": str(env_file)})
+    if claudx:
+        env[_CLAUDX] = "1"
+    result = run_engine(str(data_dir), plugin_root=str(fake_root), env=env)
+    return result, env_file, data_dir
+
+
+class TestEnginePassRefusesCacheRoots:
+    """The per-plugin export, driven through a real pass."""
+
+    def test_a_pass_exports_a_cache_root_outside_claudx(self, tmp_path):
+        """Control: the same pass exports and records the cache path, so the
+        refusal below is the claudx check and not an engine that never exports."""
+        install = _cache_plugin(tmp_path)
+        result, env_file, data_dir = _run_engine_pass(tmp_path, install, claudx=False)
+        assert result.returncode == 0, result.stderr
+        assert "ALPHA_KIT_ROOT" in env_file.read_text(encoding="utf-8")
+        assert _record(data_dir) == {"ALPHA_KIT_ROOT": str(install)}
+
+    def test_a_claudx_pass_refuses_to_export_or_record_a_cache_root(self, tmp_path):
+        install = _cache_plugin(tmp_path)
+        result, env_file, data_dir = _run_engine_pass(tmp_path, install, claudx=True)
+        assert result.returncode == 0, result.stderr
+        text = env_file.read_text(encoding="utf-8") if env_file.exists() else ""
+        assert "ALPHA_KIT_ROOT" not in text
+        assert _record(data_dir) == {}
+        assert "ALPHA_KIT_ROOT" in result.stderr and str(install) in result.stderr, result.stderr
+
+
+try:  # the prelude is bash; the harness lives beside the other SessionStart tests
+    from bootstrap.test_sessionstart_interpreter_env import (
+        _env as _hook_env, _run as _hook_run, _scaffold as _hook_scaffold, needs_bash,
+    )
+except ImportError:  # pragma: no cover - collected from an unexpected rootdir
+    needs_bash = pytest.mark.skip(reason="SessionStart harness unavailable")
+
+
+@needs_bash
+class TestPreludeRefusesCacheRoots:
+    """A gate-skipped claudx session: the hook re-emits the recorded roots."""
+
+    def _scaffold(self, tmp_path: Path, root: Path):
+        from bootstrap_lib.env_var_check import plugin_roots_record_path, write_env_record
+        scaffold = _hook_scaffold(tmp_path)
+        scaffold.seed_guard()
+        write_env_record(
+            plugin_roots_record_path(str(scaffold.plugin_data)),
+            {"HUE_KIT_ROOT": root.as_posix()},
+        )
+        return scaffold
+
+    def test_outside_claudx_a_cache_root_is_re_emitted(self, tmp_path):
+        """Control: the fixture reaches the re-emit for a ``plugins/cache`` path."""
+        root = _cache_plugin(tmp_path, "hue-kit")
+        scaffold = self._scaffold(tmp_path, root)
+        result = _hook_run(scaffold)
+        assert result.returncode == 0, result.stderr
+        assert scaffold.exports("HUE_KIT_ROOT") == [f"'{root.as_posix()}'"]
+
+    def test_a_claudx_session_refuses_a_cache_root_loudly(self, tmp_path):
+        root = _cache_plugin(tmp_path, "hue-kit")
+        scaffold = self._scaffold(tmp_path, root)
+        result = _hook_run(scaffold, env=_hook_env(scaffold, **{_CLAUDX: "1"}))
+        assert result.returncode == 0, result.stderr
+        assert scaffold.exports("HUE_KIT_ROOT") == []
+        assert "HUE_KIT_ROOT" in result.stderr and root.as_posix() in result.stderr, \
+            result.stderr
+
+    def test_a_claudx_session_still_re_emits_a_dev_root(self, tmp_path):
+        root = tmp_path / "checkout" / "plugins" / "hue-kit"
+        root.mkdir(parents=True)
+        scaffold = self._scaffold(tmp_path, root)
+        result = _hook_run(scaffold, env=_hook_env(scaffold, **{_CLAUDX: "1"}))
+        assert result.returncode == 0, result.stderr
+        assert scaffold.exports("HUE_KIT_ROOT") == [f"'{root.as_posix()}'"]

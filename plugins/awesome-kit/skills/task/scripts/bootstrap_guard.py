@@ -95,8 +95,29 @@ def plugin_venv_python(plugin: str, marketplace: str = "plugins-kit") -> Path | 
 
 
 # Env flag set across the re-exec boundary so a missing/already-active venv can
-# never cause an exec loop.
+# never cause an exec loop. Its value NAMES the interpreter the re-exec moved
+# into (the token), because the flag is process-tree scoped: a child of another
+# plugin's re-exec'd process inherits it, and a bare "I re-exec'd once" bit would
+# leave that child on the wrong interpreter. The literal "1" is the explicit
+# opt-out a test conftest sets to make the re-exec a no-op under pytest.
 _REEXEC_GUARD_ENV = "_BOOTSTRAP_GUARD_VENV_REEXEC"
+_REEXEC_OPT_OUT = "1"
+
+
+def _flag_trusted(flag: str, target: Path) -> bool:
+    """Whether an inherited loop flag licenses returning without a re-exec.
+
+    The explicit opt-out is always honored. Otherwise the flag is trusted only
+    when it names THIS call's target interpreter, i.e. this process tree already
+    re-exec'd into it once -- which is what stops a loop when the venv's
+    ``sys.prefix`` never matches. A flag naming another plugin's interpreter is
+    not trusted: that plugin's re-exec moved the process into ITS venv.
+    """
+    if flag == _REEXEC_OPT_OUT:
+        return True
+    return os.path.normcase(os.path.abspath(flag)) == os.path.normcase(
+        os.path.abspath(str(target))
+    )
 
 
 def _is_windows() -> bool:
@@ -143,12 +164,13 @@ def reexec_under_plugin_venv(plugin: str, marketplace: str = "plugins-kit") -> N
             file=sys.stderr,
         )
         raise SystemExit(2)
-    if os.environ.get(_REEXEC_GUARD_ENV):
-        return  # already re-exec'd once in this process tree
     if not redirected:
         target = plugin_venv_python(plugin, marketplace)
     if target is None:
         return  # not provisioned; let require_bootstrap() report it
+    inherited = os.environ.get(_REEXEC_GUARD_ENV)
+    if inherited and _flag_trusted(inherited, target):
+        return  # already re-exec'd into this target (or opted out)
     # "Already in the venv" is decided by sys.prefix, NOT by comparing
     # interpreter paths. uv builds `.venv/bin/python` as a SYMLINK to the base
     # interpreter, so resolving both sides collapses them to the same file and
@@ -169,7 +191,7 @@ def reexec_under_plugin_venv(plugin: str, marketplace: str = "plugins-kit") -> N
             return  # already running inside the provisioned venv
     except OSError:
         return
-    os.environ[_REEXEC_GUARD_ENV] = "1"
+    os.environ[_REEXEC_GUARD_ENV] = str(target)
     # Windows has no exec. CPython implements os.execv there over the CRT
     # _execv, which SPAWNS the replacement and terminates the caller
     # immediately: the parent returns exit 0 before the child has done any

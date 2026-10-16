@@ -34,6 +34,11 @@ pass absorbed; on a change, relaunch session-bootstrap.sh once per change (the
 launch clears the project cooldown, so the pass always runs and provisions the
 new plugin in-session). The engine re-stamps the snapshot at completion, so
 bootstrap-authored registry writes never self-trigger.
+
+STANDS DOWN under claudx (see ``in_claudx_session``): in a session launched
+by scripts/claude_plugin_test.py the SessionStart pass of the working copy owns
+provisioning, and every launch here would start the CACHED engine from the
+production registry against the redirected data root.
 """
 
 from __future__ import annotations
@@ -59,6 +64,21 @@ _PLUGIN_ROOT = str(Path(__file__).resolve().parent.parent)
 if _PLUGIN_ROOT not in sys.path:
     sys.path.insert(0, _PLUGIN_ROOT)
 from bootstrap_lib.plugin_resolve import version_sort_key
+
+
+def in_claudx_session() -> bool:
+    """True inside a claudx session: ``CLAUDE_PLUGIN_TEST`` is set by
+    scripts/claude_plugin_test.py and by nothing else.
+
+    The harvest has nothing useful to do there. The dev tree's own SessionStart
+    pass provisions the session, while every harvest trigger resolves its target
+    engine from ``$HOME/.claude/plugins/installed_plugins.json`` -- the
+    PRODUCTION registry -- and would detach the cached engine against the
+    redirected data root. The cached hooks' own stand-down globs the cached path
+    spelling and misses a path spelled through a ``~/.claude`` link, so the
+    harvest refuses at the source instead of relying on it.
+    """
+    return bool(os.environ.get("CLAUDE_PLUGIN_TEST"))
 
 
 def _default_registry() -> str:
@@ -448,6 +468,9 @@ def main(argv=None) -> int:
     parser.add_argument("--registry", default="", help="installed_plugins.json path")
     parser.add_argument("--settings", default="", help="settings.json path (enabledPlugins)")
     args = parser.parse_args(argv)
+
+    if in_claudx_session():
+        return 0  # claudx: the dev pass owns provisioning; launch nothing
 
     registry = args.registry or _default_registry()
     try:

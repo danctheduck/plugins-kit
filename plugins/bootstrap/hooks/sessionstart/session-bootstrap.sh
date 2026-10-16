@@ -272,6 +272,19 @@ _pr_scan() {
             d) [ -d "$_pr_path" ] || continue ;;
             *) [ -f "$_pr_path" ] || continue ;;
         esac
+        # claudx session: a root inside the plugin cache would send every
+        # command anchored on it to the INSTALLED plugin, not the working copy
+        # under test. Refuse it and say so on stderr, naming the variable and
+        # the value; the consumer's "${NAME:?...}" guard then fails loudly.
+        # Lexical on purpose (fork-free): the engine, which writes this record,
+        # applies the same test to the resolved path (env_var_check.py).
+        if [ -n "${CLAUDE_PLUGIN_TEST:-}" ]; then
+            case "$_pr_path" in
+                *[/\\][Pp]lugins[/\\][Cc]ache|*[/\\][Pp]lugins[/\\][Cc]ache[/\\]*)
+                    echo "${BOOTSTRAP_LABEL:-bootstrap}: claudx: refusing to export ${_pr_name}=${_pr_path}: it points into the plugin cache, so commands anchored on it would run the INSTALLED plugin instead of the working copy under test" >&2
+                    continue ;;
+            esac
+        fi
         _pr_out="${_pr_out}export ${_pr_name}='${_pr_path}'${_ie_nl}"
         _pr_have="$_pr_have $_pr_name"
     done < "$_pr_f"
