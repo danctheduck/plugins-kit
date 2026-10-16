@@ -589,18 +589,18 @@ class TestChunkIndexDerivation:
         assert derived["description"] == "fix the thing"
         assert derived["project_root"] == "/proj"
 
-    def test_reviewer_b_gets_findings_but_no_claimed_files(self, tmp_path: Path) -> None:
+    def test_reviewer_b_gets_findings_and_claimed_files(self, tmp_path: Path) -> None:
         bundle = self._bundle(tmp_path)
         derived = lr.derive_from_chunk_index(bundle, 0, "reviewer_b_diff_only_bugs")
-        assert derived["claimed_files"] == []
+        assert derived["claimed_files"] == ["README.md"]
         assert derived["mechanical_findings"] == [
             {"file": "a.py", "checks_run": [], "findings": []}
         ]
 
-    def test_reviewer_c_gets_neither(self, tmp_path: Path) -> None:
+    def test_reviewer_c_gets_claimed_files_but_no_findings(self, tmp_path: Path) -> None:
         bundle = self._bundle(tmp_path)
         derived = lr.derive_from_chunk_index(bundle, 0, "reviewer_c_introduced_code")
-        assert derived["claimed_files"] == []
+        assert derived["claimed_files"] == ["README.md"]
         assert derived["mechanical_findings"] is None
 
     def test_an_empty_scan_still_passes_the_scan_flag_worth_of_data(
@@ -689,6 +689,26 @@ class TestChunkIndexDerivation:
         assert "Files in this chunk" in prompt
         assert "- a.py" in prompt
         assert "Change description: fix the thing" in prompt
+
+    def test_end_to_end_diff_only_lane_sends_the_claimed_paths(
+        self, seam, tmp_path: Path, capsys
+    ) -> None:
+        """The diff-only lane runs on a transport entry, so it is the one lane
+        whose full dispatch this suite can fake. Observed failure: it reported
+        claimed .md files as unadded because their paths never reached it."""
+        bundle_path = tmp_path / "bundle.json"
+        bundle_path.write_text(json.dumps(self._bundle(tmp_path)), encoding="utf-8")
+        seam.selection = _transport([FakeResponse(ONE_ISSUE)])
+
+        code = lr.main([
+            "--lane", "reviewer_b_diff_only_bugs", "--model", "my-endpoint",
+            "--effort", "high", "--bundle", str(bundle_path), "--chunk-index", "0",
+        ])
+
+        assert code == lr.EXIT_OK
+        prompt = seam.selection.backend.calls[0]["user"]
+        assert "Also changed in this review" in prompt
+        assert "- README.md" in prompt
 
     def test_end_to_end_bad_index_exits_usage(self, tmp_path: Path, capsys) -> None:
         bundle_path = tmp_path / "bundle.json"

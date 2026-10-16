@@ -351,9 +351,22 @@ def test_the_catalog_keeps_only_the_coverage_ids_as_optional():
     assert {g for b, g, _d in rule_catalog.RULES.values() if b == "optional"} == {"coverage-criteria"}
 
 
-def test_the_audit_module_has_no_per_type_runner_left():
-    assert not hasattr(audit_mod, "TYPE_RUNNERS")
-    assert not [n for n in dir(audit_mod) if n.startswith("check_") and n.endswith("_skill")]
+def test_the_per_type_runners_survive_only_as_deprecation_shims_audit_does_not_call():
+    """The runners left audit() when their rows became criteria; the names stay
+    for the deprecation window (docs/reference/deprecation-policy.md) and no
+    code path inside audit.py runs them."""
+    shims = {"check_reference_skill", "check_pattern_skill", "check_technique_skill",
+             "check_discipline_skill", "check_domain_skill"}
+    assert {n for n in dir(audit_mod) if n.startswith("check_") and n.endswith("_skill")} == shims
+    with pytest.warns(DeprecationWarning):
+        assert set(audit_mod.TYPE_RUNNERS) <= {n.removeprefix("check_").replace("_", "-") for n in shims}
+    import ast
+
+    tree = ast.parse(Path(audit_mod.__file__).read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name not in shims | {"__getattr__"}:
+            used = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+            assert not used & shims, f"{node.name} calls a deprecated runner: {sorted(used & shims)}"
 
 
 def test_the_legacy_ids_left_the_catalog():

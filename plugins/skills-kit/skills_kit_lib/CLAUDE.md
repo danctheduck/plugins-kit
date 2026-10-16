@@ -41,7 +41,7 @@ claude_md:
       added: "2026-04-28"
     - id: user_only_via_disable_model_invocation
       keywords: [user-only, disable-model-invocation, slash-command, technique-skill carve-out, ordered-step exemption, no exemption, Dec-2, dead param]
-      summary: "CORRECTED 2026-09-06: user-only technique-skills (disable-model-invocation true) do NOT skip the ordered-step body requirement at either layer. The prior version of this entry was false."
+      summary: "CORRECTED 2026-09-06: user-only technique-skills (disable-model-invocation true) do NOT skip the ordered-step body requirement at either layer. The version before 2026-09-06 was false."
       detail: |
         markdown_heuristics.is_user_only(fm) returns true when frontmatter sets
         disable-model-invocation: true, and type_signals(body, fm) still adds +3 to
@@ -52,7 +52,8 @@ claude_md:
         ordered-step row reports n/a for user-only skills". False as shipped --
         check_technique_skill accepted an `fm` parameter but never read it; the
         ordered-step row is FAIL, not n/a, for a user-only technique with no steps.
-        The function is gone: the row is the technique-ordered-steps criterion of
+        The function survives only as a deprecation shim: the row is the
+        technique-ordered-steps criterion of
         defaults/standards/SKILL-legacy-standards.md, whose evaluator reads no
         frontmatter field either.
         tests/skills-kit/test_schemas.py (Dec-2, TestTechniqueSkill::
@@ -62,7 +63,7 @@ claude_md:
         the same fact at this legacy-fallback audit layer.
 
         The unified TECHNIQUE_SKILL_SCHEMA in schemas/skill_types.py replaced the
-        previous variant-separated schemas, but it does NOT accept output_template
+        variant-separated schemas, but it does NOT accept output_template
         in place of steps: steps is required with min_len 1 for every technique
         "regardless of trigger_model", and output_template is an optional companion,
         explicitly "not an alternative to steps" (skill_types.py, the technique item
@@ -71,7 +72,8 @@ claude_md:
 
         The dead `is_user_only` import into audit.py and the dead
         TYPE_RUNNERS["technique-skill"] dict entry were removed; the technique
-        rows were later moved to shipped criteria and the TYPE_RUNNERS table was deleted.
+        rows were later moved to shipped criteria and the TYPE_RUNNERS table left the audit
+        path (a deprecation shim serves the name).
       origin: Phase 4.2 audit lessons-learned F-4-2-2 / F-4-2-3; corrected 2026-09-06 by the plugin architecture audit after the claim was found false against shipped behavior and Dec-2.
       added: "2026-04-28"
       updated: "2026-09-06"
@@ -269,6 +271,13 @@ claude_md:
         contract_floor_criteria_shipped and legacy_heuristic_criteria_shipped.
         Pinned by
         tests/skills-kit/test_shipped_standards.py.
+
+        A check function, constant or parameter that leaves audit.py when its
+        rows move is a public-name removal: skills_kit_lib is a shared library,
+        so it keeps a DeprecationWarning shim for two minor versions and a
+        deprecated entry in ../contract/public-surface.json
+        (docs/reference/deprecation-policy.md; the current set and its removal
+        version are in provenance m6_deprecation_shims).
       origin: skills-kit 0.92.0, milestone M5 of the configurable-standards work.
       added: "2026-10-16"
   conventions:
@@ -281,7 +290,7 @@ claude_md:
     - rule: Audit output rows describe what was checked, not what was good or bad in isolation. Verdict is one of pass/fail/judgment-required/n/a.
       keywords: [verdict vocabulary, four-state output, audit row]
       why: Three-state (pass/fail) loses the conditional-not-fired case (n/a) and the agent-must-judge case (judgment-required). Both are real and deserve their own slot.
-    - rule: Every new schema declares an owner_doc pointing at the canonical prose spec; the prose spec must contain a valid instance block of the schema's root key.
+    - rule: Every schema declares an owner_doc pointing at the canonical prose spec; the prose spec must contain a valid instance block of the schema's root key.
       keywords: [owner_doc, schema registration, prose spec, drift protection]
       why: Bidirectional drift protection. Schema changes that break the owner doc's example are caught; owner doc edits that drift from the schema are caught. Adding a schema without an owner_doc bypasses this and silently allows drift.
 ```
