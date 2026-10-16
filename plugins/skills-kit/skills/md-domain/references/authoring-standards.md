@@ -65,6 +65,16 @@ Each criterion carries:
   statement.
 - **`enforcement`** (optional) -- `mechanical` or `judgment`; default
   `judgment` when absent (see below).
+- **`threshold`** (optional) -- `{name, default}`: the numeric limit a
+  mechanical criterion's evaluator applies. Only a mechanical criterion whose
+  registered evaluator reads that threshold name may declare one, and that
+  criterion must declare it. `default` is a positive integer; a layer's
+  `thresholds: {<name>: <int>}` overrides it.
+
+A criterion `id` is unique across every resolved layer, including the shipped
+layer (`skills_kit_lib/defaults/standards/`), and may not repeat a built-in
+rule id from the configuring-standards.md catalog. A repeated id raises
+`StandardsConfigError` naming both sources.
 
 ## Severity semantics
 
@@ -88,8 +98,12 @@ Each criterion carries:
   `scripts/resolve_standards.py` with an error.
 - **`mechanical`** -- a registered evaluator, keyed by the criterion `id`,
   performs the check (for example a character count or a regex). The standards
-  file remains the single source of truth for the statement, id, and default;
-  the code is only the evaluator.
+  file remains the single source of truth for the statement, id, severity and
+  threshold default; the code is only the evaluator. The evaluators are
+  registered in `skills_kit_lib/audit.py` (`MECHANICAL_EVALUATORS`), and each
+  serves a criterion of the shipped layer. A mechanical criterion whose id has
+  no registered evaluator raises `StandardsConfigError`, because nothing would
+  evaluate it. An authored file therefore declares `judgment` criteria.
 
 Omit `enforcement` and the criterion is a judgment criterion.
 
@@ -110,18 +124,23 @@ A minimal, valid standards file governing `skill_md`:
 
 ```yaml
 standards_set:
-  identity: Optional description-hygiene standards for SKILL.md files.
+  identity: Project-authored standards for the body of SKILL.md files.
   applies_to: skill_md
   criteria:
-    - id: desc-160-char
-      statement: The description frontmatter field is at most 160 characters.
+    - id: body-names-its-trigger
+      statement: The SKILL.md body names, in its first paragraph, the situation that triggers the skill.
       severity: fail
-      keywords: [description length, 160 char, hygiene]
-      enforcement: mechanical
-      example: "A 240-char description is truncated in the skill picker; tighten to <=160."
-    - id: desc-directive-form
-      statement: The description opens with a directive verb naming when to use the skill.
-      severity: info
-      keywords: [description form, directive verb, when to use]
+      keywords: [trigger situation, first paragraph, skill body]
       enforcement: judgment
+      example: "Open with 'Run this before a release tag is pushed.' rather than a capability summary."
+    - id: gotchas-cite-an-incident
+      statement: Every gotcha in the SKILL.md cites the incident or measurement that produced it.
+      severity: info
+      keywords: [gotcha provenance, incident, measurement]
 ```
+
+The description-hygiene criteria (`desc-160-char`, `desc-directive-form`,
+`desc-exclusion-clause`) are not an example to copy: the shipped layer already
+declares them, so repeating one of those ids in an authored file is an error.
+Switch one off with `rules: {<id>: off}`, or tune `desc_max_chars` with
+`thresholds:`.

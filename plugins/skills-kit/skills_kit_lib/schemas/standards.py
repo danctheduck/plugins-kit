@@ -61,6 +61,16 @@ STANDARDS_SET_SCHEMA = {
                                 "note": "mechanical = a registered evaluator checks it by id; "
                                         "judgment = the detect lane evaluates it from the statement. "
                                         "Default when absent: judgment"},
+                "threshold": {"type": "dict", "required": False,
+                              "keys": {
+                                  "name": {"type": "string", "required": True,
+                                           "note": "the snake_case threshold name a `thresholds:` override uses"},
+                                  "default": {"type": "int", "required": True,
+                                              "note": "the positive-integer default when no layer overrides it"},
+                              },
+                              "note": "the numeric limit a mechanical criterion's evaluator applies; "
+                                      "only a mechanical criterion whose registered evaluator consumes "
+                                      "that threshold name may declare one"},
             }},
         },
     },

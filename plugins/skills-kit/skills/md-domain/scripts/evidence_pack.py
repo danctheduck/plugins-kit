@@ -558,7 +558,10 @@ def _audit_verdicts(subject: Path) -> list[str]:
     Uses the layered standards config the audit CLI's --config applies, so a
     disabled rule or overridden threshold is honored here too. Judgment-required
     rows are kept, and rows are ordered fail, judgment-required, then the rest
-    before the 20-row cap so a schema FAIL is never cut.
+    before the 20-row cap so a schema FAIL is never cut. A configuration error
+    (a malformed layer, a missing shipped standards file) propagates; only a
+    missing pyyaml or a crash inside the audit itself degrades to an
+    "unavailable" line.
     """
     try:
         from skills_kit_lib import standards_resolve
@@ -571,6 +574,14 @@ def _audit_verdicts(subject: Path) -> list[str]:
         resolved = standards_resolve.resolve(_find_project_root(subject.resolve()))
         report = _audit(subject, resolved)
         output = report["error"] if "error" in report else _render_text(report)
+    except standards_resolve.StandardsUnavailableError as error:
+        # No pyyaml on this interpreter: the check cannot run here, which the
+        # pack states rather than hides.
+        return [f"mechanical-contract-check unavailable: {type(error).__name__}"]
+    except standards_resolve.StandardsConfigError:
+        # A malformed layer or a missing shipped standards file is a defect the
+        # user must fix; a pack that dropped the check would hide it.
+        raise
     except Exception as error:  # noqa: BLE001 - a broken audit must not sink the pack
         return [f"mechanical-contract-check unavailable: {type(error).__name__}"]
     verdicts = [line.strip() for line in output.splitlines()

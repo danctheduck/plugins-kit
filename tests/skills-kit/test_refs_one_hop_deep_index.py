@@ -30,7 +30,7 @@ def _skill(tmp_path, index_paths, files):
 
 def _verdict(skill_dir, content):
     fm = parse_frontmatter(content, mode="full")
-    rows = [r for r in check_universal(fm, parse_body(content), skill_dir) if r.rule == RULE]
+    rows = [r for r in check_universal(fm, parse_body(content), skill_dir, skill_criteria=()) if r.rule == RULE]
     assert len(rows) == 1
     return rows[0]
 

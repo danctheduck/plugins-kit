@@ -74,6 +74,12 @@ standalone interpreter when `CLAUDE_BOOTSTRAP_DATA_ROOT` is set. It still publis
 source and links consumer venvs inside the redirected root. A redirected pass does
 not rewrite the standalone interpreter's shared-library `.pth` files.
 
+Two residues remain. A data root created by an engine older than bootstrap 0.121.0
+may still have a machine-wide `.pth` pointing into it. And
+`engine._link_project_shared_libs` is not gated on the redirect: when the project
+manifest declares `project_venv.shared_lib_imports`, it writes a project-venv `.pth`
+pointing at the redirected shared root, which dangles if the root is deleted.
+
 Redirection also needs the consumer's interpreter: the shared-library root alone
 does not determine Python's imports. Before the fail-loud guard, a missing dev
 venv let `bootstrap_guard.reexec_under_plugin_venv` return to the caller, whose

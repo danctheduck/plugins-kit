@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from skills_kit_lib import audit, material
+from skills_kit_lib import audit, material, standards_resolve
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MD_DOMAIN = REPO_ROOT / "plugins" / "skills-kit" / "skills" / "md-domain"
@@ -133,7 +133,9 @@ def test_description_names_rendering_and_fits_the_limit():
     assert description.startswith("Use when")
     assert "Do NOT use for" in description
     assert "knowledge-encoding" in description and "update-documentation" in description
-    assert len(description) <= audit.THRESHOLDS["desc_max_chars"]
+    # desc_max_chars is declared by the shipped desc-160-char criterion.
+    limit = standards_resolve.resolve_shipped().threshold_defaults["desc_max_chars"]
+    assert len(description) <= limit
     assert description == OWNER_RULED_DESCRIPTION
     assert len(description) == 159
 

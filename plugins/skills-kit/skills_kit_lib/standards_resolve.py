@@ -4,7 +4,8 @@ skills-kit ships all its opinions on by default; a user tunes the OPTIONAL layer
 (never the architectural spine, never the inoffensive integrity checks) through
 version-controllable config that mirrors bootstrap.json layering:
 
-    0  shipped_dir (the plugin's own standards/, optional -- unused until M5)
+    0  shipped_dir (default SHIPPED_STANDARDS_DIR, skills_kit_lib/defaults/standards/;
+       must exist and hold at least one *-standards.md; None opts out)
     1  <user_dir>/skills-kit/                    config.yaml + *-standards.md
     2  <user_dir>/skills-kit/config.local.yaml   per-machine config overlay
     3  <project>/.claude/skills-kit/             config.yaml + *-standards.md
@@ -22,18 +23,23 @@ StandardsUnavailableError naming the missing dependency and the venv to use,
 because returning empty defaults would ignore every config and standards file
 while reading exactly like "nothing configured". Malformed config, an un-tunable rule id, an unknown
 threshold, an unknown adapter or adapter setting, an unknown audit setting or value, or an invalid standards file
-are LOUD (StandardsConfigError), never a silent {}.
+are LOUD (StandardsConfigError), never a silent {}. So are a missing shipped
+standards layer, a criterion id repeated anywhere in the resolved layers or
+equal to a rule_catalog id, an `enforcement: mechanical` criterion with no
+registered evaluator (audit.MECHANICAL_EVALUATORS), and a malformed or
+conflicting criterion `threshold:` declaration.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import rule_catalog
-from .audit import THRESHOLDS
+from .audit import MECHANICAL_EVALUATORS, THRESHOLDS
 from .document_walker import collect_yaml_units
 from .schema_engine import validate
 from .schema_registry import SCHEMAS_BY_ROOT
@@ -44,6 +50,21 @@ try:
 except ImportError:  # pragma: no cover - exercised only on a bare interpreter
     _yaml = None
     HAVE_YAML = False
+
+
+#: Layer 0: the standards skills-kit ships. Inside the package because
+#: bootstrap's shared_libs step copies only skills_kit_lib/ (bootstrap.json),
+#: the same reason defaults/lane_models.yaml lives beside it. resolve() reads
+#: this module attribute at call time, never as a bound default.
+SHIPPED_STANDARDS_DIR = Path(__file__).resolve().parent / "defaults" / "standards"
+
+#: The shipped file carrying the skill_md criteria audit.py evaluates.
+SHIPPED_SKILL_STANDARDS = "SKILL-standards.md"
+
+#: Sentinel for "use SHIPPED_STANDARDS_DIR"; an explicit None opts out.
+_SHIPPED_DEFAULT = object()
+
+_THRESHOLD_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 #: The file-type primitives a standards_set's `applies_to:` may name
@@ -129,6 +150,8 @@ class StandardsFile:
     path: Path
     applies_to: str
     criteria: list
+    #: Which layer the file came from: "shipped", "user" or "project".
+    layer: str = "user"
 
 
 @dataclass
@@ -137,7 +160,9 @@ class ResolvedStandards:
 
     - disabled_rules: optional rule ids the config switched off.
     - thresholds: threshold OVERRIDES only (names present in the config); an
-      absent name keeps audit.py's default.
+      absent name keeps its default (audit.THRESHOLDS, or threshold_defaults).
+    - threshold_defaults: threshold name -> default, for each threshold a
+      resolved standards criterion declares (`threshold: {name, default}`).
     - standards_by_primitive: applies_to value -> the StandardsFiles governing
       it, unioned across layers in layer order.
     - adapters: adapter id -> that adapter's settings, for the ids in
@@ -151,6 +176,7 @@ class ResolvedStandards:
 
     disabled_rules: set[str] = field(default_factory=set)
     thresholds: dict[str, int] = field(default_factory=dict)
+    threshold_defaults: dict[str, int] = field(default_factory=dict)
     standards_by_primitive: dict[str, list[StandardsFile]] = field(default_factory=dict)
     adapters: dict[str, dict] = field(default_factory=dict)
     audit: dict[str, str] = field(default_factory=lambda: dict(AUDIT_DEFAULTS))
@@ -298,8 +324,15 @@ def _validate_audit(merged: dict) -> dict[str, str]:
     return settings
 
 
+def _evaluator_thresholds() -> set[str]:
+    """Threshold names the registered mechanical evaluators consume."""
+    return {ev.threshold for ev in MECHANICAL_EVALUATORS.values() if ev.threshold}
+
+
 def _validate_and_extract(
-    merged: dict, authored_criteria: set[str] | None = None
+    merged: dict,
+    authored_criteria: set[str] | None = None,
+    declared_thresholds: set[str] | None = None,
 ) -> tuple[set[str], dict[str, int]]:
     """Validate the merged config and extract disabled rules + threshold overrides.
 
@@ -308,8 +341,13 @@ def _validate_and_extract(
     unknown). `authored_criteria` is the set of criterion ids declared by the
     standards files resolved for this project (any layer, any primitive); an id
     in that set is a valid config knob even though it is not in the catalog. A
-    thresholds: key not in audit's THRESHOLDS raises, naming the valid keys.
-    Rule values accept only off/false; threshold values must be positive ints.
+    thresholds: key that is neither in audit's THRESHOLDS nor declared by a
+    resolved criterion raises, naming the valid keys. A registered mechanical
+    evaluator's id and threshold name are valid knobs even when the layer
+    declaring its criterion was opted out (shipped_dir=None): those ids are
+    configurable wherever skills-kit runs, and a caller that skips the shipped
+    layer must not reject a config written for it. Rule values accept only
+    off/false; threshold values must be positive ints.
     """
     disabled: set[str] = set()
     rules = merged.get("rules", {})
@@ -317,7 +355,7 @@ def _validate_and_extract(
         raise StandardsConfigError(
             f"'rules:' must be a mapping of rule-id -> off, got {type(rules).__name__}"
         )
-    optional = set(rule_catalog.optional_rule_ids())
+    optional = set(rule_catalog.optional_rule_ids()) | set(MECHANICAL_EVALUATORS)
     authored = authored_criteria or set()
     for rid, val in (rules or {}).items():
         if rid not in optional and rid not in authored:
@@ -339,10 +377,11 @@ def _validate_and_extract(
         raise StandardsConfigError(
             f"'thresholds:' must be a mapping of name -> int, got {type(raw_th).__name__}"
         )
+    valid_thresholds = set(THRESHOLDS) | _evaluator_thresholds() | (declared_thresholds or set())
     for name, val in (raw_th or {}).items():
-        if name not in THRESHOLDS:
+        if name not in valid_thresholds:
             raise StandardsConfigError(
-                f"threshold '{name}' is not a valid threshold; valid keys: {sorted(THRESHOLDS)}"
+                f"threshold '{name}' is not a valid threshold; valid keys: {sorted(valid_thresholds)}"
             )
         if isinstance(val, bool) or not isinstance(val, int) or val <= 0:
             raise StandardsConfigError(
@@ -352,7 +391,7 @@ def _validate_and_extract(
     return disabled, thresholds
 
 
-def _parse_standards_file(path: Path) -> StandardsFile:
+def _parse_standards_file(path: Path, layer: str = "user") -> StandardsFile:
     """Parse + schema-validate one *-standards.md; raise loudly on any defect."""
     text = path.read_text(encoding="utf-8")
     units, _, parse_error = collect_yaml_units(text)
@@ -398,7 +437,117 @@ def _parse_standards_file(path: Path) -> StandardsFile:
         path=path,
         applies_to=applies_to,
         criteria=inner.get("criteria", []),
+        layer=layer,
     )
+
+
+def _validate_criteria(files: list[StandardsFile]) -> dict[str, int]:
+    """Cross-file criterion checks over every resolved standards file.
+
+    Raises StandardsConfigError, naming both sources, when a criterion id
+    repeats within one list, across files, layers or primitives, or equals a
+    rule_catalog id. Raises when an `enforcement: mechanical` criterion has no
+    registered evaluator or names a different primitive than its evaluator,
+    and when a `threshold:` declaration is malformed, is not the one its
+    evaluator consumes, is missing where the evaluator needs it, collides with
+    a built-in threshold, or is declared twice. Returns the declared
+    threshold defaults (name -> default).
+    """
+    seen: dict[str, str] = {}
+    declared: dict[str, tuple[int, str]] = {}
+    for sf in files:
+        for index, crit in enumerate(sf.criteria):
+            cid = crit["id"]
+            here = f"{sf.path} criteria[{index}]"
+            if cid in seen:
+                raise StandardsConfigError(
+                    f"criterion id '{cid}' is declared twice: {seen[cid]} and {here}. "
+                    "A criterion id is a config knob and an audit-finding key, so it "
+                    "must be unique across every resolved standards file and layer"
+                )
+            seen[cid] = here
+            if cid in rule_catalog.RULES:
+                raise StandardsConfigError(
+                    f"criterion id '{cid}' at {here} collides with the built-in "
+                    f"{rule_catalog.BUCKETS[cid]} rule '{cid}' in "
+                    "skills_kit_lib/rule_catalog.py; choose a different id"
+                )
+            mechanical = crit.get("enforcement") == "mechanical"
+            evaluator = MECHANICAL_EVALUATORS.get(cid) if mechanical else None
+            if mechanical and evaluator is None:
+                raise StandardsConfigError(
+                    f"criterion '{cid}' at {here} declares enforcement: mechanical, but "
+                    "no evaluator is registered for that id (audit.MECHANICAL_EVALUATORS); "
+                    "nothing would evaluate it. Declare it enforcement: judgment so the "
+                    "detect lane applies its statement. Registered ids: "
+                    f"{sorted(MECHANICAL_EVALUATORS)}"
+                )
+            if evaluator is not None and evaluator.applies_to != sf.applies_to:
+                raise StandardsConfigError(
+                    f"criterion '{cid}' at {here} is in a set for '{sf.applies_to}', but "
+                    f"its registered evaluator audits '{evaluator.applies_to}'"
+                )
+            th = crit.get("threshold")
+            wanted = evaluator.threshold if evaluator is not None else None
+            if th is None:
+                if wanted is not None:
+                    raise StandardsConfigError(
+                        f"criterion '{cid}' at {here} must declare "
+                        f"`threshold: {{name: {wanted}, default: <positive int>}}`: its "
+                        "evaluator reads that threshold, and the criterion is the only "
+                        "source of its default"
+                    )
+                continue
+            name, default = th.get("name"), th.get("default")
+            if wanted is None:
+                raise StandardsConfigError(
+                    f"criterion '{cid}' at {here} declares a threshold, but only a "
+                    "mechanical criterion whose registered evaluator consumes a "
+                    "threshold may declare one"
+                )
+            if name != wanted:
+                raise StandardsConfigError(
+                    f"criterion '{cid}' at {here} declares threshold '{name}', but its "
+                    f"evaluator reads '{wanted}'"
+                )
+            if not isinstance(name, str) or not _THRESHOLD_NAME_RE.match(name):
+                raise StandardsConfigError(
+                    f"criterion '{cid}' at {here}: threshold name {name!r} is not snake_case"
+                )
+            if isinstance(default, bool) or not isinstance(default, int) or default <= 0:
+                raise StandardsConfigError(
+                    f"criterion '{cid}' at {here}: threshold '{name}' default must be a "
+                    f"positive integer; got {default!r}"
+                )
+            if name in THRESHOLDS:
+                raise StandardsConfigError(
+                    f"criterion '{cid}' at {here} declares threshold '{name}', which is "
+                    "a built-in threshold (audit.THRESHOLDS); a criterion may declare "
+                    "only a threshold no built-in rule owns"
+                )
+            if name in declared:
+                raise StandardsConfigError(
+                    f"threshold '{name}' is declared twice: {declared[name][1]} and {here}"
+                )
+            declared[name] = (default, here)
+    return {name: default for name, (default, _where) in declared.items()}
+
+
+def require_shipped_standards(shipped_dir: Path | None = None) -> Path:
+    """Return the shipped skill_md standards file; raise if it is missing.
+
+    Reads no content, so it works without pyyaml: audit.py's degraded path
+    calls it to keep a missing shipped layer loud on a bare interpreter.
+    """
+    base = shipped_dir if shipped_dir is not None else SHIPPED_STANDARDS_DIR
+    path = base / SHIPPED_SKILL_STANDARDS
+    if not path.is_file():
+        raise StandardsConfigError(
+            f"shipped standards file missing: {path}. The skills-kit install is "
+            "incomplete; reinstall or update the plugin. Every SKILL.md audit "
+            "needs this layer, so it is never skipped."
+        )
+    return path
 
 
 def layer_paths(
@@ -415,21 +564,32 @@ def layer_paths(
     not exist. `user_dir` replaces the harness config dir (_config_dir()) for
     the user layer; lane_models passes `<home>/.claude` through it.
     """
+    config_files, labelled = _layers(project_root, shipped_dir=shipped_dir, user_dir=user_dir)
+    return config_files, [d for _label, d in labelled]
+
+
+def _layers(
+    project_root: Path | None,
+    *,
+    shipped_dir: Path | None = None,
+    user_dir: Path | None = None,
+) -> tuple[list[Path], list[tuple[str, Path]]]:
+    """layer_paths with each standards dir labelled by its layer name."""
     user_layer = (user_dir if user_dir is not None else _config_dir()) / "skills-kit"
     proj_layer = (project_root / ".claude" / "skills-kit") if project_root is not None else None
 
     config_files: list[Path] = []
-    standards_dirs: list[Path] = []
+    standards_dirs: list[tuple[str, Path]] = []
     if shipped_dir is not None:
         config_files.append(shipped_dir / "config.yaml")
-        standards_dirs.append(shipped_dir)
+        standards_dirs.append(("shipped", shipped_dir))
     config_files.append(user_layer / "config.yaml")
     config_files.append(user_layer / "config.local.yaml")
-    standards_dirs.append(user_layer)
+    standards_dirs.append(("user", user_layer))
     if proj_layer is not None:
         config_files.append(proj_layer / "config.yaml")
         config_files.append(proj_layer / "config.local.yaml")
-        standards_dirs.append(proj_layer)
+        standards_dirs.append(("project", proj_layer))
     return config_files, standards_dirs
 
 
@@ -449,16 +609,7 @@ def existing_layer_files(
     return found
 
 
-def resolve(project_root: Path | None, *, shipped_dir: Path | None = None) -> ResolvedStandards:
-    """Resolve every standards layer into one ResolvedStandards.
-
-    Layer order (lowest -> highest): shipped_dir (optional), <user_dir>/skills-kit
-    (config.yaml then config.local.yaml), <project_root>/.claude/skills-kit
-    (config.yaml then config.local.yaml). Config merges later-wins; standards
-    files union across layers. Raises StandardsUnavailableError when pyyaml is
-    unavailable: an unread config must never pass for an empty one.
-    """
-    notes: list[str] = []
+def _require_yaml() -> None:
     if not HAVE_YAML:
         raise StandardsUnavailableError(
             "pyyaml is not importable by this interpreter "
@@ -469,7 +620,77 @@ def resolve(project_root: Path | None, *, shipped_dir: Path | None = None) -> Re
             "bootstrap provisions with pyyaml."
         )
 
-    config_files, standards_dirs = layer_paths(project_root, shipped_dir=shipped_dir)
+
+def _resolve_shipped_dir(shipped_dir) -> Path | None:
+    """Map the sentinel to SHIPPED_STANDARDS_DIR and check the dir is usable."""
+    if shipped_dir is _SHIPPED_DEFAULT:
+        shipped_dir = SHIPPED_STANDARDS_DIR
+    if shipped_dir is None:
+        return None
+    shipped_dir = Path(shipped_dir)
+    if not shipped_dir.is_dir() or not any(shipped_dir.glob("*-standards.md")):
+        raise StandardsConfigError(
+            f"shipped standards directory {shipped_dir} is missing or holds no "
+            "*-standards.md file. The skills-kit install is incomplete; reinstall "
+            "or update the plugin."
+        )
+    return shipped_dir
+
+
+def _collect_standards(
+    labelled_dirs: list[tuple[str, Path]],
+) -> tuple[dict[str, list[StandardsFile]], dict[str, int]]:
+    """Parse every *-standards.md in layer order and validate them together."""
+    standards_by_primitive: dict[str, list[StandardsFile]] = {}
+    ordered: list[StandardsFile] = []
+    for label, d in labelled_dirs:
+        if not d.is_dir():
+            continue
+        for md_path in sorted(d.glob("*-standards.md")):
+            sf = _parse_standards_file(md_path, label)
+            standards_by_primitive.setdefault(sf.applies_to, []).append(sf)
+            ordered.append(sf)
+    return standards_by_primitive, _validate_criteria(ordered)
+
+
+def resolve_shipped(*, shipped_dir=_SHIPPED_DEFAULT) -> ResolvedStandards:
+    """Resolve the shipped layer alone: no user or project config, no overrides.
+
+    What a plain `audit` (no --config) applies, so its output depends on the
+    installed plugin only. Raises like resolve() on a missing pyyaml, a missing
+    shipped layer, or an invalid shipped file.
+    """
+    _require_yaml()
+    shipped = _resolve_shipped_dir(shipped_dir)
+    if shipped is None:
+        return ResolvedStandards()
+    if shipped_dir is _SHIPPED_DEFAULT:
+        require_shipped_standards(shipped)
+    standards_by_primitive, threshold_defaults = _collect_standards([("shipped", shipped)])
+    return ResolvedStandards(
+        threshold_defaults=threshold_defaults,
+        standards_by_primitive=standards_by_primitive,
+    )
+
+
+def resolve(project_root: Path | None, *, shipped_dir=_SHIPPED_DEFAULT) -> ResolvedStandards:
+    """Resolve every standards layer into one ResolvedStandards.
+
+    Layer order (lowest -> highest): shipped_dir (default SHIPPED_STANDARDS_DIR;
+    pass None to opt out), <user_dir>/skills-kit (config.yaml then
+    config.local.yaml), <project_root>/.claude/skills-kit (config.yaml then
+    config.local.yaml). Config merges later-wins; standards files union across
+    layers. Raises StandardsUnavailableError when pyyaml is unavailable: an
+    unread config must never pass for an empty one. A missing shipped layer
+    raises StandardsConfigError.
+    """
+    notes: list[str] = []
+    _require_yaml()
+    shipped = _resolve_shipped_dir(shipped_dir)
+    if shipped is not None and shipped_dir is _SHIPPED_DEFAULT:
+        require_shipped_standards(shipped)
+
+    config_files, labelled_dirs = _layers(project_root, shipped_dir=shipped)
 
     merged: dict = {}
     for cf in config_files:
@@ -479,13 +700,7 @@ def resolve(project_root: Path | None, *, shipped_dir: Path | None = None) -> Re
     # Collected BEFORE the rules: block is validated -- an authored criterion
     # id is a valid `rules: {<id>: off}` knob, so the rule-id validation below
     # needs the full criterion-id set up front.
-    standards_by_primitive: dict[str, list[StandardsFile]] = {}
-    for d in standards_dirs:
-        if not d.is_dir():
-            continue
-        for md_path in sorted(d.glob("*-standards.md")):
-            sf = _parse_standards_file(md_path)
-            standards_by_primitive.setdefault(sf.applies_to, []).append(sf)
+    standards_by_primitive, threshold_defaults = _collect_standards(labelled_dirs)
 
     authored_criteria: set[str] = {
         c["id"]
@@ -494,13 +709,16 @@ def resolve(project_root: Path | None, *, shipped_dir: Path | None = None) -> Re
         for c in sf.criteria
     }
 
-    disabled_rules, thresholds = _validate_and_extract(merged, authored_criteria)
+    disabled_rules, thresholds = _validate_and_extract(
+        merged, authored_criteria, set(threshold_defaults)
+    )
     adapters = _validate_adapters(merged)
     audit_settings = _validate_audit(merged)
 
     return ResolvedStandards(
         disabled_rules=disabled_rules,
         thresholds=thresholds,
+        threshold_defaults=threshold_defaults,
         standards_by_primitive=standards_by_primitive,
         adapters=adapters,
         audit=audit_settings,

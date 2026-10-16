@@ -261,11 +261,13 @@ claudx -- -p "hello"      # pass args through to claude
 
 **Enablement filtering is the false-pass trap.** A plugin not enabled for the cwd project is dropped with a `not enabled, skipping: <names>` note on stderr, and a run with nothing enabled exits `error: no enabled <marketplace> plugins for <dir>`. So smoke-testing a plugin that is disabled for the project you launched from produces a GREEN run in which your plugin was never loaded. Use `--all` whenever the plugin under test may not be enabled where you are standing, and read the skipping note before trusting a pass.
 
-**Safety rail: never delete a claudx data root without an ordinary bootstrap pass
-afterwards and a cooldown reset.** The shared-lib link it wrote repoints the
-machine-wide `bootstrap_lib.pth`; deleting the root without relinking breaks every
-plugin's import until the next unthrottled pass. Containment mechanics (what it
-does and does not test) and the two other known escapes:
+**Safety rail: deleting a claudx data root is safe for the machine-wide
+`bootstrap_lib.pth` since bootstrap 0.121.0** (a redirected pass no longer
+broadcasts into the standalone interpreter). If the root may predate 0.121.0, or
+a project declares `project_venv.shared_lib_imports`, run one ordinary
+(non-redirected) bootstrap pass afterwards and reset the cooldown so any dangling
+`.pth` is rewritten. Containment mechanics (what it does and does not test) and
+the remaining known escapes:
 [docs/reference/testing.md](docs/reference/testing.md).
 
 | Change touches ... | Default validator |
