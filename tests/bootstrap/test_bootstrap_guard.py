@@ -41,6 +41,19 @@ def _load_canon():
     return mod
 
 
+def _clear_loop_flag(monkeypatch, mod):
+    """Make the loop flag absent for this test AND restore it afterwards.
+
+    ``reexec_under_plugin_venv`` writes the flag straight into ``os.environ``;
+    a bare ``monkeypatch.delenv(..., raising=False)`` records nothing when the
+    variable is already absent, so the value the guard writes would outlive the
+    test and reach every later suite in the process. Set first, so the teardown
+    has an original to restore.
+    """
+    monkeypatch.setenv(mod._REEXEC_GUARD_ENV, "")
+    monkeypatch.delenv(mod._REEXEC_GUARD_ENV)
+
+
 class TestCanonical:
     def test_canonical_exists(self):
         assert _CANON.is_file(), f"Canonical bootstrap_guard missing: {_CANON}"
@@ -153,7 +166,7 @@ class TestReexecUnderPluginVenv:
     def test_reexec_noop_when_venv_missing(self, tmp_path, monkeypatch):
         mod = _load_canon()
         monkeypatch.setattr(mod.os.path, "expanduser", lambda p: str(tmp_path))
-        monkeypatch.delenv(mod._REEXEC_GUARD_ENV, raising=False)
+        _clear_loop_flag(monkeypatch, mod)
         called = []
         monkeypatch.setattr(mod.os, "execv", lambda *a: called.append(a))
         mod.reexec_under_plugin_venv("p4-kit")
@@ -210,7 +223,7 @@ class TestReexecUnderPluginVenv:
         interpreter.parent.mkdir(parents=True)
         interpreter.write_text("", encoding="utf-8")
         monkeypatch.setenv("CLAUDE_BOOTSTRAP_DATA_ROOT", str(redirected))
-        monkeypatch.delenv(mod._REEXEC_GUARD_ENV, raising=False)
+        _clear_loop_flag(monkeypatch, mod)
         monkeypatch.setattr(mod.sys, "prefix", str(tmp_path / "outside"))
         monkeypatch.setattr(mod, "_is_windows", lambda: False)
         called: list[str] = []
@@ -231,7 +244,7 @@ class TestReexecUnderPluginVenv:
         mod = _load_canon()
         monkeypatch.setattr(mod.os.path, "expanduser", lambda p: str(tmp_path))
         py = self._fake_venv_python(tmp_path, "p4-kit")
-        monkeypatch.delenv(mod._REEXEC_GUARD_ENV, raising=False)
+        _clear_loop_flag(monkeypatch, mod)
         monkeypatch.setattr(mod.sys, "executable", str(py))
         monkeypatch.setattr(mod.sys, "prefix", str(py.parent.parent))
         called = []
@@ -272,7 +285,7 @@ class TestReexecUnderPluginVenv:
         monkeypatch.setattr(mod.sys, "executable", str(base_py))
         monkeypatch.setattr(mod.sys, "prefix", str(base_py.parent.parent))
         monkeypatch.setattr(mod.sys, "argv", ["hue_kit_cli.py", "discover"])
-        monkeypatch.delenv(mod._REEXEC_GUARD_ENV, raising=False)
+        _clear_loop_flag(monkeypatch, mod)
 
         # The precondition that made the old check wrong.
         assert base_py.resolve() == venv_py.resolve()
@@ -299,7 +312,7 @@ class TestReexecUnderPluginVenv:
         py = self._fake_venv_python(tmp_path, "p4-kit")
         monkeypatch.setattr(mod.sys, "executable", str(tmp_path / "other.exe"))
         monkeypatch.setattr(mod.sys, "argv", ["script.py", "152779"])
-        monkeypatch.delenv(mod._REEXEC_GUARD_ENV, raising=False)
+        _clear_loop_flag(monkeypatch, mod)
         captured = {}
 
         def fake_execv(path, args):
@@ -316,7 +329,7 @@ class TestReexecUnderPluginVenv:
         assert captured["path"] == str(py)
         assert captured["args"] == [str(py), "script.py", "152779"]
         # The loop-guard env flag is set before handing off to the new interpreter.
-        assert mod.os.environ.get(mod._REEXEC_GUARD_ENV) == "1"
+        assert mod.os.environ.get(mod._REEXEC_GUARD_ENV) == str(py)
 
     def test_reexec_on_windows_waits_and_propagates_exit_code(self, tmp_path, monkeypatch):
         """On Windows the re-exec must SPAWN-AND-WAIT, never os.execv.
@@ -335,7 +348,7 @@ class TestReexecUnderPluginVenv:
         py = self._fake_venv_python(tmp_path, "git-kit")
         monkeypatch.setattr(mod.sys, "executable", str(tmp_path / "other.exe"))
         monkeypatch.setattr(mod.sys, "argv", ["prepare_review.py", "--staged"])
-        monkeypatch.delenv(mod._REEXEC_GUARD_ENV, raising=False)
+        _clear_loop_flag(monkeypatch, mod)
         # Patch the seam, NOT os.name: pathlib reads os.name at call time, so
         # forcing it to "nt" on a POSIX runner makes every Path() in the module
         # raise NotImplementedError('cannot instantiate WindowsPath').
@@ -367,4 +380,77 @@ class TestReexecUnderPluginVenv:
             "the os.execv-on-Windows bug this branch exists to avoid"
         )
         assert captured["args"] == [str(py), "prepare_review.py", "--staged"]
-        assert mod.os.environ.get(mod._REEXEC_GUARD_ENV) == "1"
+        assert mod.os.environ.get(mod._REEXEC_GUARD_ENV) == str(py)
+
+
+class TestLoopFlagNamesItsTarget:
+    """The loop flag carries the interpreter it re-exec'd into, so an inherited
+    flag from ANOTHER plugin's re-exec no longer suppresses this plugin's.
+
+    Paired with tests/bootstrap/test_claudx_escapes.py (escape 3), which drives
+    the same property through a real process; these pin the guard's contract
+    directly, including the loop guarantee the flag exists to provide.
+    """
+
+    def _venv_python(self, root, plugin):
+        py = root / plugin / ".venv" / "bin" / "python"
+        py.parent.mkdir(parents=True)
+        py.write_text("", encoding="utf-8")
+        return py
+
+    def _arm(self, mod, monkeypatch, tmp_path, *plugins):
+        redirected = tmp_path / "data-dev"
+        pythons = {p: self._venv_python(redirected / "plugins-kit", p) for p in plugins}
+        monkeypatch.setenv("CLAUDE_BOOTSTRAP_DATA_ROOT", str(redirected))
+        _clear_loop_flag(monkeypatch, mod)
+        monkeypatch.setattr(mod.sys, "prefix", str(tmp_path / "outside"))
+        monkeypatch.setattr(mod.sys, "argv", ["consumer.py"])
+        monkeypatch.setattr(mod, "_is_windows", lambda: False)
+        execs: list[str] = []
+        # os.execv does not return in real life; here the "new process" is the
+        # next call in the test, which inherits os.environ and the outside prefix.
+        monkeypatch.setattr(mod.os, "execv", lambda path, args: execs.append(path))
+        return pythons, execs
+
+    def test_a_flag_naming_another_plugins_venv_does_not_suppress_the_reexec(
+        self, tmp_path, monkeypatch
+    ):
+        mod = _load_canon()
+        pythons, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit", "p4-kit")
+        monkeypatch.setenv(mod._REEXEC_GUARD_ENV, str(pythons["p4-kit"]))
+        mod.reexec_under_plugin_venv("git-kit")
+        assert execs == [str(pythons["git-kit"])]
+        assert os.environ[mod._REEXEC_GUARD_ENV] == str(pythons["git-kit"])
+
+    def test_a_flag_naming_this_plugins_venv_returns_even_off_the_venv(
+        self, tmp_path, monkeypatch
+    ):
+        mod = _load_canon()
+        pythons, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit")
+        monkeypatch.setenv(mod._REEXEC_GUARD_ENV, str(pythons["git-kit"]))
+        mod.reexec_under_plugin_venv("git-kit")
+        assert execs == []
+
+    def test_the_explicit_opt_out_is_honored_under_redirection(
+        self, tmp_path, monkeypatch
+    ):
+        """What every tests/<plugin>/conftest.py sets (see plugins/CLAUDE.md,
+        "Test gotcha"): the re-exec must stay a no-op under pytest even inside
+        a redirected session where the plugin venv exists."""
+        mod = _load_canon()
+        _, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit")
+        monkeypatch.setenv(mod._REEXEC_GUARD_ENV, "1")
+        mod.reexec_under_plugin_venv("git-kit")
+        assert execs == []
+
+    def test_a_reexec_chain_is_bounded(self, tmp_path, monkeypatch):
+        """Each call stands for one process in the chain, all outside every venv
+        (the worst case: sys.prefix never matches). A -> B -> A -> A must stop at
+        the second A: the flag now names A, so it cannot loop."""
+        mod = _load_canon()
+        pythons, execs = self._arm(mod, monkeypatch, tmp_path, "git-kit", "p4-kit")
+        for plugin in ("git-kit", "p4-kit", "git-kit", "git-kit", "git-kit"):
+            mod.reexec_under_plugin_venv(plugin)
+        assert execs == [
+            str(pythons["git-kit"]), str(pythons["p4-kit"]), str(pythons["git-kit"]),
+        ]

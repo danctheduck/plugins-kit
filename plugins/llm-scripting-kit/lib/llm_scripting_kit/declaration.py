@@ -41,7 +41,6 @@ import os
 import subprocess
 import tempfile
 import time
-import warnings
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
@@ -87,21 +86,6 @@ DISPOSITION_UNROUTABLE = "unroutable"
 DISPOSITION_REQUIREMENTS_MISMATCH = "requirements-mismatch"
 DISPOSITION_EXCLUDED = "excluded"
 DISPOSITION_SHADOWED_CORE = "shadowed-core"
-# Deprecated compatibility name; has no effect on routing and will be removed in 0.66.0.
-_DISPOSITION_OVER_CONTEXT_BUDGET = "over-context-budget"
-
-
-def __getattr__(name: str) -> Any:
-    if name == "DISPOSITION_OVER_CONTEXT_BUDGET":
-        warnings.warn(
-            "DISPOSITION_OVER_CONTEXT_BUDGET is deprecated, has no effect on routing, and will be removed in 0.66.0",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return _DISPOSITION_OVER_CONTEXT_BUDGET
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
 #: Dispositions that stay in the render. Everything else is hidden.
 _RENDERED = (DISPOSITION_USABLE, DISPOSITION_OUT_OF_QUOTA, DISPOSITION_UNREACHABLE)
 
@@ -569,8 +553,6 @@ def describe(
     reachability_cache: Optional[MutableMapping[str, Reachability]] = None,
     entries: Optional[Mapping[str, Any]] = None,
     dispatchable: Iterable[str] = (),
-    # Deprecated compatibility argument; has no effect on routing and will be removed in 0.66.0.
-    context_tokens: Optional[int] = None,
 ) -> Ranking:
     """Classify, filter, pace-order and default a declaration.
 
@@ -601,16 +583,6 @@ def describe(
     """
     if caller not in _CALLERS:
         raise ValueError(f"caller must be one of {_CALLERS}, got {caller!r}")
-    if context_tokens is not None and (
-        isinstance(context_tokens, bool) or not isinstance(context_tokens, int) or context_tokens < 0
-    ):
-        raise ValueError(f"context_tokens must be a non-negative integer, got {context_tokens!r}")
-    if context_tokens is not None:
-        warnings.warn(
-            "context_tokens is deprecated, has no effect on routing, and will be removed in 0.66.0",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     extra_kinds = set(dispatchable or ())
     unknown_kinds = sorted(extra_kinds - set(_DISPATCHABLE_KINDS))
     if unknown_kinds:
@@ -1161,7 +1133,6 @@ __all__ = [
     "DISPATCHABLE_TRANSPORT",
     "DISPOSITION_EXCLUDED",
     "DISPOSITION_OUT_OF_QUOTA",
-    "DISPOSITION_OVER_CONTEXT_BUDGET",
     "DISPOSITION_REQUIREMENTS_MISMATCH",
     "DISPOSITION_SHADOWED_CORE",
     "DISPOSITION_UNREACHABLE",

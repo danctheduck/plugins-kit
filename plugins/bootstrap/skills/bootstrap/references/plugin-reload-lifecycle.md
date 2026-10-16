@@ -176,6 +176,13 @@ applies to every update **after** this protocol ships. (There is no way around
 this: a session is already running the pre-harvest `UserPromptSubmit` hook code,
 which has no harvest logic to run.)
 
+**Stand-down under claudx.** In a session launched by `scripts/claude_plugin_test.py`
+(`CLAUDE_PLUGIN_TEST` set) `harvest.py` returns before any trigger runs: the
+harvest, the import-crash retry and the mid-session install relaunch all launch
+the engine the PRODUCTION registry names, which is the cached release, against
+the redirected data tree. The working copy's own SessionStart pass provisions
+that session.
+
 ## SessionStart-missed rescue (fresh-machine first session)
 
 The harvest handles "SessionStart ran the *old* engine"; the rescue handles

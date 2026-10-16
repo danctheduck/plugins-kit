@@ -16,7 +16,6 @@ from llm_scripting_kit.model_endpoints import (
     EndpointRegistryError,
     default_registry_path,
     load_endpoint_registry,
-    parse_context_budget,
     resolve_registry_entry,
 )
 
@@ -75,34 +74,14 @@ def _write_convention(home, text):
     return path
 
 
-def test_context_budget_parser_warns_and_preserves_validation():
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        assert parse_context_budget(
-            {"context_budget": 123}, source="test", entry_id="alpha"
-        ) == 123
-    assert len(caught) == 1
-    assert caught[0].category is DeprecationWarning
-
-    with warnings.catch_warnings(record=True) as invalid_caught:
-        warnings.simplefilter("always")
-        with pytest.raises(
-            EndpointMetadataError, match="expected a positive integer number of tokens"
-        ):
-            parse_context_budget({"context_budget": 0}, source="test", entry_id="alpha")
-    assert len(invalid_caught) == 1
-    assert invalid_caught[0].category is DeprecationWarning
-
-
-def test_context_budget_field_is_deprecated_and_not_loaded(fake_home):
+def test_context_budget_is_an_unknown_key_and_is_ignored(fake_home):
     _write_convention(
         fake_home,
         "models:\n  alpha:\n    base_url: http://alpha/v1\n    model: alpha\n"
         "    context_budget: 123\n",
     )
     entry = load_endpoint_registry().entries["alpha"]
-    assert entry.context_budget is None
-    assert EndpointEntry("alpha", None, "alpha").context_budget is None
+    assert not hasattr(entry, "context_budget")
 
 
 class TestPathResolution:

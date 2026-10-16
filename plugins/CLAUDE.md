@@ -674,8 +674,10 @@ manifest commands:
 the plugin's venv provisioned calls `os.execv` and abandons the pytest process
 ITSELF, not just the import -- so the run stops at collection with **exit 0 and
 no output at all: a false green**. Setting `_BOOTSTRAP_GUARD_VENV_REEXEC=1`
-makes the re-exec a no-op (see `_REEXEC_GUARD_ENV` in `bootstrap_guard.py`),
-matching how the real script is invoked once the guard has already fired.
+makes the re-exec a no-op (see `_REEXEC_GUARD_ENV` in `bootstrap_guard.py`).
+The literal `1` is the explicit opt-out. The guard's own loop flag carries the
+interpreter it re-exec'd into and is honored only for that interpreter, so a
+child that inherits another plugin's flag still moves into its own venv.
 
 **Set it in the test package's `conftest.py`, not at the invocation.** Every
 affected test dir does this at import time, so a bare `pytest tests/<dir>` is
