@@ -5,7 +5,7 @@ Plugin-level orientation for `plugins-kit:skills-kit`. The plugin's artifact is 
 The plugin ships **four skills**:
 
 - **`md-domain`** (`/md-domain`) -- the single front door. One dispatch table (verb x artifact -> lane record), three shared verb procedures (audit; one producing lane serving both author and generate; analyze) plus render's short command procedure, four per-artifact standards docs, the placement spine, and all the audit machinery.
-- **`knowledge-encoding`** -- encoding a newly discovered insight into a persistent home.
+- **`knowledge-encoding`** -- encoding a discovered insight into a persistent home.
 - **`update-documentation`** -- end-of-session review of what the work implies for the docs.
 - **`materialized-output`** -- designing a tool that produces a materialized insight.
 
@@ -53,76 +53,41 @@ claude_md:
         - standards resolver
       origin: Phase 4.6 P5 plugin-level orientation surface (2026-04-30); rewritten for the md-domain fold (2026-07-29).
       added: "2026-04-30"
-      summary: skills-kit ships four skills -- md-domain (the single verb x artifact front door, owning the standards docs, both verb lanes, the placement spine, the audit framework, and the discover/workflow machinery) plus knowledge-encoding, update-documentation, and materialized-output. The audit/classify/tag validators and the standards-configuration surface live in skills_kit_lib.
+      summary: >-
+        skills-kit ships four skills -- md-domain (the single verb x artifact front door, owning the standards docs, both verb lanes, the placement spine, the audit framework, and the discover/workflow machinery) plus knowledge-encoding, update-documentation, and materialized-output. The audit/classify/tag/material validators and the standards-configuration surface live in skills_kit_lib. Error-driving constraints: schema_registry.py wins over glossary/framework.md on divergence; standards resolution does NOT degrade without pyyaml (exit 1, never an empty config); audit.py DOES degrade to contract-staged without pyyaml; material.py exits 0 printed, 1 refused, 2 usage, 3 library unavailable, 4 over budget.
       detail: |
-        Plugin layout (post-fold), one line per surface. md-domain's own SKILL.md
-        references block is the file-by-file index.
-
-        md-domain -- the single front door.
-        - skills/md-domain/SKILL.md -- the ONE dispatch table (verb x artifact ->
-          lane record); read for routing, the lane roster, and argument grammar.
-        - skills/md-domain/CLAUDE.md -- shape decisions about the skill itself.
-        - references/standards/ -- the per-artifact "what good looks like", each
-          read in BOTH directions (detecting for audit, producing for generation).
-        - references/lanes/ -- the three shared verb procedures (audit-lane,
-          generation-lane serving BOTH author and generate, coverage-lane which
-          is the analyze procedure named for its output).
-        - references/cohesion-principles.md -- the placement spine; read for WHERE
-          a fact lives. Every lane and standards doc defers here.
-        - references/audit-framework.{md,yaml} -- audit-family glossary + registry
-          (see audit_framework_paths_are_cross_plugin_api below).
-        - references/references-finding-taxonomy.md -- the references lane's taxonomy.
-        - references/configuring-standards.md, references/authoring-standards.md --
-          standards configuration and additive standards files.
-        - references/authoring-patterns/ -- the verb-generic content-shape cluster.
-        - references/skill-domain/ -- skill-artifact deep references (glossary,
-          framework tables, scripts, examples); schema_registry.py wins on divergence.
-        - references/provenance/ -- inherited decision logs (the dec_N framework
-          decisions and the folded skills' CLAUDE.md histories).
-        - scripts/ -- the lanes' discover / scan / report entry points.
-        - workflow/ -- the detect/classify lanes and the generated remediate lanes.
-
-        The other three skills: knowledge-encoding (encode a discovered insight),
-        update-documentation (end-of-session doc review), materialized-output (the
-        insight-view tool pattern). None of them own placement or the standards.
-
-        Validators (plugin-level Python, invoked by md-domain's capabilities):
-        - skills_kit_lib/schema_registry.py -- canonical machine-readable
-          per-type contract. SCHEMAS_BY_ROOT dispatches by YAML root key.
-        - skills_kit_lib/audit.py -- per-skill or per-CLAUDE.md audit;
-          three states (yaml-validated / contract-staged / legacy-fallback).
-        - skills_kit_lib/classify.py -- type inference; YAML root key
-          is deterministic, heuristic scoring is the legacy fallback.
-        - skills_kit_lib/tag.py -- idempotent skill-type: frontmatter
-          writer; refuses to overwrite existing differing values without --force;
-          refuses missing-frontmatter cases (never invents).
-        - skills_kit_lib/material.py -- the one binding to
-          bootstrap_lib.skill_material, and the `material` command behind the
-          md-domain `render` verb (exit codes 0 printed, 1 refused, 2 usage,
-          3 library unavailable, 4 over budget). No fifth skill exists for it;
-          the skill count stays four.
-
-        Standards-configuration surface:
-        - skills_kit_lib/rule_catalog.py -- the RULES catalog, SSOT for rule id ->
-          bucket / description.
-        - skills_kit_lib/standards_resolve.py -- self-contained (stdlib+pyyaml,
-          no bootstrap_lib) resolver of the layered standards config.
-        - skills_kit_lib/defaults/standards/SKILL-standards.md and
-          CLAUDE-md-standards.md -- layer 0, the shipped standards (both must
-          exist): the mechanical frontmatter-hygiene (description and
-          skill-type), body-size, references-layout and YAML-contract floor
-          (facts and caution) criteria for SKILL.md, and the size and
-          record-floor criteria for CLAUDE.md / AGENTS.md, evaluated by
-          audit.MECHANICAL_EVALUATORS.
-        - Layer model, config.yaml format, thresholds, rule catalog, and error
-          behavior: skills/md-domain/references/configuring-standards.md.
-
-        The fold (2026-07-29): md-audit and md-authoring (the two routers), their
-        six member skills, and the standalone cohesion-principles skill were
-        dissolved into md-domain; cohesion-principles survives as a reference doc.
-        The fold was a relocation, not a behavior change -- rationale and the
-        verbatim-preservation list: skills/md-domain/CLAUDE.md (`md_domain_fold`,
+        File index: skills/md-domain/SKILL.md (its references block lists every
+        file; its dispatch table is the routing source). Shape decisions for the
+        skill: skills/md-domain/CLAUDE.md. The fold that created md-domain is
+        recorded there too (`md_domain_fold`,
         `contracts_preserved_verbatim_through_the_fold`).
+
+        The other three skills (knowledge-encoding, update-documentation,
+        materialized-output) own neither placement nor the standards.
+
+        Validators (skills_kit_lib/, invoked by md-domain's capabilities):
+        - schema_registry.py -- canonical machine-readable per-type contract;
+          SCHEMAS_BY_ROOT dispatches by YAML root key. It wins over
+          references/skill-domain/glossary.md and framework.md on divergence.
+        - audit.py -- three states (yaml-validated / contract-staged /
+          legacy-fallback); degrades to contract-staged without pyyaml.
+        - classify.py -- the YAML root key is deterministic; heuristic scoring
+          is the legacy fallback.
+        - tag.py -- idempotent skill-type: frontmatter writer; refuses to
+          overwrite a differing value without --force and refuses missing
+          frontmatter (never invents).
+        - material.py -- the one binding to bootstrap_lib.skill_material and
+          the `material` command behind the md-domain `render` verb (exit codes
+          0 printed, 1 refused, 2 usage, 3 library unavailable, 4 over budget).
+          No fifth skill exists for it; the skill count stays four.
+
+        Standards-configuration surface: rule_catalog.py (RULES, SSOT for rule
+        id -> bucket / description); standards_resolve.py (self-contained,
+        stdlib+pyyaml, no bootstrap_lib); defaults/standards/SKILL-standards.md,
+        SKILL-legacy-standards.md and CLAUDE-md-standards.md are layer 0 and all
+        three must exist (evaluated by audit.MECHANICAL_EVALUATORS). Layer
+        model, config.yaml format, thresholds and error behavior:
+        skills/md-domain/references/configuring-standards.md.
     - id: which_surface_for_which_task
       keywords:
         - reading order
@@ -249,7 +214,9 @@ claude_md:
           report.py) are stdlib-only entry points invoked by the lanes themselves.
         - Outside the venv (bare system Python): audit.py runs but reports
           judgment-required on the YAML contract row and on each shipped
-          standards criterion row (deferred). classify.py and tag.py operate
+          standards criterion row (deferred), except that the contract floors
+          have no row and the legacy per-type heuristic rows keep their real
+          verdicts. classify.py and tag.py operate
           on frontmatter and a regex-detected YAML root key; they do not need pyyaml.
           material.py does not degrade: without bootstrap_lib or pyyaml it prints a
           diagnosis and exits 3. Neither do resolve_standards.py and

@@ -58,11 +58,17 @@ except ImportError:  # pragma: no cover - exercised only on a bare interpreter
 #: this module attribute at call time, never as a bound default.
 SHIPPED_STANDARDS_DIR = Path(__file__).resolve().parent / "defaults" / "standards"
 
-#: The shipped files carrying the criteria audit.py evaluates: skill_md and
-#: claude_md. Each must exist in the shipped directory.
+#: The shipped files carrying the criteria audit.py evaluates: skill_md (the
+#: general file and the legacy per-skill-type heuristics) and claude_md. Each
+#: must exist in the shipped directory.
 SHIPPED_SKILL_STANDARDS = "SKILL-standards.md"
+SHIPPED_LEGACY_STANDARDS = "SKILL-legacy-standards.md"
 SHIPPED_CLAUDE_MD_STANDARDS = "CLAUDE-md-standards.md"
-SHIPPED_REQUIRED_STANDARDS = (SHIPPED_SKILL_STANDARDS, SHIPPED_CLAUDE_MD_STANDARDS)
+SHIPPED_REQUIRED_STANDARDS = (
+    SHIPPED_SKILL_STANDARDS,
+    SHIPPED_LEGACY_STANDARDS,
+    SHIPPED_CLAUDE_MD_STANDARDS,
+)
 
 #: Sentinel for "use SHIPPED_STANDARDS_DIR"; an explicit None opts out.
 _SHIPPED_DEFAULT = object()

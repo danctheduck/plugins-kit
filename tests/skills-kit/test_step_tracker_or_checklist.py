@@ -26,9 +26,8 @@ from skills_kit_lib.markdown_heuristics import (
     has_step_tracker_invocation,
     has_tickbox_list,
     parse_body,
-    parse_frontmatter,
 )
-from skills_kit_lib.audit import check_technique_skill
+from skills_kit_lib.audit import audit
 
 
 SKILL_HEADER = """---
@@ -45,6 +44,17 @@ def _body_with_steps(extra: str = "") -> str:
     """Build a SKILL.md body with 5 ordered steps + an extra block."""
     steps = "\n".join(f"{n}. Do step {n}." for n in range(1, 6))
     return f"{SKILL_HEADER}\n## Procedure\n\n{steps}\n\n{extra}\n"
+
+
+def _step_tracking_row(tmp_path, body_text):
+    """The step-tracking row of the shipped criterion, through a real audit."""
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    path = skill_dir / "SKILL.md"
+    path.write_text(body_text, encoding="utf-8")
+    rows = [r for r in audit(path)["type_specific"] if r["rule"] == "step-tracking"]
+    assert len(rows) == 1
+    return rows[0]
 
 
 def test_has_step_tracker_invocation_recognizes_taskcreate():
@@ -85,37 +95,29 @@ def test_audit_row_passes_with_taskcreate_invocation_no_checklist(tmp_path):
     body_text = _body_with_steps(
         "Before beginning, invoke TaskCreate to seed the task list."
     )
-    skill_dir = tmp_path / "skill"
-    skill_dir.mkdir()
-    fm = parse_frontmatter(body_text)
     body = parse_body(body_text)
 
     # Sanity: tickbox is absent, tracker is present
     assert not has_tickbox_list(body.text)
     assert has_step_tracker_invocation(body.text)
 
-    results = check_technique_skill(body, skill_dir, fm)
-    row = next(r for r in results if "step-tracking" in r.row)
-    assert row.verdict == "pass", f"expected pass, got {row.verdict}: {row.note}"
-    assert "step-tracker invocation" in row.note
+    row = _step_tracking_row(tmp_path, body_text)
+    assert row["verdict"] == "pass", f"expected pass, got {row["verdict"]}: {row["note"]}"
+    assert "step-tracker invocation" in row["note"]
 
 
 def test_audit_row_passes_with_only_tickbox_checklist(tmp_path):
     """Backwards compat: a `- [ ]` checklist alone still satisfies the row."""
     checklist = "\n".join(f"- [ ] step {n}" for n in range(1, 6))
     body_text = _body_with_steps(f"Checklist:\n{checklist}")
-    skill_dir = tmp_path / "skill"
-    skill_dir.mkdir()
-    fm = parse_frontmatter(body_text)
     body = parse_body(body_text)
 
     assert has_tickbox_list(body.text)
     assert not has_step_tracker_invocation(body.text)
 
-    results = check_technique_skill(body, skill_dir, fm)
-    row = next(r for r in results if "step-tracking" in r.row)
-    assert row.verdict == "pass", f"expected pass, got {row.verdict}: {row.note}"
-    assert "tickbox checklist" in row.note
+    row = _step_tracking_row(tmp_path, body_text)
+    assert row["verdict"] == "pass", f"expected pass, got {row["verdict"]}: {row["note"]}"
+    assert "tickbox checklist" in row["note"]
 
 
 def test_audit_row_fails_when_neither_present(tmp_path):
@@ -123,18 +125,14 @@ def test_audit_row_fails_when_neither_present(tmp_path):
     invocation is present, the row FAILS.
     """
     body_text = _body_with_steps("No tracker, no checklist, just prose.")
-    skill_dir = tmp_path / "skill"
-    skill_dir.mkdir()
-    fm = parse_frontmatter(body_text)
     body = parse_body(body_text)
 
     assert not has_tickbox_list(body.text)
     assert not has_step_tracker_invocation(body.text)
 
-    results = check_technique_skill(body, skill_dir, fm)
-    row = next(r for r in results if "step-tracking" in r.row)
-    assert row.verdict == "fail", f"expected fail, got {row.verdict}: {row.note}"
-    assert "neither" in row.note
+    row = _step_tracking_row(tmp_path, body_text)
+    assert row["verdict"] == "fail", f"expected fail, got {row["verdict"]}: {row["note"]}"
+    assert "neither" in row["note"]
 
 
 def test_audit_row_na_when_3_or_fewer_steps(tmp_path):
@@ -143,11 +141,7 @@ def test_audit_row_na_when_3_or_fewer_steps(tmp_path):
         f"{SKILL_HEADER}\n## Procedure\n\n"
         "1. Do step 1.\n2. Do step 2.\n3. Do step 3.\n"
     )
-    skill_dir = tmp_path / "skill"
-    skill_dir.mkdir()
-    fm = parse_frontmatter(body_text)
     body = parse_body(body_text)
 
-    results = check_technique_skill(body, skill_dir, fm)
-    row = next(r for r in results if "step-tracking" in r.row)
-    assert row.verdict == "n/a", f"expected n/a, got {row.verdict}: {row.note}"
+    row = _step_tracking_row(tmp_path, body_text)
+    assert row["verdict"] == "n/a", f"expected n/a, got {row["verdict"]}: {row["note"]}"

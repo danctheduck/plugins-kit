@@ -313,11 +313,11 @@ claude_md:
         generation-lane.md's write mechanics; claude-md-generate.js's
         agent-result schema) kept its narrow, still-true description with the
         old exclusivity language ("the one place," "requires this criterion
-        to have rejected the fact first") removed, since other routes now
+        to have rejected the fact first") removed, since other routes
         exist alongside it. Placement enforcement: the coverage lane's write
         instructions were tightened so a sidecar is never written without a
         co-located CLAUDE.md carrying the required pointer in the same turn
-        -- a non-empty `potentialDefects` now takes the null branch off the
+        -- a non-empty `potentialDefects` takes the null branch off the
         table for that directory, forcing a pointer-only CLAUDE.md when the
         directory's own code otherwise earns no ambient cost. Current-state
         contract: deferred-defects.md.
@@ -522,7 +522,7 @@ claude_md:
       added: "2026-10-16"
     - id: skill_type_criteria_shipped
       keywords: [skill-type-tag, skill-type-valid, SkillContext, applies gate, MechanicalEvaluator, evaluator context, frontmatter hygiene, deferred row, no pyyaml, M6, shipped standards]
-      summary: "skills-kit 0.93.0 moves skill-type-tag and skill-type-valid out of audit.check_universal and rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria. An evaluator now receives a SkillContext (frontmatter, body, skill dir) and carries an applies gate that decides whether the criterion has a row for the document. Extends shipped_standards_layer_enabled."
+      summary: "skills-kit 0.93.0 moves skill-type-tag and skill-type-valid out of audit.check_universal and rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria. An evaluator receives a SkillContext (frontmatter, body, skill dir) and carries an applies gate that decides whether the criterion has a row for the document. Extends shipped_standards_layer_enabled."
       detail: |
         Surface: the two skill-type rows were hard-coded in check_universal and
         catalogued in rule_catalog.RULES as optional description-hygiene rules.
@@ -703,5 +703,136 @@ claude_md:
         from a copy of the shipped file while the rows come from hard-coded
         code.
       origin: Surface, finding and follow-up above; milestone M6 wave 4 of the configurable-standards work.
+      added: "2026-10-16"
+    - id: legacy_heuristic_criteria_shipped
+      keywords: [SKILL-legacy-standards.md, legacy heuristics, type_specific section, ref-example-block, pattern-prohibited-bundle, technique-ordered-steps, step-tracking, discipline-pressure-test, domain-orientation, bare_severity, JUDGMENT outcome, contract_staged, applies gate, fence-stripped body, no pyyaml, coverage ids stay, D2, D4, M6, shipped standards]
+      summary: "skills-kit 0.97.0 moves the 19 legacy per-skill-type heuristic ids (ref-*, pattern-*, technique-*, discipline-*, domain-*) and step-tracking out of audit.py's per-type check functions and out of rule_catalog.RULES into a dedicated shipped file, SKILL-legacy-standards.md, as mechanical criteria in the type_specific list. The eight coverage ids stay in the catalog. Extends contract_floor_criteria_shipped."
+      detail: |
+        Surface: twenty optional rules were emitted by five hard-coded
+        functions, one per skill type, selected by a TYPE_RUNNERS table, and
+        catalogued in rule_catalog.RULES as legacy-heuristics (step-tracking as
+        a record floor). They ran only for a SKILL.md with no staged YAML
+        contract, only for its declared skill-type, and against the body with
+        fenced code removed.
+        Finding: unlike the rows moved in waves 1 to 4, these rows are scoped
+        by the document's declared type and by the absence of a contract, have
+        a third report list of their own (type_specific), and have always kept
+        their real verdict on a bare interpreter, because each is a
+        deterministic heading, marker or filesystem test.
+        Decision D4 (settled): keep the 20 legacy rows mechanical, in a separate
+        shipped SKILL-legacy-standards.md (applies_to skill_md), split into
+        per-skill-type commits; preserve the rules that legacy rows run only
+        without a staged contract, only for the declared skill type, and
+        against code-fence-stripped prose.
+        Decision D2 (settled, restated because it bounds this wave): the eight
+        coverage ids (absent-fact-earns-ambient-cost through
+        present-content-not-re-audited) stay registered in rule_catalog.RULES.
+        Their criteria are shipped data in
+        skills/md-domain/references/standards/coverage-standards.md and are
+        applied by an agent in the coverage lane, which reads the catalog to
+        know the id is disableable; they have no evaluator. The catalog is
+        therefore 8 optional, 11 inoffensive and 3 architectural.
+        Rulings: (1) A third evaluator section, type_specific. audit() evaluates
+        it last, with a SkillContext whose body is the fence-stripped narrative
+        body and which carries contract_staged. (2) The scope is an applies
+        predicate on each evaluator (no staged contract and a declared
+        skill-type equal to the one the criterion covers), not a field in the
+        standards file: the standards schema has no scope key, the facts floors
+        already gate on the contract root the same way, and the criterion's
+        statement names its type. (3) MechanicalEvaluator.bare_severity: the
+        legacy rows must keep their real verdict without pyyaml, where the
+        shipped file cannot be read, so each evaluator carries a copy of its
+        criterion's severity that is used instead of a deferred row. This is
+        the one place a severity lives in code; a test pins every copy equal to
+        the shipped file, so the file stays the source. Waves 1 to 3 accepted
+        deferred rows on a bare interpreter; this wave does not, because the
+        legacy heuristics are the only audit a no-contract skill gets there.
+        (4) An evaluator outcome may also be JUDGMENT. discipline-pressure-test
+        has three outcomes: no marker is a miss, and a marker is neither a pass
+        nor a miss but a row the agent must verify, so it is judgment-required
+        whatever severity a layer would give the criterion. (5)
+        SHIPPED_REQUIRED_STANDARDS gains the legacy file; a missing file is a
+        StandardsConfigError on a bare interpreter too. (6) step-tracking is
+        technique-scoped, so it ships with the technique criteria, between the
+        other two in file order, and is n/a (keeping its "only N steps" note)
+        with three or fewer steps. (7) TYPE_RUNNERS, the five check_*_skill
+        functions and the special case that routed technique-skill around the
+        table left the audit path; audit() runs none of them, and the two
+        tests that called check_technique_skill go through audit(). The names
+        themselves stay as deprecation shims (m6_deprecation_shims).
+        Severity per id copies the old verdict on a miss: five rows are
+        judgment (ref-example-block, ref-gotcha-block,
+        pattern-recognition-block, pattern-counter-example and
+        domain-identity-sentence) and the other fifteen are fail.
+        Behaviour kept: a reference-skill, pattern-skill, technique-skill,
+        discipline-skill or domain-skill tag with a contract block gets no
+        legacy row, an untagged skill or a capability-skill or audit-skill gets
+        none, a marker that appears only inside a code fence does not count,
+        and rows keep their labels, notes, verdicts and positions. No behaviour
+        change, including without pyyaml.
+        Follow-up: none for these ids. Verification: the output of 738
+        generated fixtures (every skill type, tagged and untagged, contract
+        staged and not, fenced markers, each marker present and absent, step
+        counts 0 to 7, H2 counts 0 to 3, scripts/ and bin/ directories) plus
+        the 29 SKILL.md files of the repo was byte-identical before and after
+        at every one of the five commits, with and without pyyaml; the same
+        fixtures through resolve() matched the default-mode output; the golden
+        corpus stayed byte-identical; and the red-on-revert tests fail when a
+        criterion is removed from a copy of the shipped file while the rows
+        come from hard-coded code, and when the contract gate is removed.
+      origin: Surface, finding and follow-up above; milestone M6 wave 5 of the configurable-standards work.
+      added: "2026-10-16"
+    - id: m6_deprecation_shims
+      keywords: [deprecation shim, DeprecationWarning, deprecation policy, SkillCriterion, skill_md_criteria, TYPE_RUNNERS, check_reference_skill, check_facts_cross_rules, check_claude_md_record_floor, check_claude_md_defaults, THRESHOLDS import_max_lines, contract/public-surface.json, remove_after, 0.99.0, shared lib, skills_kit_lib, M6]
+      summary: "skills-kit 0.97.0 restores the audit.py names that waves 1 to 5 of M6 removed or narrowed, as deprecation shims removable in 0.99.0: SkillCriterion, skill_md_criteria, TYPE_RUNNERS, the five check_<type>_skill functions, check_facts_cross_rules, check_technique_caution_cross_rule, check_claude_md_record_floor, the body and th arguments of check_claude_md_defaults, and the import_max_lines key of THRESHOLDS. Supersedes the deleted-not-wrapped ruling in legacy_heuristic_criteria_shipped (7)."
+      detail: |
+        Surface: skills_kit_lib is published as a shared library
+        (bootstrap.json shared_libs), so the module-level names of audit.py are
+        public under the marketplace deprecation policy (rule 1: a public name is anything a consumer can import). Waves 1 to 5
+        removed eleven names and dropped two parameters of
+        check_claude_md_defaults without the two-minor-version shim window the
+        policy requires; the waves' rulings (deleted, not kept as wrappers)
+        reasoned from "no caller in this repository" and did not weigh
+        consumers in other repositories.
+        Finding: a review of the range confirmed the removals as a policy
+        violation, and the policy's rule 4 prescribes the remedy: restore a
+        shim, as a fix forward.
+        Ruling: each shim keeps the old name and the old call shape, emits
+        DeprecationWarning with stacklevel=2 naming the replacement and the
+        removal version (deprecated in 0.97.0, removable in 0.99.0, the second
+        minor release after it), and returns what the former function returned
+        by delegating to the shipped criteria through the current evaluator
+        path. The five check_<type>_skill shims build their rows from the
+        legacy criteria with no severity, so each takes its evaluator's
+        bare_severity (pinned equal to SKILL-legacy-standards.md); the facts,
+        caution and record-floor shims pass severity fail, the verdict the
+        former functions hard-coded. SkillCriterion is MechanicalCriterion and
+        TYPE_RUNNERS is a table of the four runners it held, both served by a
+        module __getattr__ so that an access warns. check_claude_md_defaults
+        called with the former four arguments warns and also returns the
+        import-size and size-signal rows it used to append, computed by the
+        shipped evaluators with the caller's th; the two-argument call is
+        unchanged and silent. THRESHOLDS is a dict subclass whose
+        __missing__ answers import_max_lines (50, pinned equal to the shipped
+        criterion's default) with a warning; the key is not a member of
+        THRESHOLDS, so the standards resolver refuses a criterion that declares
+        it.
+        MechanicalEvaluator and MECHANICAL_EVALUATORS are not shimmed: they are
+        the in-library seam that binds a shipped criterion id to code, no
+        consumer outside skills-kit reaches it, and a registration made for the
+        former evaluate(description, thresholds) shape cannot be adapted to the
+        context argument without guessing which shape a callable expects.
+        They are not listed in the contract.
+        Follow-up: delete the shims, their tests, and the deprecated entries
+        of contract/public-surface.json (recording them as removed) in the
+        release that carries 0.99.0 or later; the shim
+        test module (test_audit_deprecation_shims.py) fails once the plugin version reaches
+        remove_after. Verification: each shim's rows matched the original
+        functions (commit efd43c8b, skills-kit 0.92.1) over 40229 comparisons
+        (6428 generated bodies and the 29 SKILL.md files of the repo through
+        each type function, 50 YAML documents through the floors, 45
+        CLAUDE.md texts through the defaults), with and without pyyaml; the
+        captured original rows are pinned in the test.
+      origin: Surface, finding and follow-up above; review of skills-kit 0.92.1 to 0.97.0 against the marketplace deprecation policy.
       added: "2026-10-16"
 ```

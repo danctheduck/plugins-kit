@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+import warnings
 from urllib.parse import unquote
 from dataclasses import dataclass, asdict
 from functools import cached_property
@@ -73,12 +74,52 @@ NA = "n/a"
 # CRITERION consumes is not listed here: its default lives in that criterion's
 # `threshold:` declaration (skills_kit_lib/defaults/standards/), and
 # standards_resolve reports it as ResolvedStandards.threshold_defaults.
-THRESHOLDS = {
+#: The default `import_max_lines` carried while the key is deprecated. The
+#: shipped claude-md-import-size criterion owns the live value; a test pins this
+#: constant equal to that criterion's declared default.
+_DEPRECATED_IMPORT_MAX_LINES = 50
+
+#: First and last skills-kit versions of the deprecation window for the names
+#: that left this module (docs/reference/deprecation-policy.md).
+_DEPRECATED_SINCE = "0.97.0"
+_REMOVABLE_IN = "0.99.0"
+
+
+def _deprecation_message(old: str, replacement: str) -> str:
+    return (
+        f"skills_kit_lib.audit.{old} is deprecated since skills-kit {_DEPRECATED_SINCE} and "
+        f"will be removed in {_REMOVABLE_IN}; use {replacement}"
+    )
+
+
+class _BuiltinThresholds(dict):
+    """The built-in thresholds. `import_max_lines` left the mapping when the
+    shipped claude-md-import-size criterion took ownership of it; a lookup of
+    the old key still answers, with a DeprecationWarning, for the policy window.
+    Only `thresholds["import_max_lines"]` is served: membership, iteration and
+    `.get` see the real keys."""
+
+    def __missing__(self, key):
+        if key == "import_max_lines":
+            warnings.warn(
+                _deprecation_message(
+                    'THRESHOLDS["import_max_lines"]',
+                    "the threshold declared by the shipped claude-md-import-size criterion "
+                    "(resolve_shipped().threshold_defaults)",
+                ),
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return _DEPRECATED_IMPORT_MAX_LINES
+        raise KeyError(key)
+
+
+THRESHOLDS = _BuiltinThresholds({
     "name_max_chars": 64,
     "body_max_lines": 500,
     "body_max_tokens": 3000,
     "mixed_min_score": 2,
-}
+})
 
 
 @dataclass
@@ -100,12 +141,19 @@ class SkillContext:
     yaml_units is every recognized (root, block data) unit in the body, parsed
     on first use and shared by the evaluators that read it; it is empty
     without pyyaml.
+
+    contract_staged is True when the document carries a YAML contract block
+    (parsed, or detected by regex on a bare interpreter); it is set only on the
+    context the type_specific-section evaluators receive, whose `body` is the
+    NARRATIVE body (code fences stripped), because the legacy per-type
+    heuristics must not count markers inside fenced examples.
     """
 
     fm: Frontmatter
     body: Body
     skill_dir: Path
     yaml_root: str | None = None
+    contract_staged: bool = False
 
     @cached_property
     def yaml_units(self) -> list[tuple[str, dict]]:
@@ -158,26 +206,40 @@ class MechanicalEvaluator:
       judgment-required) or None (not applicable: the row's verdict is n/a).
       None is for a criterion that applies to the document but has nothing to
       check on it, so its row still appears; a criterion with no row at all
-      uses `applies`. The thresholds mapping holds only `threshold` and
-      `reads_builtin_thresholds`, so an evaluator cannot read a limit its
-      record does not name.
+      uses `applies`. The outcome may also be the string JUDGMENT: the
+      mechanical test found what it looks for but a judgment remains for the
+      agent, so the row is judgment-required whatever the criterion's severity
+      (a miss still follows the severity). The thresholds mapping holds only
+      `threshold` and `reads_builtin_thresholds`, so an evaluator cannot read a
+      limit its record does not name.
     - reads_builtin_thresholds: built-in thresholds (THRESHOLDS) the evaluator
       reads without owning. A criterion never declares one of these; a user
       tunes it through `thresholds:` and every reader sees the same value.
-    - section: the report list the row joins ("universal" or "yaml_contract").
-      A claude_md audit appends yaml_contract rows after the contract rows. A
-      skill_md audit emits them after the portable-unit rows and before the
-      asset-dependency rows, with a SkillContext that carries yaml_root; its
-      universal rows are evaluated inside check_universal.
+    - section: the report list the row joins ("universal", "yaml_contract" or
+      "type_specific"). A claude_md audit appends yaml_contract rows after the
+      contract rows. A skill_md audit emits them after the portable-unit rows
+      and before the asset-dependency rows, with a SkillContext that carries
+      yaml_root; its universal rows are evaluated inside check_universal. The
+      type_specific rows are the legacy per-skill-type heuristics: a skill_md
+      audit evaluates them last, with a SkillContext whose body is the
+      narrative body and which carries contract_staged, and each evaluator's
+      `applies` gate holds only for a document with no staged contract whose
+      declared skill-type is the one the criterion covers.
+    - bare_severity: the severity applied when the shipped standards file
+      cannot be read (no pyyaml), instead of a deferred row. Set only for a
+      criterion whose row a bare interpreter has always reported with its real
+      verdict; a test pins it equal to the severity the shipped file declares,
+      so the file stays the source and this is the bare-interpreter copy of it.
     """
 
     applies_to: str
     threshold: str | None
     deferred_row: str
     applies: Callable[[Any], bool]
-    evaluate: Callable[[Any, dict[str, int]], tuple[str, bool | None, str]]
+    evaluate: Callable[[Any, dict[str, int]], tuple[str, bool | str | None, str]]
     reads_builtin_thresholds: tuple[str, ...] = ()
     section: str = "universal"
+    bare_severity: str | None = None
 
     def __post_init__(self) -> None:
         unknown = [n for n in self.reads_builtin_thresholds if n not in THRESHOLDS]
@@ -407,6 +469,130 @@ def _eval_caution_floor(ctx: SkillContext, th: dict[str, int]) -> tuple[str, boo
     )
 
 
+def _legacy_applies(skill_type: str) -> Callable[[SkillContext], bool]:
+    """The scope gate of one legacy per-type heuristic: it holds only for a
+    document with NO staged YAML contract (a contract block, parsed or merely
+    detected, supersedes the heuristics) whose declared skill-type is
+    `skill_type`. It is a predicate, not data in the standards file, for the
+    same reason the facts floors gate on the contract root: the scope is part of
+    what the evaluator checks, and the criterion's statement names the type."""
+
+    def applies(ctx: SkillContext) -> bool:
+        return not ctx.contract_staged and ctx.fm.fields.get("skill-type") == skill_type
+
+    return applies
+
+
+def _marker_present(
+    label: str, test: Callable[[str], bool], miss_note: str
+) -> Callable[[SkillContext, dict[str, int]], tuple[str, bool, str]]:
+    """Evaluator for a legacy row that passes when its marker IS in the
+    narrative body and carries `miss_note` when it is not."""
+
+    def evaluate(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+        ok = test(ctx.body.text)
+        return label, ok, "" if ok else miss_note
+
+    return evaluate
+
+
+def _marker_absent(
+    label: str, test: Callable[[str], bool], hit_note: str
+) -> Callable[[SkillContext, dict[str, int]], tuple[str, bool, str]]:
+    """Evaluator for a legacy "prohibited:" row that passes when its marker is
+    NOT in the narrative body and carries `hit_note` when it is."""
+
+    def evaluate(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+        hit = test(ctx.body.text)
+        return label, not hit, hit_note if hit else ""
+
+    return evaluate
+
+
+def has_identity_sentence(body_text: str) -> bool:
+    after_h1 = re.split(r"^#\s+\S.+$", body_text, maxsplit=1, flags=re.MULTILINE)
+    if len(after_h1) < 2:
+        return False
+    rest = after_h1[1].lstrip()
+    first_para = rest.split("\n\n", 1)[0].strip()
+    return bool(first_para) and "." in first_para and len(first_para) < 600
+
+
+def _discipline_content(text: str) -> bool:
+    return has_red_green_refactor(text) or has_excuse_reality_table(text)
+
+
+def _eval_pattern_bundle(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    present = (ctx.skill_dir / "scripts").exists() or (ctx.skill_dir / "bin").exists()
+    return "prohibited: utility bundle", not present, "scripts/ or bin/ present" if present else ""
+
+
+def _eval_ordered_steps(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    # User-only technique-skills (disable-model-invocation: true) are NOT
+    # exempt: the technique-skill schema requires steps regardless of
+    # trigger_model (Dec-2), and this legacy path mirrors it.
+    step_count = count_ordered_steps(ctx.body.text)
+    return "ordered-step body", step_count >= 1, f"{step_count} ordered-step entries detected"
+
+
+def _eval_step_tracking(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool | None, str]:
+    label = "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation"
+    step_count = count_ordered_steps(ctx.body.text)
+    if step_count <= 3:
+        return label, None, f"only {step_count} steps"
+    has_checklist = has_tickbox_list(ctx.body.text)
+    has_tracker = has_step_tracker_invocation(ctx.body.text)
+    if has_checklist or has_tracker:
+        via = "tickbox checklist" if has_checklist else "step-tracker invocation"
+        return label, True, f"{step_count} steps; satisfied via {via}"
+    return (
+        label,
+        False,
+        f"{step_count} steps; neither tickbox checklist nor step-tracker invocation present",
+    )
+
+
+def _eval_pressure_test(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool | str, str]:
+    """A discipline-skill must apply adversarial pressure testing to its own
+    rules. Markers present is not a pass: whether the testing was actually
+    applied to this skill's rules is for the agent, so that outcome is JUDGMENT
+    whatever the severity; no markers is the miss."""
+    label = "adversarial pressure testing applied"
+    if has_red_green_refactor(ctx.body.text):
+        return (
+            label,
+            JUDGMENT,
+            "RED/GREEN/REFACTOR markers present; agent must verify pressure testing was applied to this skill's own rules",
+        )
+    return label, False, "no RED/GREEN/REFACTOR markers"
+
+
+def _h2_count(text: str) -> int:
+    return len(re.findall(r"^##\s+\S", text, re.MULTILINE))
+
+
+def _eval_domain_orientation(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    h2_count = _h2_count(ctx.body.text)
+    return "orientation content (>=1 H2 beyond index)", h2_count >= 2, f"{h2_count} H2 sections"
+
+
+def _eval_domain_index_only(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    """An index with no orientation content: Conditional Loading is the only H2."""
+    index_only = _h2_count(ctx.body.text) == 1 and has_conditional_loading(ctx.body.text)
+    return (
+        "prohibited: index without orientation",
+        not index_only,
+        "only Conditional Loading H2; no orientation content" if index_only else "",
+    )
+
+
+_REFERENCE_SKILL_APPLIES = _legacy_applies("reference-skill")
+_PATTERN_SKILL_APPLIES = _legacy_applies("pattern-skill")
+_TECHNIQUE_SKILL_APPLIES = _legacy_applies("technique-skill")
+_DISCIPLINE_SKILL_APPLIES = _legacy_applies("discipline-skill")
+_DOMAIN_SKILL_APPLIES = _legacy_applies("domain-skill")
+
+
 def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
     return ctx.claude_md is not None
 
@@ -524,6 +710,161 @@ MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
         _caution_floor_applies, _eval_caution_floor,
         section="yaml_contract",
     ),
+    "ref-example-block": MechanicalEvaluator(
+        "skill_md", None,
+        ">=1 example block (deferred)", _REFERENCE_SKILL_APPLIES,
+        _marker_present(
+            ">=1 example block",
+            lambda text: has_heading(text, "Example", "Examples"),
+            "no 'Example' heading detected",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "ref-gotcha-block": MechanicalEvaluator(
+        "skill_md", None,
+        ">=1 gotcha block (deferred)", _REFERENCE_SKILL_APPLIES,
+        _marker_present(
+            ">=1 gotcha block",
+            lambda text: has_heading(text, "Gotcha", "Gotchas", "Known gotchas"),
+            "no 'Gotcha' heading detected",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "ref-prohibited-discipline": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: discipline content (rule+counter, RED/GREEN/REFACTOR) (deferred)", _REFERENCE_SKILL_APPLIES,
+        _marker_absent(
+            "prohibited: discipline content (rule+counter, RED/GREEN/REFACTOR)",
+            _discipline_content,
+            "discipline markers detected",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
+    "ref-prohibited-checklist": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: workflow checklist (deferred)", _REFERENCE_SKILL_APPLIES,
+        _marker_absent("prohibited: workflow checklist", has_tickbox_list, "tickbox list present"),
+        section="type_specific", bare_severity="fail",
+    ),
+    "pattern-recognition-block": MechanicalEvaluator(
+        "skill_md", None,
+        "recognition criteria block (deferred)", _PATTERN_SKILL_APPLIES,
+        _marker_present(
+            "recognition criteria block",
+            has_recognition_marker,
+            "no 'recognize/recognition/applies when' marker",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "pattern-counter-example": MechanicalEvaluator(
+        "skill_md", None,
+        "counter-example(s) block (deferred)", _PATTERN_SKILL_APPLIES,
+        _marker_present(
+            "counter-example(s) block",
+            has_counter_example,
+            "no 'counter-example' or 'do NOT apply' marker",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "pattern-prohibited-bundle": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: utility bundle (deferred)", _PATTERN_SKILL_APPLIES, _eval_pattern_bundle,
+        section="type_specific", bare_severity="fail",
+    ),
+    "pattern-prohibited-checklist": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: workflow checklist (deferred)", _PATTERN_SKILL_APPLIES,
+        _marker_absent("prohibited: workflow checklist", has_tickbox_list, ""),
+        section="type_specific", bare_severity="fail",
+    ),
+    "pattern-prohibited-rule-counter": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: rule + counter pairs (deferred)", _PATTERN_SKILL_APPLIES,
+        _marker_absent(
+            "prohibited: rule + counter pairs",
+            has_excuse_reality_table,
+            "rationalization/excuse->reality detected",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
+    "technique-ordered-steps": MechanicalEvaluator(
+        "skill_md", None,
+        "ordered-step body (deferred)", _TECHNIQUE_SKILL_APPLIES, _eval_ordered_steps,
+        section="type_specific", bare_severity="fail",
+    ),
+    "step-tracking": MechanicalEvaluator(
+        "skill_md", None,
+        "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation (deferred)",
+        _TECHNIQUE_SKILL_APPLIES, _eval_step_tracking,
+        section="type_specific", bare_severity="fail",
+    ),
+    "technique-prohibited-pressure-test": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: adversarial pressure testing (deferred)", _TECHNIQUE_SKILL_APPLIES,
+        _marker_absent(
+            "prohibited: adversarial pressure testing",
+            has_red_green_refactor,
+            "RED/GREEN/REFACTOR markers present",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
+    "discipline-rule-counter": MechanicalEvaluator(
+        "skill_md", None,
+        ">=1 rule + counter pair (deferred)", _DISCIPLINE_SKILL_APPLIES,
+        _marker_present(
+            ">=1 rule + counter pair",
+            has_excuse_reality_table,
+            "no rule+counter / rationalization markers",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
+    "discipline-red-flags": MechanicalEvaluator(
+        "skill_md", None,
+        "red flags list (deferred)", _DISCIPLINE_SKILL_APPLIES,
+        _marker_present("red flags list", has_red_flags_list, "no 'Red flags' heading"),
+        section="type_specific", bare_severity="fail",
+    ),
+    "discipline-pressure-test": MechanicalEvaluator(
+        "skill_md", None,
+        "adversarial pressure testing applied (deferred)", _DISCIPLINE_SKILL_APPLIES, _eval_pressure_test,
+        section="type_specific", bare_severity="fail",
+    ),
+    "domain-identity-sentence": MechanicalEvaluator(
+        "skill_md", None,
+        "identity sentence (deferred)", _DOMAIN_SKILL_APPLIES,
+        _marker_present(
+            "identity sentence",
+            has_identity_sentence,
+            "no clear single-sentence identity after H1",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "domain-companion-declaration": MechanicalEvaluator(
+        "skill_md", None,
+        "companion declaration (deferred)", _DOMAIN_SKILL_APPLIES,
+        _marker_present(
+            "companion declaration",
+            has_companion_declaration,
+            "no 'Companion declaration' heading or 'no sibling' / 'companion domains' phrase",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
+    "domain-orientation": MechanicalEvaluator(
+        "skill_md", None,
+        "orientation content (>=1 H2 beyond index) (deferred)", _DOMAIN_SKILL_APPLIES, _eval_domain_orientation,
+        section="type_specific", bare_severity="fail",
+    ),
+    "domain-reference-index": MechanicalEvaluator(
+        "skill_md", None,
+        "reference index (Conditional Loading) (deferred)", _DOMAIN_SKILL_APPLIES,
+        _marker_present("reference index (Conditional Loading)", has_conditional_loading, ""),
+        section="type_specific", bare_severity="fail",
+    ),
+    "domain-prohibited-index-only": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: index without orientation (deferred)", _DOMAIN_SKILL_APPLIES, _eval_domain_index_only,
+        section="type_specific", bare_severity="fail",
+    ),
     "claude-md-import-size": MechanicalEvaluator(
         "claude_md", "import_max_lines",
         "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
@@ -573,7 +914,8 @@ def _criterion_rows(
             continue
         if not evaluator.applies(ctx):
             continue
-        if crit.severity is None:
+        severity = crit.severity if crit.severity is not None else evaluator.bare_severity
+        if severity is None:
             rows.append((evaluator.section, CheckResult(
                 evaluator.deferred_row,
                 JUDGMENT,
@@ -586,23 +928,18 @@ def _criterion_rows(
         label, passed, note = evaluator.evaluate(ctx, evaluator.threshold_view(th))
         if passed is None:
             verdict = NA
+        elif isinstance(passed, str):
+            if passed != JUDGMENT:
+                raise ValueError(f"evaluator '{crit.id}' returned outcome {passed!r}; a string outcome must be JUDGMENT")
+            verdict = JUDGMENT
         elif passed:
             verdict = PASS
-        elif crit.severity == "fail":
+        elif severity == "fail":
             verdict = FAIL
         else:
             verdict = JUDGMENT
         rows.append((evaluator.section, CheckResult(label, verdict, note, rule=crit.id)))
     return rows
-
-
-def has_identity_sentence(body_text: str) -> bool:
-    after_h1 = re.split(r"^#\s+\S.+$", body_text, maxsplit=1, flags=re.MULTILINE)
-    if len(after_h1) < 2:
-        return False
-    rest = after_h1[1].lstrip()
-    first_para = rest.split("\n\n", 1)[0].strip()
-    return bool(first_para) and "." in first_para and len(first_para) < 600
 
 
 def check_universal(
@@ -670,193 +1007,6 @@ def check_universal(
     return out
 
 
-def check_reference_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
-    out: list[CheckResult] = []
-    out.append(CheckResult(
-        ">=1 example block",
-        PASS if has_heading(body.text, "Example", "Examples") else JUDGMENT,
-        "no 'Example' heading detected" if not has_heading(body.text, "Example", "Examples") else "",
-        rule="ref-example-block",
-    ))
-    out.append(CheckResult(
-        ">=1 gotcha block",
-        PASS if has_heading(body.text, "Gotcha", "Gotchas", "Known gotchas") else JUDGMENT,
-        "no 'Gotcha' heading detected" if not has_heading(body.text, "Gotcha", "Gotchas", "Known gotchas") else "",
-        rule="ref-gotcha-block",
-    ))
-    discipline_hit = has_red_green_refactor(body.text) or has_excuse_reality_table(body.text)
-    out.append(CheckResult(
-        "prohibited: discipline content (rule+counter, RED/GREEN/REFACTOR)",
-        FAIL if discipline_hit else PASS,
-        "discipline markers detected" if discipline_hit else "",
-        rule="ref-prohibited-discipline",
-    ))
-    out.append(CheckResult(
-        "prohibited: workflow checklist",
-        FAIL if has_tickbox_list(body.text) else PASS,
-        "tickbox list present" if has_tickbox_list(body.text) else "",
-        rule="ref-prohibited-checklist",
-    ))
-    return out
-
-
-def check_pattern_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
-    out: list[CheckResult] = []
-    out.append(CheckResult(
-        "recognition criteria block",
-        PASS if has_recognition_marker(body.text) else JUDGMENT,
-        "no 'recognize/recognition/applies when' marker" if not has_recognition_marker(body.text) else "",
-        rule="pattern-recognition-block",
-    ))
-    out.append(CheckResult(
-        "counter-example(s) block",
-        PASS if has_counter_example(body.text) else JUDGMENT,
-        "no 'counter-example' or 'do NOT apply' marker" if not has_counter_example(body.text) else "",
-        rule="pattern-counter-example",
-    ))
-    bundle_present = (skill_dir / "scripts").exists() or (skill_dir / "bin").exists()
-    out.append(CheckResult(
-        "prohibited: utility bundle",
-        FAIL if bundle_present else PASS,
-        "scripts/ or bin/ present" if bundle_present else "",
-        rule="pattern-prohibited-bundle",
-    ))
-    out.append(CheckResult(
-        "prohibited: workflow checklist",
-        FAIL if has_tickbox_list(body.text) else PASS,
-        rule="pattern-prohibited-checklist",
-    ))
-    out.append(CheckResult(
-        "prohibited: rule + counter pairs",
-        FAIL if has_excuse_reality_table(body.text) else PASS,
-        "rationalization/excuse->reality detected" if has_excuse_reality_table(body.text) else "",
-        rule="pattern-prohibited-rule-counter",
-    ))
-    return out
-
-
-def check_technique_skill(body: Body, skill_dir: Path, fm: Frontmatter | None = None) -> list[CheckResult]:
-    """`fm` is accepted for positional-call compatibility (public signature;
-    external callers pass it, e.g. tests/skills-kit/test_step_tracker_or_
-    checklist.py) but is never read: user-only technique-skills
-    (disable-model-invocation: true) do NOT exempt the ordered-step row --
-    the technique-skill schema requires steps regardless of trigger_model
-    (Dec-2), and this legacy-fallback path mirrors that. See I7 / the
-    corrected `user_only_via_disable_model_invocation` insight in
-    skills_kit_lib/CLAUDE.md."""
-    out: list[CheckResult] = []
-    step_count = count_ordered_steps(body.text)
-    out.append(CheckResult(
-        "ordered-step body",
-        PASS if step_count >= 1 else FAIL,
-        f"{step_count} ordered-step entries detected",
-        rule="technique-ordered-steps",
-    ))
-    if step_count > 3:
-        has_checklist = has_tickbox_list(body.text)
-        has_tracker = has_step_tracker_invocation(body.text)
-        signal_present = has_checklist or has_tracker
-        if signal_present:
-            via = "tickbox checklist" if has_checklist else "step-tracker invocation"
-            note = f"{step_count} steps; satisfied via {via}"
-        else:
-            note = (f"{step_count} steps; neither tickbox checklist nor "
-                    f"step-tracker invocation present")
-        out.append(CheckResult(
-            "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation",
-            PASS if signal_present else FAIL,
-            note,
-            rule="step-tracking",
-        ))
-    else:
-        out.append(CheckResult(
-            "explicit step-tracking (conditional, IF >3 steps): checklist OR tracker invocation",
-            NA,
-            f"only {step_count} steps",
-            rule="step-tracking",
-        ))
-    out.append(CheckResult(
-        "prohibited: adversarial pressure testing",
-        FAIL if has_red_green_refactor(body.text) else PASS,
-        "RED/GREEN/REFACTOR markers present" if has_red_green_refactor(body.text) else "",
-        rule="technique-prohibited-pressure-test",
-    ))
-    return out
-
-
-def check_discipline_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
-    out: list[CheckResult] = []
-    out.append(CheckResult(
-        ">=1 rule + counter pair",
-        PASS if has_excuse_reality_table(body.text) else FAIL,
-        "no rule+counter / rationalization markers" if not has_excuse_reality_table(body.text) else "",
-        rule="discipline-rule-counter",
-    ))
-    out.append(CheckResult(
-        "red flags list",
-        PASS if has_red_flags_list(body.text) else FAIL,
-        "no 'Red flags' heading" if not has_red_flags_list(body.text) else "",
-        rule="discipline-red-flags",
-    ))
-    if has_red_green_refactor(body.text):
-        out.append(CheckResult(
-            "adversarial pressure testing applied",
-            JUDGMENT,
-            "RED/GREEN/REFACTOR markers present; agent must verify pressure testing was applied to this skill's own rules",
-            rule="discipline-pressure-test",
-        ))
-    else:
-        out.append(CheckResult(
-            "adversarial pressure testing applied",
-            FAIL,
-            "no RED/GREEN/REFACTOR markers",
-            rule="discipline-pressure-test",
-        ))
-    return out
-
-
-def check_domain_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
-    out: list[CheckResult] = []
-    out.append(CheckResult(
-        "identity sentence",
-        PASS if has_identity_sentence(body.text) else JUDGMENT,
-        "no clear single-sentence identity after H1" if not has_identity_sentence(body.text) else "",
-        rule="domain-identity-sentence",
-    ))
-    out.append(CheckResult(
-        "companion declaration",
-        PASS if has_companion_declaration(body.text) else FAIL,
-        "no 'Companion declaration' heading or 'no sibling' / 'companion domains' phrase" if not has_companion_declaration(body.text) else "",
-        rule="domain-companion-declaration",
-    ))
-    h2_count = len(re.findall(r"^##\s+\S", body.text, re.MULTILINE))
-    out.append(CheckResult(
-        "orientation content (>=1 H2 beyond index)",
-        PASS if h2_count >= 2 else FAIL,
-        f"{h2_count} H2 sections",
-        rule="domain-orientation",
-    ))
-    out.append(CheckResult(
-        "reference index (Conditional Loading)",
-        PASS if has_conditional_loading(body.text) else FAIL,
-        rule="domain-reference-index",
-    ))
-    if h2_count == 1 and has_conditional_loading(body.text):
-        out.append(CheckResult(
-            "prohibited: index without orientation",
-            FAIL,
-            "only Conditional Loading H2; no orientation content",
-            rule="domain-prohibited-index-only",
-        ))
-    else:
-        out.append(CheckResult(
-            "prohibited: index without orientation",
-            PASS,
-            rule="domain-prohibited-index-only",
-        ))
-    return out
-
-
 def mixed_type_signal(body_text: str, threshold: int | None = None) -> tuple[int, list[str]]:
     """Detect cross-type signals via the ONE shared scorer,
     markdown_heuristics.type_signals (I5) -- do not re-implement per-type
@@ -874,19 +1024,6 @@ def mixed_type_signal(body_text: str, threshold: int | None = None) -> tuple[int
     scores = type_signals(body_text)
     active = high_scoring_types(scores, th)
     return len(active), [f"{t}={scores[t]}" for t in active]
-
-
-# "technique-skill" is deliberately absent: check_technique_skill takes a
-# third `fm` argument the others don't, so it is special-cased at the call
-# site below rather than stored here (I7 -- storing it made the entry dead,
-# since the special case always intercepted it before this dict was ever
-# indexed for that key).
-TYPE_RUNNERS = {
-    "reference-skill": check_reference_skill,
-    "pattern-skill": check_pattern_skill,
-    "discipline-skill": check_discipline_skill,
-    "domain-skill": check_domain_skill,
-}
 
 
 def check_yaml_contract(yaml_data: dict) -> tuple[list[CheckResult], str | None]:
@@ -1352,13 +1489,37 @@ def _iter_imports(
     return found
 
 
-def check_claude_md_defaults(path: Path, content: str) -> list[CheckResult]:
+def check_claude_md_defaults(
+    path: Path,
+    content: str,
+    body: Body | None = None,
+    th: dict[str, int] | None = None,
+) -> list[CheckResult]:
     """The inoffensive rules for every CLAUDE.md / AGENTS.md, with or without a
     claude_md: block: links resolve, fences closed. Independent of the
     directory dimension classifier and of sibling files; reads only the file
     itself and its link/import targets. The optional rules (import size, size
     signal, record floor) are shipped standards criteria, evaluated by
-    MECHANICAL_EVALUATORS."""
+    MECHANICAL_EVALUATORS.
+
+    `body` and `th` are the deprecated arguments of the former call shape
+    `check_claude_md_defaults(path, content, body, th)`. Passing them emits a
+    DeprecationWarning and the call also returns the two rows that shape used
+    to append (import size, then body size signal), computed by the shipped
+    evaluators with `th`. Pass both or neither."""
+    if (body is None) != (th is None):
+        raise TypeError("check_claude_md_defaults takes body and th together (deprecated arguments) or neither")
+    legacy_shape = body is not None
+    if legacy_shape:
+        warnings.warn(
+            _deprecation_message(
+                "check_claude_md_defaults(body, th)",
+                "check_claude_md_defaults(path, content) for the link and fence rows, and "
+                "audit_claude_md for the import-size and size-signal criteria",
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
     base = path.parent
     outside, unclosed = _split_fences(content)
 
@@ -1391,6 +1552,14 @@ def check_claude_md_defaults(path: Path, content: str) -> list[CheckResult]:
         "a ``` or ~~~ fence is opened and never closed" if unclosed else "",
         rule="claude-md-fences-closed",
     ))
+    if legacy_shape:
+        legacy_th = {"import_max_lines": _DEPRECATED_IMPORT_MAX_LINES, **th}
+        out.extend(row for _section, row in _criterion_rows(
+            ClaudeMdContext(path, content, body, None),
+            [MechanicalCriterion("claude-md-import-size", "fail"),
+             MechanicalCriterion("claude-md-size-signal", "judgment")],
+            legacy_th,
+        ))
     return out
 
 
@@ -1609,22 +1778,20 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
     if cross_block_drift is not None:
         yaml_results.append(cross_block_drift)
 
-    type_specific: list[CheckResult] = []
-    if not contract_staged and (
-        declared_type in TYPE_RUNNERS or declared_type == "technique-skill"
-    ):
-        # Legacy heuristics run on the NARRATIVE body -- code fences stripped,
-        # like mixed_type_signal (strip_code_fences_before_heuristics insight):
-        # numbered lists / markers inside fenced examples must not count.
-        narrative_body = Body(
-            text=strip_code_fences(body.text),
-            lines=body.lines,
-            tokens_approx=body.tokens_approx,
-        )
-        if declared_type == "technique-skill":
-            type_specific = check_technique_skill(narrative_body, skill_dir, fm)
-        else:
-            type_specific = TYPE_RUNNERS[declared_type](narrative_body, skill_dir)
+    # Legacy heuristics run on the NARRATIVE body -- code fences stripped, like
+    # mixed_type_signal (strip_code_fences_before_heuristics insight): numbered
+    # lists / markers inside fenced examples must not count. Each evaluator's
+    # `applies` gate holds only with no staged contract and a matching declared
+    # skill-type, so the section is empty for every other document.
+    narrative_body = Body(
+        text=strip_code_fences(body.text),
+        lines=body.lines,
+        tokens_approx=body.tokens_approx,
+    )
+    type_ctx = SkillContext(contract_ctx.fm, narrative_body, skill_dir, yaml_root, contract_staged)
+    type_specific: list[CheckResult] = [
+        row for _section, row in _criterion_rows(type_ctx, skill_criteria, th, section="type_specific")
+    ]
 
     if not contract_staged:
         # threshold=th["mixed_min_score"] gates each TYPE's score (I5, the
@@ -1678,6 +1845,191 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
         "type_specific": type_rows,
         "mixed_type": asdict(mixed),
     }
+
+
+# ---------------------------------------------------------------------------
+# Deprecated names. Each keeps its former call signature and returns what the
+# former function returned, by delegating to the shipped criteria through the
+# current evaluator path. They emit DeprecationWarning for the policy window
+# (docs/reference/deprecation-policy.md) and are removed in _REMOVABLE_IN;
+# contract/public-surface.json records the dates.
+# ---------------------------------------------------------------------------
+
+#: The legacy per-skill-type criteria a former check_<type>_skill function ran,
+#: in the order it emitted their rows.
+_LEGACY_SKILL_RULES: dict[str, tuple[str, ...]] = {
+    "reference-skill": (
+        "ref-example-block", "ref-gotcha-block", "ref-prohibited-discipline", "ref-prohibited-checklist",
+    ),
+    "pattern-skill": (
+        "pattern-recognition-block", "pattern-counter-example", "pattern-prohibited-bundle",
+        "pattern-prohibited-checklist", "pattern-prohibited-rule-counter",
+    ),
+    "technique-skill": (
+        "technique-ordered-steps", "step-tracking", "technique-prohibited-pressure-test",
+    ),
+    "discipline-skill": (
+        "discipline-rule-counter", "discipline-red-flags", "discipline-pressure-test",
+    ),
+    "domain-skill": (
+        "domain-identity-sentence", "domain-companion-declaration", "domain-orientation",
+        "domain-reference-index", "domain-prohibited-index-only",
+    ),
+}
+
+
+def _legacy_skill_rows(skill_type: str, body: Body, skill_dir: Path) -> list[CheckResult]:
+    """The rows of the legacy criteria of `skill_type` for `body`. A criterion
+    with no severity takes its evaluator's bare_severity, which a test pins
+    equal to the severity the shipped SKILL-legacy-standards.md declares, so
+    the verdicts do not depend on pyyaml or on a user's standards layers."""
+    ctx = SkillContext(Frontmatter(raw="", fields={"skill-type": skill_type}), body, skill_dir)
+    criteria = [MechanicalCriterion(rule_id, None) for rule_id in _LEGACY_SKILL_RULES[skill_type]]
+    return [row for _section, row in _criterion_rows(ctx, criteria, THRESHOLDS)]
+
+
+def check_reference_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
+    """Deprecated: the ref-* criteria of the shipped SKILL-legacy-standards.md,
+    evaluated by audit() for a document declaring skill-type reference-skill."""
+    warnings.warn(
+        _deprecation_message("check_reference_skill", "audit() (the ref-* criteria in type_specific)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("reference-skill", body, skill_dir)
+
+
+def check_pattern_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
+    """Deprecated: the pattern-* criteria of the shipped SKILL-legacy-standards.md."""
+    warnings.warn(
+        _deprecation_message("check_pattern_skill", "audit() (the pattern-* criteria in type_specific)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("pattern-skill", body, skill_dir)
+
+
+def check_technique_skill(body: Body, skill_dir: Path, fm: Frontmatter | None = None) -> list[CheckResult]:
+    """Deprecated: the technique-* and step-tracking criteria of the shipped
+    SKILL-legacy-standards.md. `fm` is accepted and never read, as before."""
+    warnings.warn(
+        _deprecation_message(
+            "check_technique_skill",
+            "audit() (the technique-* and step-tracking criteria in type_specific)",
+        ),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("technique-skill", body, skill_dir)
+
+
+def check_discipline_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
+    """Deprecated: the discipline-* criteria of the shipped SKILL-legacy-standards.md."""
+    warnings.warn(
+        _deprecation_message("check_discipline_skill", "audit() (the discipline-* criteria in type_specific)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("discipline-skill", body, skill_dir)
+
+
+def check_domain_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
+    """Deprecated: the domain-* criteria of the shipped SKILL-legacy-standards.md."""
+    warnings.warn(
+        _deprecation_message("check_domain_skill", "audit() (the domain-* criteria in type_specific)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("domain-skill", body, skill_dir)
+
+
+def _bare_body(text: str) -> Body:
+    return Body(text=text, lines=len(text.splitlines()), tokens_approx=int(len(text.split()) * 1.3))
+
+
+def check_facts_cross_rules(
+    body_text: str,
+    declared_type: str | None,
+    yaml_root: str | None = None,
+) -> list[CheckResult]:
+    """Deprecated: the facts-floor, facts-gotcha and facts-example criteria,
+    evaluated by audit() in the yaml_contract section. Gated as before: on the
+    YAML root when one is given, otherwise on `declared_type`; empty without
+    pyyaml."""
+    warnings.warn(
+        _deprecation_message(
+            "check_facts_cross_rules", "audit() (the facts-floor, facts-gotcha and facts-example criteria)"
+        ),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    fields = {"skill-type": declared_type} if declared_type is not None else {}
+    ctx = SkillContext(Frontmatter(raw="", fields=fields), _bare_body(body_text), Path("."), yaml_root)
+    criteria = [MechanicalCriterion(rule_id, "fail") for rule_id in ("facts-floor", "facts-gotcha", "facts-example")]
+    return [row for _section, row in _criterion_rows(ctx, criteria, THRESHOLDS)]
+
+
+def check_technique_caution_cross_rule(body_text: str) -> list[CheckResult]:
+    """Deprecated: the caution-floor criterion, evaluated by audit() in the
+    yaml_contract section. Empty without pyyaml or without a technique_skill unit."""
+    warnings.warn(
+        _deprecation_message("check_technique_caution_cross_rule", "audit() (the caution-floor criterion)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    ctx = SkillContext(Frontmatter(raw="", fields={}), _bare_body(body_text), Path("."))
+    return [row for _section, row in _criterion_rows(ctx, [MechanicalCriterion("caution-floor", "fail")], THRESHOLDS)]
+
+
+def check_claude_md_record_floor(yaml_data: dict) -> CheckResult | None:
+    """Deprecated: the claude-md-record-floor criterion, evaluated by
+    audit_claude_md() in the yaml_contract section. None when `yaml_data` has no
+    claude_md mapping."""
+    warnings.warn(
+        _deprecation_message(
+            "check_claude_md_record_floor", "audit_claude_md() (the claude-md-record-floor criterion)"
+        ),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    inner = yaml_data.get("claude_md")
+    ctx = ClaudeMdContext(Path("."), "", _bare_body(""), inner if isinstance(inner, dict) else None)
+    rows = _criterion_rows(ctx, [MechanicalCriterion("claude-md-record-floor", "fail")], THRESHOLDS)
+    return rows[0][1] if rows else None
+
+
+def skill_md_criteria(
+    resolved: "ResolvedStandards | None",
+) -> tuple[list[MechanicalCriterion], dict[str, int]]:
+    """Deprecated: mechanical_criteria("skill_md", resolved)."""
+    warnings.warn(
+        _deprecation_message("skill_md_criteria", 'mechanical_criteria("skill_md", resolved)'),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return mechanical_criteria("skill_md", resolved)
+
+
+def __getattr__(name: str) -> Any:
+    """Serve the deprecated module-level names that are not defined here, so
+    that an access warns: SkillCriterion (now MechanicalCriterion) and
+    TYPE_RUNNERS (the former skill-type -> check function table)."""
+    if name == "SkillCriterion":
+        warnings.warn(_deprecation_message("SkillCriterion", "MechanicalCriterion"), DeprecationWarning, stacklevel=2)
+        return MechanicalCriterion
+    if name == "TYPE_RUNNERS":
+        warnings.warn(
+            _deprecation_message("TYPE_RUNNERS", "audit() (the criteria in the type_specific section)"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return {
+            "reference-skill": check_reference_skill,
+            "pattern-skill": check_pattern_skill,
+            "discipline-skill": check_discipline_skill,
+            "domain-skill": check_domain_skill,
+        }
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def render_text(report: dict[str, Any]) -> str:

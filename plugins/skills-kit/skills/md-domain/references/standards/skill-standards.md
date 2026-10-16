@@ -91,6 +91,26 @@ absent: the agent then infers the type from content. `skill-type-valid` (fail)
 reports a row only when the tag is present, and fails a value outside the
 canonical skill types. Each switches off with `rules: {<id>: off}`.
 
+A SKILL.md that declares a `skill-type` and carries no YAML contract block also
+gets the legacy per-skill-type heuristic criteria, declared in
+`skills_kit_lib/defaults/standards/SKILL-legacy-standards.md` and reported in
+the `type_specific` list: heading, marker and filesystem tests that stand in
+for the type contract until the skill is on it. A criterion applies only to the
+skill type its statement names, and reads the body with fenced code removed.
+The reference-skill criteria are `ref-example-block`, `ref-gotcha-block`,
+`ref-prohibited-discipline` and `ref-prohibited-checklist`; the pattern-skill
+criteria are `pattern-recognition-block`, `pattern-counter-example`,
+`pattern-prohibited-bundle`, `pattern-prohibited-checklist` and
+`pattern-prohibited-rule-counter`; the technique-skill criteria are
+`technique-ordered-steps`, `step-tracking` and
+`technique-prohibited-pressure-test`; the discipline-skill criteria are
+`discipline-rule-counter`, `discipline-red-flags` and `discipline-pressure-test`
+(markers present is a judgment-required row, not a pass: the agent verifies the
+testing was applied to the skill's own rules); the domain-skill criteria are
+`domain-identity-sentence`, `domain-companion-declaration`,
+`domain-orientation`, `domain-reference-index` and
+`domain-prohibited-index-only`. Each switches off with `rules: {<id>: off}`.
+
 ### 2.2 Schemas are floors, not ceilings
 
 The per-type YAML schemas validate the required minimum: which keys must be
@@ -167,7 +187,9 @@ Worked instances of the grammar:
   authoritative -- and a parallel markdown checklist creates
   two-source-of-truth drift and is not required. Shape hierarchy: YAML
   `steps:` for contract skills; markdown `- [ ]` for legacy / non-contract
-  skills; mixed shapes promote to YAML and drop the markdown.
+  skills; mixed shapes promote to YAML and drop the markdown. A non-contract
+  technique-skill is checked by the shipped criterion `step-tracking`
+  (`skills_kit_lib/defaults/standards/SKILL-legacy-standards.md`).
 - **Sub-agent binding rule** is required when a paired sub-agent exists.
   Criterion: a matching `<skill-name>-a` agent definition exists.
 - **Vocabulary block** is required when reference files use canonical terms

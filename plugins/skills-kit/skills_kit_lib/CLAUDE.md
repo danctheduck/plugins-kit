@@ -41,7 +41,7 @@ claude_md:
       added: "2026-04-28"
     - id: user_only_via_disable_model_invocation
       keywords: [user-only, disable-model-invocation, slash-command, technique-skill carve-out, ordered-step exemption, no exemption, Dec-2, dead param]
-      summary: "CORRECTED 2026-09-06: user-only technique-skills (disable-model-invocation true) do NOT skip the ordered-step body requirement at either layer. The prior version of this entry was false."
+      summary: "CORRECTED 2026-09-06: user-only technique-skills (disable-model-invocation true) do NOT skip the ordered-step body requirement at either layer. The version before 2026-09-06 was false."
       detail: |
         markdown_heuristics.is_user_only(fm) returns true when frontmatter sets
         disable-model-invocation: true, and type_signals(body, fm) still adds +3 to
@@ -52,6 +52,10 @@ claude_md:
         ordered-step row reports n/a for user-only skills". False as shipped --
         check_technique_skill accepted an `fm` parameter but never read it; the
         ordered-step row is FAIL, not n/a, for a user-only technique with no steps.
+        The function survives only as a deprecation shim: the row is the
+        technique-ordered-steps criterion of
+        defaults/standards/SKILL-legacy-standards.md, whose evaluator reads no
+        frontmatter field either.
         tests/skills-kit/test_schemas.py (Dec-2, TestTechniqueSkill::
         test_user_only_still_requires_steps) already pinned the opposite at the
         schema layer: user-only does NOT exempt from steps ("trigger_model is
@@ -59,19 +63,17 @@ claude_md:
         the same fact at this legacy-fallback audit layer.
 
         The unified TECHNIQUE_SKILL_SCHEMA in schemas/skill_types.py replaced the
-        previous variant-separated schemas, but it does NOT accept output_template
+        variant-separated schemas, but it does NOT accept output_template
         in place of steps: steps is required with min_len 1 for every technique
         "regardless of trigger_model", and output_template is an optional companion,
         explicitly "not an alternative to steps" (skill_types.py, the technique item
         rule and its header comment). The original entry's "steps OR output_template"
         wording was wrong too and is retracted here.
 
-        `fm` stays in check_technique_skill's signature (now `fm=None`, documented
-        unused) only because it is a public positional parameter external callers
-        pass; the dead `is_user_only` import into audit.py and the dead
-        TYPE_RUNNERS["technique-skill"] dict entry (unreachable -- technique-skill
-        is special-cased before TYPE_RUNNERS is ever indexed for that key) were
-        removed.
+        The dead `is_user_only` import into audit.py and the dead
+        TYPE_RUNNERS["technique-skill"] dict entry were removed; the technique
+        rows were later moved to shipped criteria and the TYPE_RUNNERS table left the audit
+        path (a deprecation shim serves the name).
       origin: Phase 4.2 audit lessons-learned F-4-2-2 / F-4-2-3; corrected 2026-09-06 by the plugin architecture audit after the claim was found false against shipped behavior and Dec-2.
       added: "2026-04-28"
       updated: "2026-09-06"
@@ -91,7 +93,7 @@ claude_md:
       detail: |
         State 1 (yaml-validated): pyyaml present + a recognized YAML contract block. Schema walker runs, deterministic per-row pass/fail, mixed-type signal deterministic. Legacy heuristics skipped.
         State 2 (contract-staged): pyyaml absent BUT a YAML contract block is detected by regex (root key match). Universal rows pass; YAML contract row reports judgment-required ("install pyyaml to validate"); legacy heuristics skipped (because a contract is staged, just unvalidated). Mixed-type signal deferred.
-        State 3 (legacy markdown fallback): no YAML contract block at all. All legacy heuristics run as before; mixed-type via narrative scoring.
+        State 3 (legacy markdown fallback): no YAML contract block at all. The legacy per-type heuristics run (they are the criteria of the shipped defaults/standards/SKILL-legacy-standards.md, in the type_specific list, with a bare interpreter's real verdicts kept via bare_severity); mixed-type via narrative scoring.
         The middle state was added so the converted skills don't report bogus markdown-heuristic failures during the transition.
       origin: Phase Y1.3 implementation; permission denial on global pip install of pyyaml in this dev env.
       added: "2026-04-28"
@@ -225,7 +227,8 @@ claude_md:
       summary: "A rule that moves out of rule_catalog.RULES into the shipped standards layer (defaults/standards/*-standards.md) keeps only its check in code: a MechanicalEvaluator registered in audit.MECHANICAL_EVALUATORS under the criterion id. Statement, severity and any threshold default live in the standards file."
       detail: |
         To move another rule: add the criterion to the shipped file for its
-        file type (SKILL-standards.md or CLAUDE-md-standards.md) with
+        file (SKILL-standards.md, SKILL-legacy-standards.md or
+        CLAUDE-md-standards.md) with
         enforcement: mechanical (and `threshold: {name, default}` when the
         check reads a limit only that criterion owns), register the evaluator
         with the same id (its `evaluate` takes a SkillContext of frontmatter,
@@ -242,7 +245,13 @@ claude_md:
         `reads_builtin_thresholds` names built-in thresholds it reads without
         declaring them; its `section` places the row in the universal or the
         yaml_contract list: check_universal evaluates the universal skill_md
-        criteria, audit() the yaml_contract ones after the portable-unit rows),
+        criteria, audit() the yaml_contract ones after the portable-unit rows
+        and the type_specific ones, the legacy per-skill-type heuristics,
+        last: their `applies` gate holds only with no staged contract and a
+        matching declared skill-type, the context's body is the fence-stripped
+        narrative body, and `bare_severity` keeps their real verdict on a
+        bare interpreter; the outcome may also be JUDGMENT, a row that is
+        judgment-required whatever the severity),
         delete the RULES entry (a criterion id may not
         repeat a catalog id), and run scripts/gen_standards_doc.py.
         standards_resolve raises when a mechanical criterion has no evaluator,
@@ -258,9 +267,17 @@ claude_md:
         caller states which criteria it evaluates. Provenance:
         ../skills/md-domain/references/provenance/standards-decisions.md,
         shipped_standards_layer_enabled, skill_type_criteria_shipped,
-        claude_md_criteria_shipped, body_refs_criteria_shipped and
-        contract_floor_criteria_shipped. Pinned by
+        claude_md_criteria_shipped, body_refs_criteria_shipped,
+        contract_floor_criteria_shipped and legacy_heuristic_criteria_shipped.
+        Pinned by
         tests/skills-kit/test_shipped_standards.py.
+
+        A check function, constant or parameter that leaves audit.py when its
+        rows move is a public-name removal: skills_kit_lib is a shared library,
+        so it keeps a DeprecationWarning shim for two minor versions and a
+        deprecated entry in ../contract/public-surface.json
+        (docs/reference/deprecation-policy.md; the current set and its removal
+        version are in provenance m6_deprecation_shims).
       origin: skills-kit 0.92.0, milestone M5 of the configurable-standards work.
       added: "2026-10-16"
   conventions:
@@ -273,7 +290,7 @@ claude_md:
     - rule: Audit output rows describe what was checked, not what was good or bad in isolation. Verdict is one of pass/fail/judgment-required/n/a.
       keywords: [verdict vocabulary, four-state output, audit row]
       why: Three-state (pass/fail) loses the conditional-not-fired case (n/a) and the agent-must-judge case (judgment-required). Both are real and deserve their own slot.
-    - rule: Every new schema declares an owner_doc pointing at the canonical prose spec; the prose spec must contain a valid instance block of the schema's root key.
+    - rule: Every schema declares an owner_doc pointing at the canonical prose spec; the prose spec must contain a valid instance block of the schema's root key.
       keywords: [owner_doc, schema registration, prose spec, drift protection]
       why: Bidirectional drift protection. Schema changes that break the owner doc's example are caught; owner doc edits that drift from the schema are caught. Adding a schema without an owner_doc bypasses this and silently allows drift.
 ```

@@ -56,7 +56,7 @@ Harness layers may add optional native ergonomics, automation, richer presentati
 
 **Use when:** Tooling needs to inspect, classify, validate, or audit `SKILL.md` and related typed Markdown without duplicating skills-kit's schemas and parsing rules.
 
-**Entry points:** The package root performs schema registration but declares no public export list. Import from focused modules such as `skills_kit_lib.schema_engine`, `document_walker`, `schema_registry`, `markdown_heuristics`, `corpus`, `dirwalk`, or `checks`. The absence of `__all__` means public stability is not formally marked; prefer names already used by repository consumers and tests.
+**Entry points:** The package root performs schema registration but declares no public export list. Import from focused modules such as `skills_kit_lib.schema_engine`, `document_walker`, `schema_registry`, `markdown_heuristics`, `corpus`, `dirwalk`, or `checks`. The absence of `__all__` means public stability is not formally marked; prefer names already used by repository consumers and tests. For `skills_kit_lib.audit`, [`contract/public-surface.json`](../../plugins/skills-kit/contract/public-surface.json) lists the names that were removed or changed signature and keep a `DeprecationWarning` shim until their `remove_after` version, plus the replacements.
 
 **More:** [`skills_kit_lib/__init__.py`](../../plugins/skills-kit/skills_kit_lib/__init__.py), [`plugins/skills-kit/README.md`](../../plugins/skills-kit/README.md), and [`skills_kit_lib/`](../../plugins/skills-kit/skills_kit_lib/).
 

@@ -270,9 +270,9 @@ def test_standards_files_union_across_layers(tmp_path, monkeypatch):
     (proj_layer / "SKILL-standards.md").write_text(_standards_md("team-opinion"), encoding="utf-8")
     r = resolve(project_root)
     # Both layers append under skill_md -- union, not replace -- after the
-    # shipped layer.
+    # two shipped files (the general one and the legacy heuristics).
     files = r.standards_by_primitive["skill_md"]
-    assert [sf.layer for sf in files] == ["shipped", "user", "project"]
+    assert [sf.layer for sf in files] == ["shipped", "shipped", "user", "project"]
 
 
 def test_same_criterion_id_in_two_layers_raises_naming_both(tmp_path, monkeypatch):
