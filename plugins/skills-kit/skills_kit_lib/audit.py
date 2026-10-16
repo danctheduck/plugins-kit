@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+import warnings
 from urllib.parse import unquote
 from dataclasses import dataclass, asdict
 from functools import cached_property
@@ -73,12 +74,52 @@ NA = "n/a"
 # CRITERION consumes is not listed here: its default lives in that criterion's
 # `threshold:` declaration (skills_kit_lib/defaults/standards/), and
 # standards_resolve reports it as ResolvedStandards.threshold_defaults.
-THRESHOLDS = {
+#: The default `import_max_lines` carried while the key is deprecated. The
+#: shipped claude-md-import-size criterion owns the live value; a test pins this
+#: constant equal to that criterion's declared default.
+_DEPRECATED_IMPORT_MAX_LINES = 50
+
+#: First and last skills-kit versions of the deprecation window for the names
+#: that left this module (docs/reference/deprecation-policy.md).
+_DEPRECATED_SINCE = "0.97.0"
+_REMOVABLE_IN = "0.99.0"
+
+
+def _deprecation_message(old: str, replacement: str) -> str:
+    return (
+        f"skills_kit_lib.audit.{old} is deprecated since skills-kit {_DEPRECATED_SINCE} and "
+        f"will be removed in {_REMOVABLE_IN}; use {replacement}"
+    )
+
+
+class _BuiltinThresholds(dict):
+    """The built-in thresholds. `import_max_lines` left the mapping when the
+    shipped claude-md-import-size criterion took ownership of it; a lookup of
+    the old key still answers, with a DeprecationWarning, for the policy window.
+    Only `thresholds["import_max_lines"]` is served: membership, iteration and
+    `.get` see the real keys."""
+
+    def __missing__(self, key):
+        if key == "import_max_lines":
+            warnings.warn(
+                _deprecation_message(
+                    'THRESHOLDS["import_max_lines"]',
+                    "the threshold declared by the shipped claude-md-import-size criterion "
+                    "(resolve_shipped().threshold_defaults)",
+                ),
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return _DEPRECATED_IMPORT_MAX_LINES
+        raise KeyError(key)
+
+
+THRESHOLDS = _BuiltinThresholds({
     "name_max_chars": 64,
     "body_max_lines": 500,
     "body_max_tokens": 3000,
     "mixed_min_score": 2,
-}
+})
 
 
 @dataclass
@@ -1448,13 +1489,37 @@ def _iter_imports(
     return found
 
 
-def check_claude_md_defaults(path: Path, content: str) -> list[CheckResult]:
+def check_claude_md_defaults(
+    path: Path,
+    content: str,
+    body: Body | None = None,
+    th: dict[str, int] | None = None,
+) -> list[CheckResult]:
     """The inoffensive rules for every CLAUDE.md / AGENTS.md, with or without a
     claude_md: block: links resolve, fences closed. Independent of the
     directory dimension classifier and of sibling files; reads only the file
     itself and its link/import targets. The optional rules (import size, size
     signal, record floor) are shipped standards criteria, evaluated by
-    MECHANICAL_EVALUATORS."""
+    MECHANICAL_EVALUATORS.
+
+    `body` and `th` are the deprecated arguments of the former call shape
+    `check_claude_md_defaults(path, content, body, th)`. Passing them emits a
+    DeprecationWarning and the call also returns the two rows that shape used
+    to append (import size, then body size signal), computed by the shipped
+    evaluators with `th`. Pass both or neither."""
+    if (body is None) != (th is None):
+        raise TypeError("check_claude_md_defaults takes body and th together (deprecated arguments) or neither")
+    legacy_shape = body is not None
+    if legacy_shape:
+        warnings.warn(
+            _deprecation_message(
+                "check_claude_md_defaults(body, th)",
+                "check_claude_md_defaults(path, content) for the link and fence rows, and "
+                "audit_claude_md for the import-size and size-signal criteria",
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
     base = path.parent
     outside, unclosed = _split_fences(content)
 
@@ -1487,6 +1552,14 @@ def check_claude_md_defaults(path: Path, content: str) -> list[CheckResult]:
         "a ``` or ~~~ fence is opened and never closed" if unclosed else "",
         rule="claude-md-fences-closed",
     ))
+    if legacy_shape:
+        legacy_th = {"import_max_lines": _DEPRECATED_IMPORT_MAX_LINES, **th}
+        out.extend(row for _section, row in _criterion_rows(
+            ClaudeMdContext(path, content, body, None),
+            [MechanicalCriterion("claude-md-import-size", "fail"),
+             MechanicalCriterion("claude-md-size-signal", "judgment")],
+            legacy_th,
+        ))
     return out
 
 
@@ -1772,6 +1845,191 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
         "type_specific": type_rows,
         "mixed_type": asdict(mixed),
     }
+
+
+# ---------------------------------------------------------------------------
+# Deprecated names. Each keeps its former call signature and returns what the
+# former function returned, by delegating to the shipped criteria through the
+# current evaluator path. They emit DeprecationWarning for the policy window
+# (docs/reference/deprecation-policy.md) and are removed in _REMOVABLE_IN;
+# contract/public-surface.json records the dates.
+# ---------------------------------------------------------------------------
+
+#: The legacy per-skill-type criteria a former check_<type>_skill function ran,
+#: in the order it emitted their rows.
+_LEGACY_SKILL_RULES: dict[str, tuple[str, ...]] = {
+    "reference-skill": (
+        "ref-example-block", "ref-gotcha-block", "ref-prohibited-discipline", "ref-prohibited-checklist",
+    ),
+    "pattern-skill": (
+        "pattern-recognition-block", "pattern-counter-example", "pattern-prohibited-bundle",
+        "pattern-prohibited-checklist", "pattern-prohibited-rule-counter",
+    ),
+    "technique-skill": (
+        "technique-ordered-steps", "step-tracking", "technique-prohibited-pressure-test",
+    ),
+    "discipline-skill": (
+        "discipline-rule-counter", "discipline-red-flags", "discipline-pressure-test",
+    ),
+    "domain-skill": (
+        "domain-identity-sentence", "domain-companion-declaration", "domain-orientation",
+        "domain-reference-index", "domain-prohibited-index-only",
+    ),
+}
+
+
+def _legacy_skill_rows(skill_type: str, body: Body, skill_dir: Path) -> list[CheckResult]:
+    """The rows of the legacy criteria of `skill_type` for `body`. A criterion
+    with no severity takes its evaluator's bare_severity, which a test pins
+    equal to the severity the shipped SKILL-legacy-standards.md declares, so
+    the verdicts do not depend on pyyaml or on a user's standards layers."""
+    ctx = SkillContext(Frontmatter(raw="", fields={"skill-type": skill_type}), body, skill_dir)
+    criteria = [MechanicalCriterion(rule_id, None) for rule_id in _LEGACY_SKILL_RULES[skill_type]]
+    return [row for _section, row in _criterion_rows(ctx, criteria, THRESHOLDS)]
+
+
+def check_reference_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
+    """Deprecated: the ref-* criteria of the shipped SKILL-legacy-standards.md,
+    evaluated by audit() for a document declaring skill-type reference-skill."""
+    warnings.warn(
+        _deprecation_message("check_reference_skill", "audit() (the ref-* criteria in type_specific)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("reference-skill", body, skill_dir)
+
+
+def check_pattern_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
+    """Deprecated: the pattern-* criteria of the shipped SKILL-legacy-standards.md."""
+    warnings.warn(
+        _deprecation_message("check_pattern_skill", "audit() (the pattern-* criteria in type_specific)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("pattern-skill", body, skill_dir)
+
+
+def check_technique_skill(body: Body, skill_dir: Path, fm: Frontmatter | None = None) -> list[CheckResult]:
+    """Deprecated: the technique-* and step-tracking criteria of the shipped
+    SKILL-legacy-standards.md. `fm` is accepted and never read, as before."""
+    warnings.warn(
+        _deprecation_message(
+            "check_technique_skill",
+            "audit() (the technique-* and step-tracking criteria in type_specific)",
+        ),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("technique-skill", body, skill_dir)
+
+
+def check_discipline_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
+    """Deprecated: the discipline-* criteria of the shipped SKILL-legacy-standards.md."""
+    warnings.warn(
+        _deprecation_message("check_discipline_skill", "audit() (the discipline-* criteria in type_specific)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("discipline-skill", body, skill_dir)
+
+
+def check_domain_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
+    """Deprecated: the domain-* criteria of the shipped SKILL-legacy-standards.md."""
+    warnings.warn(
+        _deprecation_message("check_domain_skill", "audit() (the domain-* criteria in type_specific)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return _legacy_skill_rows("domain-skill", body, skill_dir)
+
+
+def _bare_body(text: str) -> Body:
+    return Body(text=text, lines=len(text.splitlines()), tokens_approx=int(len(text.split()) * 1.3))
+
+
+def check_facts_cross_rules(
+    body_text: str,
+    declared_type: str | None,
+    yaml_root: str | None = None,
+) -> list[CheckResult]:
+    """Deprecated: the facts-floor, facts-gotcha and facts-example criteria,
+    evaluated by audit() in the yaml_contract section. Gated as before: on the
+    YAML root when one is given, otherwise on `declared_type`; empty without
+    pyyaml."""
+    warnings.warn(
+        _deprecation_message(
+            "check_facts_cross_rules", "audit() (the facts-floor, facts-gotcha and facts-example criteria)"
+        ),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    fields = {"skill-type": declared_type} if declared_type is not None else {}
+    ctx = SkillContext(Frontmatter(raw="", fields=fields), _bare_body(body_text), Path("."), yaml_root)
+    criteria = [MechanicalCriterion(rule_id, "fail") for rule_id in ("facts-floor", "facts-gotcha", "facts-example")]
+    return [row for _section, row in _criterion_rows(ctx, criteria, THRESHOLDS)]
+
+
+def check_technique_caution_cross_rule(body_text: str) -> list[CheckResult]:
+    """Deprecated: the caution-floor criterion, evaluated by audit() in the
+    yaml_contract section. Empty without pyyaml or without a technique_skill unit."""
+    warnings.warn(
+        _deprecation_message("check_technique_caution_cross_rule", "audit() (the caution-floor criterion)"),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    ctx = SkillContext(Frontmatter(raw="", fields={}), _bare_body(body_text), Path("."))
+    return [row for _section, row in _criterion_rows(ctx, [MechanicalCriterion("caution-floor", "fail")], THRESHOLDS)]
+
+
+def check_claude_md_record_floor(yaml_data: dict) -> CheckResult | None:
+    """Deprecated: the claude-md-record-floor criterion, evaluated by
+    audit_claude_md() in the yaml_contract section. None when `yaml_data` has no
+    claude_md mapping."""
+    warnings.warn(
+        _deprecation_message(
+            "check_claude_md_record_floor", "audit_claude_md() (the claude-md-record-floor criterion)"
+        ),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    inner = yaml_data.get("claude_md")
+    ctx = ClaudeMdContext(Path("."), "", _bare_body(""), inner if isinstance(inner, dict) else None)
+    rows = _criterion_rows(ctx, [MechanicalCriterion("claude-md-record-floor", "fail")], THRESHOLDS)
+    return rows[0][1] if rows else None
+
+
+def skill_md_criteria(
+    resolved: "ResolvedStandards | None",
+) -> tuple[list[MechanicalCriterion], dict[str, int]]:
+    """Deprecated: mechanical_criteria("skill_md", resolved)."""
+    warnings.warn(
+        _deprecation_message("skill_md_criteria", 'mechanical_criteria("skill_md", resolved)'),
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return mechanical_criteria("skill_md", resolved)
+
+
+def __getattr__(name: str) -> Any:
+    """Serve the deprecated module-level names that are not defined here, so
+    that an access warns: SkillCriterion (now MechanicalCriterion) and
+    TYPE_RUNNERS (the former skill-type -> check function table)."""
+    if name == "SkillCriterion":
+        warnings.warn(_deprecation_message("SkillCriterion", "MechanicalCriterion"), DeprecationWarning, stacklevel=2)
+        return MechanicalCriterion
+    if name == "TYPE_RUNNERS":
+        warnings.warn(
+            _deprecation_message("TYPE_RUNNERS", "audit() (the criteria in the type_specific section)"),
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return {
+            "reference-skill": check_reference_skill,
+            "pattern-skill": check_pattern_skill,
+            "discipline-skill": check_discipline_skill,
+            "domain-skill": check_domain_skill,
+        }
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def render_text(report: dict[str, Any]) -> str:
