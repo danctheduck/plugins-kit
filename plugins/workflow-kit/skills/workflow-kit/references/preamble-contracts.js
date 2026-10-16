@@ -11,6 +11,8 @@
 // - `runner` (script providers only) runs scripts/check_artifact.py under
 //   workflow-kit's venv python, e.g.
 //   '"<workflow-kit-venv-python>" "<pluginRoot>/scripts/check_artifact.py"'
+//   (both placeholders are defined, shell-expanded and claudx-redirect-aware,
+//   at the openrouter strategy in preamble.js)
 // - `kind` is 'schema' or 'opaque-file'; 'schema' also takes `schema` (the
 //   schema's canonical JSON text) and `digest` (its sha256, the value
 //   llm-scripting-kit's OutputContract(...).schema_digest reports).

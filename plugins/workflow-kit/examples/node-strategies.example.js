@@ -8,9 +8,13 @@
 //
 // To use: paste skills/workflow-kit/references/preamble.js where indicated and pass args:
 //   { runId, pluginRoot, workflowKitVenvPython, source }
-// - pluginRoot            = ${CLAUDE_PLUGIN_ROOT} for workflow-kit
-// - workflowKitVenvPython = ~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/
-//                           {Scripts/python.exe|bin/python} (has openai + llm_scripting_kit)
+// - pluginRoot            = workflow-kit's install directory, expanded in a shell
+//                           first (the Workflow tool expands nothing in args):
+//                           "${WORKFLOW_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}"
+// - workflowKitVenvPython = "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/
+//                           {Scripts/python.exe|bin/python} (has openai + llm_scripting_kit),
+//                           expanded in a shell first; under a claudx session
+//                           CLAUDE_BOOTSTRAP_DATA_ROOT selects the redirected venv
 // - source                = path to the input document
 
 export const meta = {

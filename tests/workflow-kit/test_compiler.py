@@ -435,7 +435,9 @@ def lsk_path(monkeypatch):
 # those bytes. The compiled scripts themselves are generated artifacts and are
 # not checked in; only their digests are. node-strategies inlines preamble.js,
 # so it was re-captured at workflow-kit 0.11.0, whose only change to that
-# output is the executor's `effort: 'low'` option and its comment.
+# output is the executor's `effort: 'low'` option and its comment. It was
+# re-captured again when preamble.js's placeholder definitions became
+# redirect-aware (comment text only: no emitted statement changed).
 _GOLDEN_DIGESTS = {
     # plugins/workflow-kit/examples/review-changes.workflow.yaml @ 2082c7fa
     "review-changes": (
@@ -445,7 +447,7 @@ _GOLDEN_DIGESTS = {
     # plugins/workflow-kit/examples/node-strategies.workflow.yaml @ 2082c7fa
     "node-strategies": (
         EXAMPLES / "node-strategies.workflow.yaml",
-        "d3c98b90acd3d16b3b5c0bddc4437ba65769f73b482674ac5bfa0c232ed3add5",
+        "dcff4af64ffc0db911219e082065081d50a41466c3bc422056a0bffc1c8a40b7",
     ),
     # tests/workflow-kit/fixtures/good/flat.workflow.yaml @ 2082c7fa
     "flat": (
