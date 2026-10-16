@@ -1,5 +1,7 @@
 # llm-kit Python package architecture
 
+Status: signed off by the user 2026-10-16 (all 14 decisions).
+
 ## Decision summary
 
 - Create one published plugin, llm-kit, with one release version and one shared library, llm_kit.
