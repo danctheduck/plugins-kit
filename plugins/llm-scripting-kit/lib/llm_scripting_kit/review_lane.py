@@ -104,14 +104,21 @@ class LaneRunError(Exception):
     """The lane was dispatched and did not produce a usable result."""
 
 
-#: Lanes the generated skill prose hands claimed-file paths to today. Only
-#: reviewer_a reads CLAUDE.md currency against files a subject-lens reviewer
-#: claimed out of its chunk (plugins/git-kit/skills/git-code-review/SKILL.md
-#: step 6, scripts/gen_code_review_skills.py::LANE_ROUTING). Keep this set in
-#: lockstep with the skill prose it substitutes for -- it exists so
-#: --chunk-index reproduces byte-for-byte what an agent building the explicit
-#: flags by hand would have sent.
-_CLAIMED_FILE_LANES = frozenset({"reviewer_a_claude_md_compliance"})
+#: Lanes the generated skill prose hands claimed-file paths to. Every
+#: reviewer receives them: a file a subject-lens reviewer claimed out of the
+#: chunk is absent from the diff, which every lane would otherwise read as the
+#: file being missing (plugins/git-kit/skills/git-code-review/SKILL.md step 6,
+#: scripts/gen_code_review_skills.py). Keep this set in lockstep with the skill
+#: prose it substitutes for -- it exists so --chunk-index reproduces
+#: byte-for-byte what an agent building the explicit flags by hand would have
+#: sent.
+_CLAIMED_FILE_LANES = frozenset(
+    {
+        "reviewer_a_claude_md_compliance",
+        "reviewer_b_diff_only_bugs",
+        "reviewer_c_introduced_code",
+    }
+)
 
 #: Lanes the generated skill prose hands mechanical-scan records to today.
 #: reviewer_c is deliberately excluded -- it never receives scan flags.
@@ -134,7 +141,7 @@ def derive_from_chunk_index(
     Reproduces, byte-for-byte, what the review skill's generated step 6
     prose tells an agent to build by hand for an endpoint-dispatched lane:
     the chunk's absolute diff path, its files, the claimed-file paths
-    reviewer_a alone receives, the mechanical-scan records reviewer_a and
+    every reviewer receives, the mechanical-scan records reviewer_a and
     reviewer_b alone receive, the change description, and the project root.
     Raises ``ValueError`` (never a bare KeyError/TypeError) for any bundle
     shape this cannot resolve, so a malformed or out-of-range bundle reads as

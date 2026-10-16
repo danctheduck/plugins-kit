@@ -214,7 +214,7 @@ technique_skill:
             <entry effort>`, `--bundle <bundle.bundle_dir>/bundle.json`, and `--chunk-index
             <i>` (that chunk's index in `bundle.diff_chunks`). The runner
             reads the bundle itself and derives everything else -- the chunk diff path,
-            that chunk's files, the claimed-file paths reviewer_a alone is entitled to, the
+            that chunk's files, the claimed-file paths every reviewer is entitled to, the
             mechanical-scan records reviewer_a and reviewer_b alone are entitled to, the
             change description, and the project root -- so nothing else needs building by
             hand. Its stdout is a JSON envelope whose `issues` array is that lane's candidate
@@ -326,15 +326,17 @@ technique_skill:
             K = len(bundle.diff_chunks). Each subagent gets the chunk's absolute diff path
             (`<bundle.bundle_dir>/<diff_chunks[i].path>`), the depot paths of the files
             in that chunk (`diff_chunks[i].files`), and -- for reviewer_a -- the CLAUDE.md
-            mapping restricted to those files PLUS the repo-relative PATHS of every
-            `bundle.claimed_files` entry (paths only, never content), under the heading
-            "Also changed in this review". Claimed files are absent from the chunk, so
-            without that list reviewer_a reads the change as though the Markdown were
-            never touched and reports a docs-currency rule as violated when the update is
-            in fact present -- a false positive that is indistinguishable from a true one.
-            An endpoint-dispatched reviewer_a gets the same list automatically -- the lane
+            mapping restricted to those files. EVERY reviewer (reviewer_a, reviewer_b and
+            reviewer_c) also gets the repo-relative PATHS of every `bundle.claimed_files`
+            entry (paths only, never content), under the heading "Also changed in this
+            review". Claimed files are absent from the chunk, so without that list a
+            reviewer reads the change as though the Markdown were never touched: reviewer_a
+            reports a docs-currency rule as violated when the update is in fact present,
+            and reviewer_b and reviewer_c report a referenced file as missing or unadded --
+            false positives that are indistinguishable from true ones. An
+            endpoint-dispatched reviewer gets the same list automatically -- the lane
             runner reads it out of `bundle.claimed_files` itself when dispatched with
-            `--chunk-index`; the other reviewers do not receive it.
+            `--chunk-index`.
 
             Mechanical scan results -- reviewer_a and reviewer_b ONLY. Each chunk carries
             `diff_chunks[i].mechanical_scan`, shaped as `{schema_version: 2, files:
@@ -846,14 +848,14 @@ technique_skill:
     - name: reviewer_b_diff_only_bugs
       subagent_type: "p4-kit:review-lane-<entry effort> (step 6 entry-harness rule)"
       scope: obvious bugs visible in one chunk's diff alone
-      input: "absolute path to ONE chunk .diff file, the depot paths of the files in that chunk, and the CL description"
+      input: "absolute path to ONE chunk .diff file, the depot paths of the files in that chunk, the CL description, and the paths of every claimed file (paths only -- their content belongs to the subject-lens reviewer)"
       canonical_prompt_note: |
         This lane can run EITHER as an Agent subagent or, when its chosen entry is not a
         `claude` entry, as a plain completion (see the step-6 entry-harness rule). Both paths must
         review by the same standard, so the prompt below is the single source: it is rendered
         here from bootstrap_lib.code_review.lane_prompts, which is also what the endpoint
         runner sends. When launching this lane as an Agent, use it as the subagent's
-        instructions verbatim, then append the chunk path and file list. Do not paraphrase it.
+        instructions verbatim, then append the chunk path, file list, and claimed-file paths. Do not paraphrase it.
       canonical_prompt: |
         You are reviewing one chunk of a code change for obvious bugs that are visible
         in the diff alone. You are one of several independent reviewers; other files
@@ -864,9 +866,19 @@ technique_skill:
         of inputs. For data and documentation files, report malformed syntax, duplicate
         keys, schema or column-count violations, and broken cross-file references.
 
-        Restrictions. The diff below is everything you get and everything you may
-        consider. Do not ask for other files, do not reason about code you cannot see,
-        and do not report an issue in a file that does not appear in this diff.
+        Files changed but not shown. The change may also touch files that a subject
+        specialist reviews instead of you -- Markdown, typically. When such files exist
+        they are listed by path under "Also changed in this review", and that list is
+        part of the change even though their diffs are not shown to you. A file listed
+        there IS part of the change: never report that a listed path is missing, not
+        added, or unchanged, and never report a reference to a listed path as broken or
+        unresolved because its content is not in this diff. Do not audit the content of
+        a listed file -- you cannot see it, and it already has its own reviewer.
+
+        Restrictions. The diff below, with the path list above when one is supplied, is
+        everything you get and everything you may consider. Do not ask for other files,
+        do not reason about code you cannot see, and do not report an issue in a file
+        that does not appear in this diff.
 
         Read in full. Read the assigned chunk diff, and every CLAUDE.md you are
         directed to read, in full: when Read returns a partial view, continue with the
@@ -911,15 +923,15 @@ technique_skill:
     - name: reviewer_c_introduced_code
       subagent_type: "p4-kit:review-lane-<entry effort> (step 6 entry-harness rule)"
       scope: bugs/security/logic problems in the introduced code that need broader context, restricted to one chunk's files
-      input: "absolute path to ONE chunk .diff file, the depot paths of the files in that chunk, local paths for those files, and the CL description"
+      input: "absolute path to ONE chunk .diff file, the depot paths of the files in that chunk, local paths for those files, the CL description, and the paths of every claimed file (paths only -- their content belongs to the subject-lens reviewer)"
       canonical_prompt_note: |
         This lane can run EITHER as an Agent subagent or, when its chosen entry is not a
         `claude` entry, as a plain completion (see the step-6 entry-harness rule). Both paths must
         review by the same standard, so the prompt below is the single source: it is rendered
         here from bootstrap_lib.code_review.lane_prompts, which is also what the endpoint
         runner sends. When launching this lane as an Agent, use it as the subagent's
-        instructions verbatim, then append the chunk path, file list, local paths, and change
-        description. Do not paraphrase it.
+        instructions verbatim, then append the chunk path, file list, local paths, claimed-file
+        paths, and change description. Do not paraphrase it.
       canonical_prompt: |
         You are reviewing one chunk of a code change for bugs in the code it
         INTRODUCES -- the ones the diff alone cannot settle because they turn on the
@@ -944,6 +956,16 @@ technique_skill:
         admitted input is ignored every time. Report it with reason "bug" on the
         widened line, name the consumer that ignores the input, and state that the fix
         belongs in this change: widen the consumer, or keep the refusal.
+
+        Files changed but not shown. The change may also touch files that a subject
+        specialist reviews instead of you -- Markdown, typically. When such files exist
+        they are listed by path under "Also changed in this review", and that list is
+        part of the change even though their diffs are not shown to you. A file listed
+        there IS part of the change: never report that a listed path is missing, not
+        added, or unchanged, and never report a reference to a listed path as broken or
+        unresolved because its content is not in this diff. Do not audit the content of
+        a listed file -- its diff is not shown to you, and it already has its own
+        reviewer.
 
         Restrictions. Only report issues in files that appear in this diff. When the
         context you would need to settle an issue is not in one of those files, you
