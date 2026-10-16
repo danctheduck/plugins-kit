@@ -11,7 +11,7 @@ import pytest
 # its 164 tests. It only appeared to work in a full-suite run because
 # tests/awesome-kit/conftest.py is collected first and happens to set this var.
 # Mirrors awesome-kit / git-kit / unreal-kit; see plugins/CLAUDE.md.
-os.environ.setdefault("_BOOTSTRAP_GUARD_VENV_REEXEC", "1")
+os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 
 PLUGIN_ROOT = os.path.normpath(
     os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, "plugins", "p4-kit")

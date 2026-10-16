@@ -7,7 +7,7 @@ import sys
 
 # The CLI entry-point shim re-execs into its plugin venv in a real invocation.
 # Keep pytest from replacing its own process if a test calls that shim.
-os.environ.setdefault("_BOOTSTRAP_GUARD_VENV_REEXEC", "1")
+os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

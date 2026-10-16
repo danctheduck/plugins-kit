@@ -45,7 +45,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
-from .constants import CLI_COMMAND
+from .constants import cli_command
 from .completion.contract import OutputContractViolation, contract_requirements, merge_requirements
 from .completion.halt import HALT_INSUFFICIENT_CREDIT, HALT_QUOTA
 from .completion.skill_context import skill_context_requirements
@@ -129,19 +129,31 @@ RULE_CHOICE_PROCESS = (
     "Rule: take the first usable entry of the ordered list (the default); a run "
     "is explainable from the declared list plus the logged pace readings."
 )
-RULE_TRIGGER_SESSION = (
-    "Re-select: any dispatch failure the launch-correction rule does not "
-    "explain -- a non-zero exit, an Agent-tool error, a launch that produced no "
-    "output -- moves to another usable entry; announce it with the failure kind "
-    '(a classified marker, else "unexplained exit"). A schema-invalid or wrong '
-    "result from a run that exited 0 is a task failure, not a trigger. Before "
-    "re-selecting a unit that may have written, reset its workspace to its "
-    "launch state or re-run it in a fresh worktree; read-only review lanes skip "
-    "this step. A quota or credit halt (a usage-limit or out-of-credits error) "
-    f"is written back first: run `{CLI_COMMAND} record-halt <entry>` before "
-    "re-selecting or re-running describe with --exclude, so every later render "
-    "in this session shows that entry out of quota."
-)
+
+
+def rule_trigger_session() -> str:
+    """The session re-select rule, spelled with the CLI command valid right now.
+
+    A function because the record-halt command differs under a redirected data
+    root (:func:`constants.cli_command`); the rendered rule uses this, and
+    :data:`RULE_TRIGGER_SESSION` is its value for the process's own environment.
+    """
+    return (
+        "Re-select: any dispatch failure the launch-correction rule does not "
+        "explain -- a non-zero exit, an Agent-tool error, a launch that produced no "
+        "output -- moves to another usable entry; announce it with the failure kind "
+        '(a classified marker, else "unexplained exit"). A schema-invalid or wrong '
+        "result from a run that exited 0 is a task failure, not a trigger. Before "
+        "re-selecting a unit that may have written, reset its workspace to its "
+        "launch state or re-run it in a fresh worktree; read-only review lanes skip "
+        "this step. A quota or credit halt (a usage-limit or out-of-credits error) "
+        f"is written back first: run `{cli_command()} record-halt <entry>` before "
+        "re-selecting or re-running describe with --exclude, so every later render "
+        "in this session shows that entry out of quota."
+    )
+
+
+RULE_TRIGGER_SESSION = rule_trigger_session()
 RULE_TRIGGER_PROCESS = (
     "Re-select: only a classified halt (quota, rate limit, auth, insufficient "
     "credit, launch/transport) moves to the next usable entry; a quota or "
@@ -532,7 +544,7 @@ def _drive(caller: str, kind: str, harness: Optional[str], backend_name: Optiona
 
 def _rule(caller: str, has_author: bool) -> str:
     if caller == CALLER_SESSION:
-        parts = [RULE_CHOICE_SESSION, RULE_TRIGGER_SESSION]
+        parts = [RULE_CHOICE_SESSION, rule_trigger_session()]
     else:
         parts = [RULE_CHOICE_PROCESS, RULE_TRIGGER_PROCESS]
     if has_author:

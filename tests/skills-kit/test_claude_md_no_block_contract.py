@@ -89,6 +89,7 @@ def test_malformed_claude_md_block_not_hidden_by_other_root(tmp_path):
 def test_no_parser_with_no_block_is_na(tmp_path, monkeypatch):
     monkeypatch.setattr(document_walker, "HAVE_YAML", False)
     monkeypatch.setattr("skills_kit_lib.audit.HAVE_YAML", False)
+    monkeypatch.setattr("skills_kit_lib.standards_resolve.HAVE_YAML", False)
     md = tmp_path / "CLAUDE.md"
     md.write_text(BODY)
     assert _contract_verdicts(md) == [NA]
@@ -96,6 +97,7 @@ def test_no_parser_with_no_block_is_na(tmp_path, monkeypatch):
 
 def test_no_parser_with_claude_md_block_is_judgment(tmp_path, monkeypatch):
     monkeypatch.setattr(document_walker, "HAVE_YAML", False)
+    monkeypatch.setattr("skills_kit_lib.standards_resolve.HAVE_YAML", False)
     md = tmp_path / "CLAUDE.md"
     md.write_text(OTHER_ROOT + "\n" + VALID)
     assert _contract_verdicts(md) == [JUDGMENT]

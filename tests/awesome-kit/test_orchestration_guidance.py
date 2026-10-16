@@ -5,7 +5,7 @@ Covers the four-layer merge, record-list merging by id, backend detection,
     the shape of the rendered guidance.
 
 The module under test re-execs into awesome-kit's provisioned venv on import;
-tests/conftest.py sets _BOOTSTRAP_GUARD_VENV_REEXEC so that is a no-op here
+tests/conftest.py sets _BOOTSTRAP_GUARD_SKIP_REEXEC so that is a no-op here
 (see plugins/CLAUDE.md -- without it, importing would abandon the pytest
 process itself).
 """

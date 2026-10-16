@@ -945,3 +945,45 @@ def test_configuration_reference_shows_the_shipped_defaults_file():
             root / f"plugins/{kit}/skills/{skill}/references/configuration.md"
         ).read_text(encoding="utf-8")
         assert "```yaml\n" + defaults + "\n```" in rendered, kit
+
+
+class TestRedirectAwareFormShellClaim:
+    """The `${CLAUDE_BOOTSTRAP_DATA_ROOT:-...}` base is bash/zsh parameter
+    expansion, which PowerShell and cmd do not perform. A rendered file that
+    carries it must not claim the venv path works from every shell, and must
+    say the form is bash/zsh syntax.
+
+    Asserted on the COMMITTED files read from disk, per file the form appears
+    in. The byte-identity drift check cannot carry this property: a template
+    edit that regenerates both sides stays green (root CLAUDE.md
+    `guard_cannot_see_its_own_subject`).
+    """
+
+    FORM = "${CLAUDE_BOOTSTRAP_DATA_ROOT:-"
+    OVERCLAIMS = ("every shell", "any shell", "all shells", "all of the shells")
+
+    @staticmethod
+    def _carriers():
+        return {
+            path: " ".join(path.read_text(encoding="utf-8").split())
+            for path in gen.targets()
+            if TestRedirectAwareFormShellClaim.FORM
+            in path.read_text(encoding="utf-8")
+        }
+
+    def test_both_kits_carry_the_form_in_skill_and_configuration(self):
+        names = {(p.relative_to(REPO_ROOT).parts[1], p.name) for p in self._carriers()}
+        for kit in ("git-kit", "p4-kit"):
+            assert (kit, "SKILL.md") in names, kit
+            assert (kit, "configuration.md") in names, kit
+
+    def test_no_carrier_claims_every_shell(self):
+        for path, flat in self._carriers().items():
+            lowered = flat.lower()
+            for phrase in self.OVERCLAIMS:
+                assert phrase not in lowered, f"{path} claims {phrase!r}"
+
+    def test_every_carrier_states_the_form_is_bash_zsh_only(self):
+        for path, flat in self._carriers().items():
+            assert "bash/zsh syntax" in flat, path
+            assert "PowerShell and cmd do not expand it" in flat, path

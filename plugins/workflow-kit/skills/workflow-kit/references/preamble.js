@@ -69,9 +69,13 @@ function wkScript(command, out, opts) {
 // workflow-kit's OWN venv python -- it declares `openai` (its pyproject) and gets
 // `llm_scripting_kit` on its path via the bootstrap shared-libs .pth, e.g.
 //   '"<workflow-kit-venv-python>" "<pluginRoot>/scripts/openrouter_run.py"'
-// where <workflow-kit-venv-python> is
-//   ~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/Scripts/python.exe  (Windows)
-//   ~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/bin/python          (macOS/Linux)
+// where <workflow-kit-venv-python> is, expanded in a shell first (the Workflow
+// tool expands nothing in args; under a claudx session CLAUDE_BOOTSTRAP_DATA_ROOT
+// is set and selects the redirected venv):
+//   "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/Scripts/python.exe  (Windows)
+//   "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/bin/python          (macOS/Linux)
+// and <pluginRoot> is workflow-kit's install directory, expanded the same way:
+//   "${WORKFLOW_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}"
 // `spec` = { model?, cheap?, promptFile, system?, out, status?, events?, runId?,
 // unitId? }. `events` is where the call records its execution-event JSONL
 // stream (replaced on each run); it requires `runId` and `unitId`, and the

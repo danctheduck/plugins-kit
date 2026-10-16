@@ -99,8 +99,8 @@ PATTERN_SKILL_SCHEMA = {
 # steps. Trigger model (auto vs user-only) is metadata; it does not change
 # what the body must contain. The caution surface is a document-level
 # OR-rule: >=1 gotcha across techniques OR >=1 anti_patterns record
-# (enforced by check_technique_caution_cross_rule in audit.py, following
-# the facts cross-source precedent).
+# (enforced by the caution-floor evaluator in audit.MECHANICAL_EVALUATORS,
+# following the facts cross-source precedent).
 TECHNIQUE_SKILL_SCHEMA = {
     "root": "technique_skill",
     "owner_doc": "skills/md-domain/references/skill-domain/schema-fixtures.md",

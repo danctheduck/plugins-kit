@@ -55,7 +55,9 @@ def _run(tmp_path: Path, pythonpath: str) -> subprocess.CompletedProcess[str]:
     home.mkdir(exist_ok=True)
     env = {
         k: v for k, v in os.environ.items()
-        if k not in {"PYTHONPATH", "_BOOTSTRAP_GUARD_VENV_REEXEC"}
+        if k not in {
+            "PYTHONPATH", "_BOOTSTRAP_GUARD_VENV_REEXEC", "_BOOTSTRAP_GUARD_SKIP_REEXEC",
+        }
     }
     env.update({
         "CLAUDE_BOOTSTRAP_DATA_ROOT": str(data_root),
@@ -127,7 +129,7 @@ def test_real_stock_stub_search_returns_match(tmp_path):
 def test_unrelated_post_import_exception_is_not_reported_as_search_success(tmp_path, monkeypatch):
     """A post-import failure must escape instead of becoming exit 0/1."""
     data_root, _python = _provision_runtime(tmp_path)
-    monkeypatch.setenv("_BOOTSTRAP_GUARD_VENV_REEXEC", "1")
+    monkeypatch.setenv("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
     monkeypatch.setenv("CLAUDE_BOOTSTRAP_DATA_ROOT", str(data_root))
     monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
     module = runpy.run_path(str(SCRIPT), run_name="search_unreal_stub_test")

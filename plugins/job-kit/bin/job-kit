@@ -15,6 +15,26 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Under claudx (CLAUDE_PLUGIN_TEST) the working copy is the plugin under test, so a
+# shim running from the plugin cache would run the INSTALLED release. Refuse it.
+# Same scope as bootstrap_lib.env_var_check.cache_root_refusal: only the cache of
+# CLAUDE_PLUGIN_TEST_MARKETPLACE is refused (every cache path when it is unset).
+if [ -n "${CLAUDE_PLUGIN_TEST:-}" ]; then
+    _real_root="$(cd "$PLUGIN_ROOT" && pwd -P | tr '[:upper:]' '[:lower:]')"
+    _owned="$(printf '%s' "${CLAUDE_PLUGIN_TEST_MARKETPLACE:-}" | tr '[:upper:]' '[:lower:]')"
+    if [ -n "$_owned" ]; then
+        _needle="/plugins/cache/${_owned}/"
+    else
+        _needle="/plugins/cache/"
+    fi
+    case "${_real_root}/" in
+        *"$_needle"*)
+            echo "job-kit: refusing to run the cached copy at ${PLUGIN_ROOT}: CLAUDE_PLUGIN_TEST is set, so this session tests the working copy and the cached copy is the INSTALLED release. Run the working copy's bin/job-kit." >&2
+            exit 2
+            ;;
+    esac
+fi
 ENTRYPOINT="$PLUGIN_ROOT/lib/job_kit_entrypoint.py"
 DATA_DIR="${HOME}/.claude/plugins/data/plugins-kit/job-kit"
 
@@ -26,12 +46,17 @@ else
 fi
 VENV_PY="${DATA_DIR}/${VENV_REL}"
 # CLAUDE_BOOTSTRAP_DATA_ROOT is set only for a session that redirects bootstrap's
-# data tree (scripts/claude_plugin_test.py). When it is set AND that tree holds this
-# plugin's venv, the redirected venv outranks the production one; in every other
-# case the chain below is unchanged.
-if [ -n "${CLAUDE_BOOTSTRAP_DATA_ROOT:-}" ] \
-    && [ -x "${CLAUDE_BOOTSTRAP_DATA_ROOT}/plugins-kit/job-kit/${VENV_REL}" ]; then
+# data tree (scripts/claude_plugin_test.py). When it is set, this plugin's venv is
+# the one under that tree and nothing else: a missing redirected venv exits 2
+# rather than falling back to the production venv, which holds the published
+# release and would run it inside a session meant to test the working copy.
+# When it is unset the chain below is unchanged.
+if [ -n "${CLAUDE_BOOTSTRAP_DATA_ROOT:-}" ]; then
     VENV_PY="${CLAUDE_BOOTSTRAP_DATA_ROOT}/plugins-kit/job-kit/${VENV_REL}"
+    if [ ! -x "$VENV_PY" ]; then
+        echo "job-kit: CLAUDE_BOOTSTRAP_DATA_ROOT redirects bootstrap's data tree, but the redirected plugin interpreter is missing at ${VENV_PY}; refusing to fall back to the production venv." >&2
+        exit 2
+    fi
 fi
 
 if [ -x "$VENV_PY" ]; then

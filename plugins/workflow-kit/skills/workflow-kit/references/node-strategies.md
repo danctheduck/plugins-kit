@@ -69,9 +69,14 @@ with `openai` (declared) and links `llm_scripting_kit` onto it (declared via
 
 ```js
 // workflow-kit's venv python: has openai + llm_scripting_kit (shared-libs .pth).
+// The caller passes a resolved path, expanded in a shell first (the Workflow
+// tool expands nothing in args; under a claudx session CLAUDE_BOOTSTRAP_DATA_ROOT
+// is set and selects the redirected venv):
+//   "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/Scripts/python.exe  (Windows)
+//   "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/bin/python          (macOS/Linux)
+// args.pluginRoot is workflow-kit's install directory, expanded the same way:
+//   "${WORKFLOW_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}"
 const venvPy = args.workflowKitVenvPython
-//   ~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/Scripts/python.exe  (Windows)
-//   ~/.claude/plugins/data/plugins-kit/workflow-kit/.venv/bin/python          (macOS/Linux)
 const runner = `"${venvPy}" "${args.pluginRoot}/scripts/openrouter_run.py"`
 
 const req = `./.workflow-kit/${args.runId}/req.txt`  // prompt written first (a script node or upstream)
@@ -206,7 +211,8 @@ An artifact has one of two kinds:
   `oneOf` are refused, and the root must refuse `null`. It travels as JSON
   text with its digest: the sha256 of its canonical JSON (sorted keys, no
   spaces, ASCII), the value `OutputContract(...).schema_digest` reports.
-  Compute it once with workflow-kit's venv python:
+  Compute it once with workflow-kit's venv interpreter (`<workflow-kit-venv-python>`
+  is the shell-expanded path `venvPy` holds above):
 
   ```sh
   "<workflow-kit-venv-python>" -c "import json,sys; from llm_scripting_kit.completion import OutputContract; print(OutputContract(id='x', policy='validated-result', schema=json.load(open(sys.argv[1]))).schema_digest)" stats.schema.json

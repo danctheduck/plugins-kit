@@ -278,6 +278,76 @@ def _timed_out_contract(contract: Contract, directory: Path) -> Acceptance:
     )
 
 
+# Cross-plugin edge to bootstrap_lib.claudx: REFUSE. The edge is reached only
+# under claudx (CLAUDE_PLUGIN_TEST set), the maintainer test harness. Without
+# the module the run cannot be contained -- the child would load the published
+# plugins against the redirected data root -- so it refuses before any process
+# starts instead of proceeding uncontained. Outside claudx nothing is imported.
+# bootstrap_lib.claudx first shipped in bootstrap 0.154.1.
+_CLAUDX_MIN_BOOTSTRAP = "0.154.1"
+_CLAUDX_OWNER = "bootstrap@plugins-kit"
+
+
+class ClaudxSupportError(ImportError):
+    """bootstrap_lib.claudx is absent or too old for a claudx run."""
+
+
+def _claudx_unavailable(exc: ImportError, symbol: str) -> ClaudxSupportError:
+    """Diagnose a failed ``from bootstrap_lib.claudx import <symbol>``.
+
+    ``bootstrap_lib`` not importable is ABSENT (install). ``bootstrap_lib``
+    importable but without the ``claudx`` module or without ``symbol`` is TOO
+    OLD or stale (update). ``symbol`` is the newest claudx symbol this module
+    uses.
+    """
+    head = (
+        "job-kit cannot start a `claude` contract command under claudx "
+        "(CLAUDE_PLUGIN_TEST is set), so the child could not be made a claudx "
+        "session. Nothing was started. "
+    )
+    name = getattr(exc, "name", None)
+    if isinstance(exc, ModuleNotFoundError) and name == "bootstrap_lib":
+        return ClaudxSupportError(
+            head
+            + "bootstrap_lib is not importable here. Run "
+            f"`claude plugin install {_CLAUDX_OWNER}` "
+            f"(bootstrap >= {_CLAUDX_MIN_BOOTSTRAP})."
+        )
+    if isinstance(exc, ModuleNotFoundError) and name == "bootstrap_lib.claudx":
+        found = "the installed bootstrap_lib has no claudx module"
+    else:
+        found = f"the installed bootstrap_lib.claudx has no {symbol} ({exc})"
+    return ClaudxSupportError(
+        head
+        + f"{found}. Run `claude plugin update {_CLAUDX_OWNER}` "
+        f"(bootstrap >= {_CLAUDX_MIN_BOOTSTRAP}) and restart the session."
+    )
+
+
+def _claudx_contract_command(
+    command: Sequence[str], environment: Optional[Mapping[str, str]]
+) -> list[str]:
+    """The contract command to start, made claudx-faithful when it runs ``claude``.
+
+    Outside claudx (``CLAUDE_PLUGIN_TEST`` set in neither this process nor the
+    contract environment) the command is returned unchanged and
+    ``bootstrap_lib.claudx`` is not imported. Under claudx, a ``claude``
+    contract command gets the session's ``--plugin-dir`` flags after the
+    executable, and a supervised one (``--bg``, ``respawn``) or one whose
+    environment lost the claudx variables raises
+    ``bootstrap_lib.claudx.ClaudxPropagationError`` before anything starts.
+    """
+    if not os.environ.get("CLAUDE_PLUGIN_TEST") and not (environment or {}).get(
+        "CLAUDE_PLUGIN_TEST"
+    ):
+        return list(command)
+    try:
+        from bootstrap_lib.claudx import contract_command
+    except ImportError as exc:
+        raise _claudx_unavailable(exc, "contract_command") from exc
+    return list(contract_command(command, environment))
+
+
 def run_contract(
     contract: Contract,
     *,
@@ -315,6 +385,7 @@ def run_contract(
         )
     if interrupt_io is not None:
         environment.update(interrupt_io.environment())
+    command = _claudx_contract_command(contract.command, environment)
     started = time.monotonic()
     outcome = "observed"
     try:
@@ -326,7 +397,7 @@ def run_contract(
                 subprocess, "CREATE_NEW_PROCESS_GROUP", 0
             )
         process = subprocess.Popen(
-            list(contract.command),
+            command,
             cwd=str(working_directory),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

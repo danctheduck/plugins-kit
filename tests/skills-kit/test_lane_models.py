@@ -291,7 +291,7 @@ def test_audit_job_keeps_luna_because_it_never_goes_through_agent_route(roots):
 
 
 def _child_env(**extra) -> dict:
-    env = dict(os.environ, _BOOTSTRAP_GUARD_VENV_REEXEC="1", PYTHONDONTWRITEBYTECODE="1")
+    env = dict(os.environ, _BOOTSTRAP_GUARD_SKIP_REEXEC="1", PYTHONDONTWRITEBYTECODE="1")
     env["PYTHONPATH"] = str(REPO_ROOT / "plugins" / "bootstrap")
     env.update(extra)
     return env

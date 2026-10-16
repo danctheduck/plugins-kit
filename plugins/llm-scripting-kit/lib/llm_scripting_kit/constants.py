@@ -5,6 +5,7 @@
 endpoint-less callers keep resolving OpenRouter exactly as before.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -33,10 +34,32 @@ USER_ENV_FILE = (
 # resolves from any shell; a bare ``llm-scripting-kit`` resolves only inside a
 # Claude Code session. The ``plugins-kit`` marketplace segment is part of the
 # contract. Documented in README.md, "Invoking the CLI".
-CLI_COMMAND = (
-    "~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/"
-    + ("Scripts/llm-scripting-kit.exe" if sys.platform == "win32" else "bin/llm-scripting-kit")
+_CLI_LEAF = "Scripts/llm-scripting-kit.exe" if sys.platform == "win32" else "bin/llm-scripting-kit"
+CLI_COMMAND = "~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/" + _CLI_LEAF
+
+# The same console script, spelled against the redirectable data root. A session
+# that redirects bootstrap's data tree (scripts/claude_plugin_test.py exports
+# CLAUDE_BOOTSTRAP_DATA_ROOT) provisions this plugin's dev venv there, so the
+# production path in CLI_COMMAND would run the installed release instead of the
+# working copy. The form is the one the skill text uses; a reader expands it in
+# a shell.
+REDIRECTED_CLI_COMMAND = (
+    '"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"'
+    "/plugins-kit/llm-scripting-kit/.venv/" + _CLI_LEAF
 )
+
+
+def cli_command() -> str:
+    """The console-script command an agent-facing message tells a reader to run.
+
+    :data:`REDIRECTED_CLI_COMMAND` when ``CLAUDE_BOOTSTRAP_DATA_ROOT`` is set
+    (a redirected session), otherwise the human contract :data:`CLI_COMMAND`.
+    Evaluated per call, because the redirect is an environment fact of the
+    running process rather than of the module's import.
+    """
+    if os.environ.get("CLAUDE_BOOTSTRAP_DATA_ROOT"):
+        return REDIRECTED_CLI_COMMAND
+    return CLI_COMMAND
 
 
 def project_env_file(project_root: Path) -> Path:

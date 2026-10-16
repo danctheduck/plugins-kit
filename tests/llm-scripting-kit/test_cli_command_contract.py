@@ -97,6 +97,26 @@ def test_cli_command_is_a_display_string_not_a_resolved_path():
     assert "/cache/" not in constants.CLI_COMMAND
 
 
+def test_redirected_command_branches_on_win32_like_the_contract():
+    """The redirect-aware form shares the contract's console-script leaf on
+    each platform and swaps only the base.
+
+    Shown to fail: hard-code the ``bin/`` leaf in ``REDIRECTED_CLI_COMMAND``
+    and the win32 assertion goes red."""
+    real = sys.platform
+    try:
+        for platform, leaf in (("win32", _WINDOWS_LEAF), ("linux", _POSIX_LEAF)):
+            sys.platform = platform
+            module = importlib.reload(constants)
+            assert module.REDIRECTED_CLI_COMMAND == (
+                '"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"'
+                "/plugins-kit/llm-scripting-kit/.venv/" + leaf
+            )
+    finally:
+        sys.platform = real
+        importlib.reload(constants)
+
+
 _VENV_DIR = (
     _REAL_HOME / ".claude" / "plugins" / "data" / "plugins-kit"
     / "llm-scripting-kit" / ".venv"

@@ -75,7 +75,7 @@ def _main(capsys, *argv):
 def _child(cwd, *args, block=None, env_extra=None):
     """Run the launcher in a child interpreter. `block` names a module the
     child's sitecustomize blocks (sys.modules[name] = None)."""
-    env = dict(os.environ, _BOOTSTRAP_GUARD_VENV_REEXEC="1", PYTHONDONTWRITEBYTECODE="1")
+    env = dict(os.environ, _BOOTSTRAP_GUARD_SKIP_REEXEC="1", PYTHONDONTWRITEBYTECODE="1")
     paths = [str(BOOTSTRAP_PLUGIN)]
     if block:
         shim = Path(cwd) / "_shim"

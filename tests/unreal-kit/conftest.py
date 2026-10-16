@@ -14,4 +14,4 @@ the test run would execv away.
 
 import os
 
-os.environ.setdefault("_BOOTSTRAP_GUARD_VENV_REEXEC", "1")
+os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")

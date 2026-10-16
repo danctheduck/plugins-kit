@@ -26,6 +26,21 @@ import sys
 import webbrowser
 from pathlib import Path
 
+# Run under the plugin's bootstrap-provisioned venv (Playwright and pypdf live
+# there). Under a claudx session (CLAUDE_BOOTSTRAP_DATA_ROOT set) the guard
+# re-execs into the REDIRECTED venv, and exits 2 when that venv is missing
+# instead of running against the production one. The vendored, stdlib-only
+# guard sits next to this script. Its directory is put on sys.path explicitly
+# so the import also resolves when this file is loaded by path rather than run
+# as a script.
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.append(_SCRIPT_DIR)
+
+from bootstrap_guard import reexec_under_plugin_venv  # noqa: E402
+
+reexec_under_plugin_venv("pdf-kit")
+
 
 # --------------------------------------------------------------------------
 # Pure helpers (unit-tested; no browser / OS side effects)

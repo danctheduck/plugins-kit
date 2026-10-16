@@ -598,31 +598,47 @@ _SHELL_ALLOWLIST: dict[str, AllowlistEntry] = {
         "order as session-bootstrap.sh"),
     "plugins/hue-kit/bin/hue-kit": AllowlistEntry(
         "Prefer the standalone Python bootstrap installs; the CLI re-execs into the",
-        "class C launcher shim; deterministic standalone path first, "
-        "PATH-name fallback"),
+        "class C launcher shim; the deterministic standalone path first (the CLI "
+        "re-execs into the plugin venv itself), then BOOTSTRAP_PYTHON only when "
+        "its realpath is inside the standalone directory, then the PATH-name "
+        "fallback; exits 2 when run as the cached copy under claudx"),
     "plugins/hue-kit/bin/hue-kit.cmd": AllowlistEntry(
         "Prefer the standalone Python bootstrap installs (avoids the WindowsApps",
-        "class C launcher shim (Windows); same deterministic-first pattern"),
+        "class C launcher shim (Windows); same standalone-first order as the "
+        "POSIX shim, same cached-copy refusal under claudx"),
     "plugins/job-kit/bin/job-kit": AllowlistEntry(
         "the plugin venv bootstrap provisions -- it has the shared-lib links",
-        "class C launcher shim; deterministic standalone path first, "
-        "PATH-name fallback"),
+        "class C launcher shim; the redirected venv when CLAUDE_BOOTSTRAP_DATA_ROOT "
+        "is set (exit 2 when that interpreter is missing, never the production "
+        "venv), else the plugin venv first, then BOOTSTRAP_PYTHON only when its "
+        "realpath is inside the standalone directory, then the PATH-name "
+        "fallback; exits 2 when run as the cached copy under claudx"),
     "plugins/job-kit/bin/job-kit.cmd": AllowlistEntry(
         "the plugin venv bootstrap provisions -- it has the shared-lib links",
-        "class C launcher shim (Windows); same deterministic-first pattern"),
+        "class C launcher shim (Windows); same venv-first order, same exit 2 on "
+        "a missing redirected venv, same cached-copy refusal under claudx"),
     "plugins/llm-scripting-kit/bin/llm-scripting-kit": AllowlistEntry(
         "the plugin venv bootstrap provisions -- it has PyYAML, which the CLI",
-        "class C launcher shim; deterministic standalone path first, "
-        "PATH-name fallback, documented graceful stdlib-only degrade"),
+        "class C launcher shim; the redirected venv when CLAUDE_BOOTSTRAP_DATA_ROOT "
+        "is set (exit 2 when that interpreter is missing, never the production "
+        "venv), else the plugin venv first, then the standalone path, then "
+        "BOOTSTRAP_PYTHON only when its realpath is inside the standalone "
+        "directory, then the PATH-name fallback, with the documented "
+        "stdlib-only degrade; exits 2 when run as the cached copy under claudx"),
     "plugins/llm-scripting-kit/bin/llm-scripting-kit.cmd": AllowlistEntry(
         "the plugin venv bootstrap provisions -- it has PyYAML, which the CLI",
-        "class C launcher shim (Windows); same deterministic-first pattern"),
+        "class C launcher shim (Windows); same venv-first order, same exit 2 on "
+        "a missing redirected venv, same cached-copy refusal under claudx"),
     "plugins/secrets-kit/bin/secrets-kit": AllowlistEntry(
         "Fall back to anything on PATH; bootstrap normally guarantees the",
-        "class C launcher shim; documented stdlib-only graceful degrade to PATH"),
+        "class C launcher shim; the standalone path first (no plugin venv: the "
+        "CLI is stdlib-only), then BOOTSTRAP_PYTHON only when its realpath is "
+        "inside the standalone directory, then the documented degrade to PATH; "
+        "exits 2 when run as the cached copy under claudx"),
     "plugins/secrets-kit/bin/secrets-kit.cmd": AllowlistEntry(
         "Windows shim invoking the bundled CLI via standalone Python.",
-        "class C launcher shim (Windows); same deterministic-first pattern"),
+        "class C launcher shim (Windows); same standalone-first order, same "
+        "cached-copy refusal under claudx"),
     "scripts/check-staged-version-bump.sh": AllowlistEntry(
         "Interpreter resolution mirrors pre-commit-version-check.sh",
         "class D-ish repo-root maintainer script; deliberately avoids uv "
@@ -677,6 +693,15 @@ _PYTHON_ALLOWLIST: dict[str, AllowlistEntry] = {
         'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
         _BOOTSTRAP_GUARD_REASON),
     "plugins/job-kit/lib/bootstrap_guard.py": AllowlistEntry(
+        'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
+        _BOOTSTRAP_GUARD_REASON),
+    "plugins/llm-scripting-kit/lib/llm_scripting_kit/bootstrap_guard.py": AllowlistEntry(
+        'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
+        _BOOTSTRAP_GUARD_REASON),
+    "plugins/pdf-kit/skills/html-pdf/scripts/bootstrap_guard.py": AllowlistEntry(
+        'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
+        _BOOTSTRAP_GUARD_REASON),
+    "plugins/workflow-kit/scripts/bootstrap_guard.py": AllowlistEntry(
         'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
         _BOOTSTRAP_GUARD_REASON),
     "plugins/p4-kit/scripts/bootstrap_guard.py": AllowlistEntry(

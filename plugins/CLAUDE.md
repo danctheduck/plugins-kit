@@ -243,7 +243,7 @@ unconfigurable opinion whose test passes is a finding.
   verdict expires and the next read evaluates the pool afresh (`usage_budget.pinned_evaluate`). A
   team could reasonably want live re-evaluation -- a session running for days holds an
   `available` verdict computed against numbers that have since moved -- and the only
-  remedy we leave them is to start a new session (or `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit usage --no-pin`, or `.venv/Scripts/llm-scripting-kit.exe` in place of `.venv/bin/llm-scripting-kit` on Windows,
+  remedy we leave them is to start a new session (or `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit usage --no-pin`, or `.venv/Scripts/llm-scripting-kit.exe` in place of `.venv/bin/llm-scripting-kit` on Windows,
   which inspects without changing what `seats` returns). We refuse the seam because the
   alternative is the failure the feature exists to prevent: an endpoint that was usable
   when work was planned against it disappearing mid-run on a re-read, which strands that
@@ -596,8 +596,22 @@ venv); fixed in bootstrap 0.86.3, pinned by
 
 The SKILL.md-side companion is in the root CLAUDE.md insight
 `host_python_via_plugin_venv`: launch the script under `"$BOOTSTRAP_PYTHON"`
-and let it re-exec; use the explicit venv path only for a script without a
-re-exec guard; never use `uv run python` outside a skill preload.
+and let it re-exec; for a script without a re-exec guard, name the venv
+interpreter under `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"`
+rather than the bare `~/.claude/plugins/data` path (the bare path is the
+installed release inside a claudx session; the expression is bash/zsh syntax);
+never use `uv run python` outside a skill preload.
+
+**A launcher shim names its interpreter order, and under claudx it refuses
+rather than substitutes.** The order of each Python-invoking
+`plugins/<name>/bin/` shim (a plugin-venv shim takes its venv first; a shim
+whose CLI needs no venv takes the standalone interpreter first) is stated once,
+in the root CLAUDE.md, "Scoped exception: Python CLI launcher shims". A Python-invoking shim
+also exits 2 when `CLAUDE_BOOTSTRAP_DATA_ROOT` is set and its redirected venv is
+missing (never the production venv), and exits 2 when `CLAUDE_PLUGIN_TEST` is
+set and the shim runs from the plugin cache. Register its order in the allowlist
+of `tests/repo-scripts/test_python_invocation_standard.py`; the refusals are
+pinned by `tests/repo-scripts/test_launcher_shim_data_root_redirect.py`.
 
 **Three surfaces expand `${CLAUDE_PLUGIN_ROOT}`; a shell is not one of them.**
 Claude Code substitutes the variable only where the harness reads the string
@@ -673,22 +687,31 @@ manifest commands:
 `prepare_review.py` triggers `reexec_under_plugin_venv`, which on a machine with
 the plugin's venv provisioned calls `os.execv` and abandons the pytest process
 ITSELF, not just the import -- so the run stops at collection with **exit 0 and
-no output at all: a false green**. Setting `_BOOTSTRAP_GUARD_VENV_REEXEC=1`
-makes the re-exec a no-op (see `_REEXEC_GUARD_ENV` in `bootstrap_guard.py`).
-The literal `1` is the explicit opt-out. The guard's own loop flag carries the
-interpreter it re-exec'd into and is honored only for that interpreter, so a
-child that inherits another plugin's flag still moves into its own venv.
+no output at all: a false green**. Setting `_BOOTSTRAP_GUARD_SKIP_REEXEC=1`
+makes the re-exec a no-op (see `_REEXEC_SKIP_ENV` in `bootstrap_guard.py`); it
+is the only opt-out. The guard's loop flag, `_BOOTSTRAP_GUARD_VENV_REEXEC`,
+is a different variable with a different meaning: it carries the interpreter
+the guard re-exec'd into, is written by the guard and by nothing else, and is
+honored only for that interpreter, so a child that inherits another plugin's
+flag still moves into its own venv. Any other value in it, the legacy opt-out
+`1` included, is untrusted (a `1` prints one stderr line naming it as legacy
+and re-execs once). A missing redirected interpreter exits 2 even with the
+opt-out set. `tests/repo-scripts/test_guard_flag_writers.py` fails on any
+other writer of the loop flag and on any shipped surface that sets the opt-out.
+A test that must observe a real re-exec removes the loop flag AND the skip
+variable from the child environment.
 
 **Set it in the test package's `conftest.py`, not at the invocation.** Every
 affected test dir does this at import time, so a bare `pytest tests/<dir>` is
 safe with nothing to remember:
 
 ```python
-os.environ.setdefault("_BOOTSTRAP_GUARD_VENV_REEXEC", "1")
+os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 ```
 
 Current setters: `tests/awesome-kit`, `tests/git-kit`, `tests/job-kit`,
-`tests/p4-kit`, `tests/skills-kit`, `tests/unreal-kit`. A dir whose tests import a re-execing script and which does
+`tests/llm-scripting-kit`, `tests/p4-kit`, `tests/pdf-kit`, `tests/skills-kit`,
+`tests/unreal-kit`, `tests/workflow-kit`. A dir whose tests import a re-execing script and which does
 NOT set this is a latent false green, and the failure hides itself: in a
 full-suite run an earlier conftest (alphabetically, `tests/awesome-kit`) sets
 the var first, so the dir looks healthy and only breaks when run ALONE -- i.e.
@@ -710,7 +733,9 @@ the canonical, and the guard must never `import bootstrap_lib`. Current vendored
 copies: `git-kit/scripts`, `p4-kit/scripts`, `skills-kit/scripts`,
 `unreal-kit/lib`, `hue-kit/scripts`, `job-kit/lib`,
 `awesome-kit/skills/task/scripts`,
-`awesome-kit/skills/orchestrate/scripts`.
+`awesome-kit/skills/orchestrate/scripts`,
+`llm-scripting-kit/lib/llm_scripting_kit`, `workflow-kit/scripts`,
+`pdf-kit/skills/html-pdf/scripts`.
 
 **The test globs `plugins/**/bootstrap_guard.py`, so it is the authority on that
 list and this prose is not.** Sync by running the glob, never by working through

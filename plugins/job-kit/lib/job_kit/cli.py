@@ -405,6 +405,26 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     `resume` leaves a job waiting on an interrupt and none failed. Argparse
     exits with 2 for usage errors.
     """
+    if argv is None:
+        # The console-script path (an explicit argv is a library call, which
+        # stays in the caller's interpreter). Under a redirected data root
+        # this moves the process into the redirected plugin venv, or exits 2
+        # when that venv is missing, instead of running whatever interpreter
+        # the console wrapper started under.
+        #
+        # reexec_under_plugin_venv re-executes ``[target, *sys.argv]`` and
+        # treats argv[0] as a script path, but argv[0] here is a console-script
+        # wrapper (an .exe on Windows) that Python cannot run as source. Hand
+        # it the module form instead, so the replacement runs
+        # ``python -m job_kit.cli <args>``.
+        from bootstrap_guard import reexec_under_plugin_venv
+
+        entry_argv = list(sys.argv)
+        sys.argv = ["-m", "job_kit.cli", *entry_argv[1:]]
+        try:
+            reexec_under_plugin_venv("job-kit")
+        finally:
+            sys.argv = entry_argv
     parser = _parser()
     args = parser.parse_args(argv)
     if args.command == "resolve" and args.reason is not None and not args.reject:

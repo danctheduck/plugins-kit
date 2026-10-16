@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from bootstrap_guard import _REEXEC_GUARD_ENV
+from bootstrap_guard import _REEXEC_SKIP_ENV
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _TASK_CLI = (
@@ -51,7 +51,7 @@ def run_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     """Run task.py in a subprocess, hermetically (same pattern as the
     Step 2-5 suites: re-exec guard armed, skills_kit_lib on PYTHONPATH)."""
     env = os.environ.copy()
-    env[_REEXEC_GUARD_ENV] = "1"
+    env[_REEXEC_SKIP_ENV] = "1"
     env["PYTHONPATH"] = str(_REPO_ROOT / "plugins" / "skills-kit")
     return subprocess.run(
         [sys.executable, str(_TASK_CLI), *args],

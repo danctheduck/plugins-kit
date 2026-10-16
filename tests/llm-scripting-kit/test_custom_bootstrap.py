@@ -87,13 +87,30 @@ class TestBootstrapMissingKey:
         assert len(ctx.deferred) == 1
         d = ctx.deferred[0]
         assert d["name"] == "openrouter_credential"
-        assert d["satisfied_by"] == f"{constants.CLI_COMMAND} set-key"
+        assert d["satisfied_by"] == f"{constants.cli_command()} set-key"
         # The brief user_msg says there is nothing to do yet; the detailed
         # remediation (set-key + where to get a key) lives in the agent_msg,
         # for the point-of-need skill to present verbatim.
         assert "fix-all" not in d["user_msg"]
-        assert f"{constants.CLI_COMMAND} set-key --key <THE_KEY>" in d["agent_msg"]
+        assert f"{constants.cli_command()} set-key --key <THE_KEY>" in d["agent_msg"]
         assert "openrouter.ai/keys" in d["agent_msg"]
+
+    def test_redirected_session_names_the_redirected_console_script(
+        self, env_setup, monkeypatch, tmp_path
+    ):
+        """Under a redirected data root the ask names the redirect-aware
+        console script, not the production venv's.
+
+        Shown to fail: switch ``custom_bootstrap`` back to ``CLI_COMMAND`` and
+        the production path appears in ``satisfied_by`` and ``agent_msg``."""
+        monkeypatch.setenv("CLAUDE_BOOTSTRAP_DATA_ROOT", str(tmp_path / "data-dev"))
+        ctx = FakeContext(env_setup["data_dir"], env_setup["project_dir"])
+        cb.bootstrap(ctx)
+        d = ctx.deferred[0]
+        redirected = constants.REDIRECTED_CLI_COMMAND
+        assert d["satisfied_by"] == f"{redirected} set-key"
+        assert f"{redirected} set-key --key <THE_KEY>" in d["agent_msg"]
+        assert constants.CLI_COMMAND not in d["agent_msg"]
 
     def test_missing_key_is_not_announced_to_the_user(self, env_setup):
         """The expected state on a machine that never calls the API is quiet."""

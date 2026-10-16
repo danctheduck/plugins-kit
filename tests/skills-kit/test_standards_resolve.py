@@ -143,7 +143,7 @@ def test_absent_everything_returns_empty_defaults(tmp_path, monkeypatch):
     # Only the shipped layer resolves: no authored file, no override.
     assert _authored(r.standards_by_primitive) == {}
     assert {sf.layer for files in r.standards_by_primitive.values() for sf in files} == {"shipped"}
-    assert r.threshold_defaults == {"desc_max_chars": 160}
+    assert r.threshold_defaults == {"desc_max_chars": 160, "import_max_lines": 50}
 
 
 def test_user_layer_disable_flows_through(tmp_path, monkeypatch):
@@ -467,7 +467,7 @@ def test_resolve_cli_reports_a_disabled_coverage_criterion(tmp_path):
     # The plugin venv links bootstrap_lib (lane_models needs it); this
     # interpreter does not, so the child gets the source tree instead.
     env["PYTHONPATH"] = str(_PLUGIN_ROOT.parent / "bootstrap")
-    env["_BOOTSTRAP_GUARD_VENV_REEXEC"] = "1"
+    env["_BOOTSTRAP_GUARD_SKIP_REEXEC"] = "1"
     proc = subprocess.run(
         [sys.executable, str(_RESOLVE_CLI), "--project-root", str(project_root)],
         capture_output=True,

@@ -520,4 +520,188 @@ claude_md:
         criterion is removed from a copy of the shipped file.
       origin: Surface, finding and follow-up above; milestone M5 of the configurable-standards work.
       added: "2026-10-16"
+    - id: skill_type_criteria_shipped
+      keywords: [skill-type-tag, skill-type-valid, SkillContext, applies gate, MechanicalEvaluator, evaluator context, frontmatter hygiene, deferred row, no pyyaml, M6, shipped standards]
+      summary: "skills-kit 0.93.0 moves skill-type-tag and skill-type-valid out of audit.check_universal and rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria. An evaluator now receives a SkillContext (frontmatter, body, skill dir) and carries an applies gate that decides whether the criterion has a row for the document. Extends shipped_standards_layer_enabled."
+      detail: |
+        Surface: the two skill-type rows were hard-coded in check_universal and
+        catalogued in rule_catalog.RULES as optional description-hygiene rules.
+        The shipped layer evaluated only criteria that read the description
+        string, so they stayed behind when the description rows moved.
+        Finding: the two checks depend on which frontmatter keys exist, not on
+        one value. skill-type-tag has a row only while the tag is absent;
+        skill-type-valid has a row only while it is present. A criterion that is
+        always evaluated cannot express that.
+        Rulings: (1) MechanicalEvaluator.evaluate takes a SkillContext and the
+        effective thresholds; the description evaluators read the description
+        from the context. (2) MechanicalEvaluator.applies(SkillContext) -> bool
+        gates the row. It runs in resolved and deferred modes, reads no
+        threshold, and a criterion it rejects produces no row. (3) The criteria
+        rows are emitted right after the description row whether the
+        description is present or absent, so a SKILL.md without a description
+        still gets its skill-type row. (4) The statements, severities (tag:
+        judgment, valid: fail) and keywords live in the shipped file; the row
+        labels, notes and verdicts are unchanged from the hard-coded block. (5)
+        The catalog counts become 39 optional, 11 inoffensive, 3 architectural.
+        Accepted regression: without pyyaml the shipped file cannot be read, so
+        both rows are deferred judgment-required rows. skill-type-valid on an
+        invalid value is therefore judgment-required, not a FAIL, on a bare
+        interpreter, and the absent-tag row carries the "(deferred)" label. A
+        run under the skills-kit plugin venv is unchanged.
+        Follow-up: none for these ids. Verification: the golden corpus stayed
+        byte-identical, and the shipped-standards regression test fails when
+        skill-type-valid is removed from a copy of the shipped file.
+      origin: Surface, finding and follow-up above; milestone M6 wave 1 of the configurable-standards work.
+      added: "2026-10-16"
+    - id: claude_md_criteria_shipped
+      keywords: [claude-md-import-size, claude-md-size-signal, claude-md-record-floor, CLAUDE-md-standards.md, ClaudeMdContext, reads_builtin_thresholds, builtin threshold, import_max_lines, section, shipped file list, deferred row, no pyyaml, M6, shipped standards]
+      summary: "skills-kit 0.94.0 moves claude-md-import-size, claude-md-size-signal and claude-md-record-floor out of audit.py and rule_catalog.RULES into the shipped CLAUDE-md-standards.md as mechanical criteria. An evaluator reads a built-in threshold without declaring it (reads_builtin_thresholds); a criterion declares only a threshold it alone owns. Extends skill_type_criteria_shipped."
+      detail: |
+        Surface: three optional CLAUDE.md rows were hard-coded in
+        check_claude_md_defaults and audit_claude_md, and catalogued in
+        rule_catalog.RULES. The CLAUDE.md audit did not resolve standards at
+        all, so it never needed the shipped layer.
+        Finding: one of the three needs a limit no other rule reads
+        (import_max_lines), one needs limits the SKILL.md body-size-signal rule
+        also reads (body_max_lines, body_max_tokens), and one applies only when
+        the file carries a parsed claude_md: block. The import scan also feeds
+        the inoffensive claude-md-links-resolve rule, which reports a missing
+        import and stays hard-coded.
+        Rulings: (D1) Built-in thresholds stay built in. body_max_lines and
+        body_max_tokens remain in audit.THRESHOLDS, so a user override moves
+        the SKILL.md rule and the CLAUDE.md rule together. A criterion declares
+        only a threshold it alone owns. An evaluator names the built-in
+        thresholds it reads in MechanicalEvaluator.reads_builtin_thresholds,
+        needs no declaration for them, and receives a view holding only the
+        thresholds its record names (its owned one plus those), so an
+        undeclared read fails loudly. A criterion that declares a built-in
+        threshold is still rejected, even one its evaluator reads. (2)
+        import_max_lines moves from audit.THRESHOLDS into the
+        claude-md-import-size criterion (`threshold: {name: import_max_lines,
+        default: 50}`). The config key is unchanged: `thresholds:
+        {import_max_lines: <int>}` tunes it, and the key stays a valid knob when
+        the shipped layer is opted out. (3) A ClaudeMdContext (path, content,
+        body, parsed claude_md: mapping or None) is a second context type beside
+        SkillContext; the evaluator's applies_to names which one it receives.
+        SkillContext was not generalised because a skill has a frontmatter and a
+        directory and a CLAUDE.md has neither. (4) claude-md-record-floor gates
+        on `applies`: it has a row only when the parsed block is a mapping. (5)
+        MechanicalEvaluator.section places a row in the universal or the
+        yaml_contract list, so the floor keeps its position after the contract
+        rows and the other two keep theirs after the links and fences rows. (6)
+        mechanical_criteria(applies_to, resolved) replaces skill_md_criteria and
+        serves both file types. (7) standards_resolve requires a list of shipped
+        files, SKILL-standards.md and CLAUDE-md-standards.md; a missing one is a
+        StandardsConfigError for every SKILL.md and CLAUDE.md audit. (8) Labels,
+        notes, verdicts, positions and the claude-md-size-signal
+        judgment-not-fail outcome are unchanged; severity judgment maps a
+        failed evaluation to judgment-required.
+        Accepted regression: without pyyaml the shipped files cannot be read, so
+        claude-md-import-size and claude-md-size-signal become deferred
+        judgment-required rows on a bare interpreter. An import over the limit
+        is therefore not a FAIL there, and the size row carries none of its
+        counts. claude-md-record-floor has no deferred row in practice: the
+        claude_md: block it needs cannot be parsed without pyyaml, so its gate
+        rejects the document. A run under the skills-kit plugin venv is
+        unchanged.
+        Follow-up: none for these ids. Verification: the golden corpus stayed
+        byte-identical, and the shipped-standards regression tests fail when a
+        criterion is removed from a copy of the shipped CLAUDE-md file while the
+        rows come from hard-coded criteria.
+      origin: Surface, finding and follow-up above; milestone M6 wave 2 of the configurable-standards work.
+      added: "2026-10-16"
+    - id: body_refs_criteria_shipped
+      keywords: [body-line-count, body-token-count, body-size-signal, refs-one-hop-deep, n/a outcome, evaluator outcome, tri-state, info severity, count rows, reads_builtin_thresholds, deferred row, no pyyaml, M6, shipped standards]
+      summary: "skills-kit 0.95.0 moves body-line-count, body-token-count, body-size-signal and refs-one-hop-deep out of audit.check_universal and rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria. An evaluator may report n/a: its outcome is True (pass), False (violated; severity decides fail or judgment) or None (n/a). Extends claude_md_criteria_shipped."
+      detail: |
+        Surface: four optional SKILL.md rows were hard-coded in check_universal
+        and catalogued in rule_catalog.RULES as layout and thresholds-signals
+        rules. Two of them (the counts) are informational, one reads the
+        built-in body limits, and one needs the skill directory.
+        Finding: an evaluator returned (label, passed: bool, note), which cannot
+        say "this criterion has a row but nothing to check". Two of today's rows
+        are n/a in ordinary cases: refs-one-hop-deep when the skill has no
+        references/ directory, and the progressive-disclosure row
+        (body-size-signal) while the body is within the limits. The applies
+        gate cannot carry that, because a gated criterion has no row at all and
+        the current output has an n/a row.
+        Rulings: (D1) body_max_lines and body_max_tokens stay built in;
+        body-size-signal names them in reads_builtin_thresholds and owns no
+        threshold, so one override moves it and claude-md-size-signal together.
+        (D3) body-line-count and body-token-count ship as mechanical criteria of
+        severity info that always pass and carry the count in the note; output is
+        unchanged and a user can switch either off with rules: {<id>: off}.
+        (3) Outcome type: MechanicalEvaluator.evaluate returns True (pass), False
+        (violated) or None (n/a). A violation keeps the severity mapping already
+        in place (fail severity -> fail, otherwise judgment-required), so
+        body-size-signal is severity judgment and refs-one-hop-deep is severity
+        fail. A fourth value was not added: pass, violation and n/a are the only
+        outcomes today's rows produce, and judgment-required is already what
+        severity maps a violation to. The eight existing evaluators return bools
+        and are untouched. (4) The four criteria follow skill-type-valid in the
+        shipped file, which is their old position (after the skill-type rows and
+        before refs-cited-exist, which stays hard-coded). (5) The catalog counts
+        become 32 optional, 11 inoffensive, 3 architectural.
+        Accepted regression: without pyyaml the shipped file cannot be read, so
+        the four rows are deferred judgment-required rows on a bare interpreter.
+        An undeclared nested reference is therefore not a FAIL there, the
+        progressive-disclosure row is judgment-required at any body size, and
+        the count rows carry no count. A run under the skills-kit plugin venv is
+        unchanged. The current no-pyyaml output of these ids could not be kept:
+        a deferred row needs the file's severity, which is the one thing that
+        cannot be read.
+        Follow-up: none for these ids. Verification: the golden corpus stayed
+        byte-identical, and the shipped-standards regression tests fail when a
+        criterion is removed from a copy of the shipped file while the rows come
+        from hard-coded code.
+      origin: Surface, finding and follow-up above; milestone M6 wave 3 of the configurable-standards work.
+      added: "2026-10-16"
+    - id: contract_floor_criteria_shipped
+      keywords: [facts-floor, facts-gotcha, facts-example, caution-floor, yaml_contract section, SkillContext yaml_root, yaml_units, applies gate, contract-staged, no pyyaml, no deferred row, record floors, M6, shipped standards]
+      summary: "skills-kit 0.96.0 moves facts-floor, facts-gotcha, facts-example and caution-floor out of audit.py's check_facts_cross_rules and check_technique_caution_cross_rule and out of rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria that join the yaml_contract list. Extends body_refs_criteria_shipped."
+      detail: |
+        Surface: four optional YAML-contract floors were emitted by two
+        hard-coded functions that ran after the portable-unit rows, and were
+        catalogued in rule_catalog.RULES as record-floors rules. The skill_md
+        evaluators so far ran inside check_universal, before the contract is
+        parsed.
+        Finding: these floors read two things the universal rows never had,
+        the document's parsed YAML units and the contract root the audit
+        resolved (the facts floor gates on that root, with the frontmatter tag
+        as the fallback only for a document with no recognized root). The
+        yaml_contract section already existed for claude-md-record-floor, but a
+        skill_md audit placed none of its rows by section.
+        Rulings: (1) SkillContext gains yaml_root and a cached yaml_units. The
+        root is a result of the contract check, so the universal context leaves
+        it unset and audit() builds a second context once the root exists;
+        the units are parsed on first use and shared, so the four evaluators
+        parse the body once. (2) The four evaluators declare section
+        "yaml_contract"; check_universal runs only the universal ones, and
+        audit() runs the yaml_contract ones after check_portable_units and
+        before check_asset_dependencies_resolve, which is where the removed
+        functions emitted. Row order, labels, notes and verdicts are unchanged.
+        (3) facts-gotcha and facts-example have an applies gate that is true
+        only when at least one fact is declared, because the removed function
+        returned after the floor row when no fact existed. (4) None declares a
+        threshold: each floor is "at least one", with no count in THRESHOLDS.
+        (5) The catalog counts become 28 optional, 11 inoffensive, 3
+        architectural. (6) The two removed functions are deleted, not kept as
+        wrappers.
+        No-pyyaml output is preserved exactly: the floors had no row on a
+        bare interpreter, so the applies gate is false without pyyaml and the
+        rows are not deferred rows. That differs from waves 1 to 3, whose rows
+        become deferred there, and it is why this wave has no accepted
+        regression.
+        Behaviour kept that the contract-only reading would miss: a SKILL.md
+        tagged skill-type: reference-skill with no contract block still gets a
+        facts-floor row (the tag is the fallback gate), and a reference block
+        that fails to parse still gets one.
+        Follow-up: none for these ids. Verification: the output of 39 fixtures
+        (every case above, with and without pyyaml) was byte-identical before
+        and after, the golden corpus stayed byte-identical, and the
+        shipped-standards regression tests fail when a criterion is removed
+        from a copy of the shipped file while the rows come from hard-coded
+        code.
+      origin: Surface, finding and follow-up above; milestone M6 wave 4 of the configurable-standards work.
+      added: "2026-10-16"
 ```

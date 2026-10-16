@@ -81,11 +81,11 @@ tooling is tested under `tests/repo-scripts/`.
 under the plugin venv (`reexec_under_plugin_venv`, see below). On a machine
 where that venv is provisioned, importing the script during test collection
 calls `os.execv` and abandons the pytest process itself -- collection exits 0
-with nothing run, a false green. Set the guard env var so the re-exec is a
-no-op:
+with nothing run, a false green. Set the guard's skip variable so the re-exec
+is a no-op (each test directory's `conftest.py` already does):
 
 ```bash
-_BOOTSTRAP_GUARD_VENV_REEXEC=1 uv run pytest tests/p4-kit -q
+_BOOTSTRAP_GUARD_SKIP_REEXEC=1 uv run pytest tests/p4-kit -q
 ```
 
 ## How plugins are structured

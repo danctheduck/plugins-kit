@@ -4,6 +4,15 @@ rem under the plugin's bootstrap-provisioned venv, so this only needs any Python
 setlocal enabledelayedexpansion
 set "SCRIPT_DIR=%~dp0"
 set "PLUGIN_ROOT=%SCRIPT_DIR%.."
+
+rem Under claudx (CLAUDE_PLUGIN_TEST) the working copy is the plugin under test, so a
+rem shim running from the plugin cache would run the INSTALLED release. Refuse it.
+rem Same scope as bootstrap_lib.env_var_check.cache_root_refusal: only the cache of
+rem CLAUDE_PLUGIN_TEST_MARKETPLACE is refused (every cache path when it is unset).
+for %%I in ("%SCRIPT_DIR%..") do set "_PR=%%~fI\"
+set "_CACHE_NEEDLE=\plugins\cache\"
+if defined CLAUDE_PLUGIN_TEST_MARKETPLACE set "_CACHE_NEEDLE=\plugins\cache\%CLAUDE_PLUGIN_TEST_MARKETPLACE%\"
+if defined CLAUDE_PLUGIN_TEST if not "!_PR:%_CACHE_NEEDLE%=!"=="!_PR!" goto :cached_copy
 set "CLI=%PLUGIN_ROOT%\scripts\hue_kit_cli.py"
 rem Prefer the standalone Python bootstrap installs (avoids the WindowsApps
 rem Store-alias stub that `where python.exe` otherwise resolves to). The CLI
@@ -33,3 +42,7 @@ if not exist "%PY%" (
 
 "%PY%" "%CLI%" %*
 exit /b %ERRORLEVEL%
+
+:cached_copy
+echo hue-kit: refusing to run the cached copy at %_PR%: CLAUDE_PLUGIN_TEST is set, so this session tests the working copy and the cached copy is the INSTALLED release. Run the working copy's bin\hue-kit.cmd. 1>&2
+exit /b 2

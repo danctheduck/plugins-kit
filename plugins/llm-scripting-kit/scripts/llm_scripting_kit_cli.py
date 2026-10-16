@@ -27,6 +27,19 @@ if str(_LIB_DIR) not in sys.path:
 
 
 if __name__ == "__main__":
+    # Guard before the package CLI is imported: under a redirected data root the
+    # process moves into the redirected plugin venv (or exits 2 when it is
+    # missing) before any of the CLI's own imports run. Same argv rewrite and
+    # reason as llm_scripting_kit.cli.main; see the comment there.
+    from llm_scripting_kit.bootstrap_guard import reexec_under_plugin_venv
+
+    _entry_argv = list(sys.argv)
+    sys.argv = ["-m", "llm_scripting_kit.cli", *_entry_argv[1:]]
+    try:
+        reexec_under_plugin_venv("llm-scripting-kit")
+    finally:
+        sys.argv = _entry_argv
+
     from llm_scripting_kit.cli import main as package_main
 
     sys.exit(package_main())
