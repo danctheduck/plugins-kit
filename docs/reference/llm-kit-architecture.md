@@ -2,161 +2,107 @@
 
 ## Decision summary
 
-- Create one published plugin, `llm-kit`, with one release version and one shared library, `llm_kit`.
-- Use 16 import components with the exact acyclic edge set in this document; empty namespace initializers re-export nothing.
-- Put schema, registry, storage, pipeline contracts, and reusable CLI scaffolding at the stable bottom of the graph.
-- Split adapter mechanics from dispatch policy; move every identified upward import to its owning lower package.
+- Create one published plugin, llm-kit, with one release version and one shared library, llm_kit.
+- Consolidate under the final namespace privately, prove differential parity, then restructure one boundary at a time before consumer migration.
+- Use 16 import components with the exact acyclic edge set below; namespace initializers re-export nothing.
+- Keep completion contracts and capability types below concrete adapters, capability tables, factories, and account probes.
+- Route pipeline backend construction through dispatch while preserving every constructor option and injection seam.
 - Keep flat jobs and leased pipeline execution separate above shared execution and storage mechanics.
-- Preserve job schema 12, pipeline schema 10, spend-ledger schema 1, DDL bytes, pragmas, and event bytes throughout the freeze.
-- Share legacy credentials, configuration, usage verdicts, and routing environment names during coexistence; do not fork state by plugin name.
-- Publish only `llm_kit`; retaining the three old top-level imports is incompatible with side-by-side installation.
-- Move every public old name by the prefix map below, including `cli.scaffold` and `cli.budget` as library APIs.
-- Ship a venv-first `bin/llm-kit` and `.cmd` pair with redirected-data-root and cached-copy refusals.
-- Rewrite frozen skill, agent, and workflow descriptions as redirect-only stubs so duplicate descriptions cannot auto-trigger.
-- Require Python 3.12 and raise the four lagging consumer declarations during migration; this does not remove a bootstrap-supported host.
-- User sign-off on the numbered decisions near the end is required before implementation.
+- Preserve job schema 12, pipeline schema 10, spend-ledger schema 1, DDL, pragmas, and event bytes during coexistence.
+- Serialize active-run ownership across old and new implementations; keep the verdict file's advisory last-writer-wins semantics.
+- Publish only llm_kit; legacy import names remain owned by old plugins through a two-minor deprecation window.
+- Migrate qualified skill, agent, workflow, launch-flag, and resumable references before retiring any registration.
+- Defer a generic migration runner until differential tests demonstrate a common algorithm worth extracting.
+- Require Python 3.12 and raise the four lagging consumer declarations during migration.
+- User sign-off on the numbered decisions is required before implementation.
 
-## Ruling and scope
+## Ruling, scope, and repository rules
 
 The controlling ruling from 2026-10-16 is:
 
 > how we're going to do this is we're going to create a new plugin called llm-kit which will be the merged plugin. Once this plugin is stable we will migrate customers, freeze the other plugins for a while, and eventually delete them.
 
-This document designs the Python package structure of that plugin.
+The design assumes that llm-kit, llm-scripting-kit, content-pipeline-kit, and job-kit coexist. llm-kit starts from copies; source is not moved out of the old plugins. Publication schedule, freeze duration, and deletion timing remain migration decisions.
 
-It does not design the publication schedule, freeze duration, or deletion date; those belong to the migration plan and remain user decisions.
+The merge is a narrow, user-approved exception to plugins/CLAUDE.md, section "Published-plugin boundaries", which otherwise forbids moving content between plugins or creating a unifying plugin. It must still honor that section's rule against shipping maintainer-only material and the two-minor compatibility window in docs/reference/deprecation-policy.md.
 
-The design assumes a coexistence phase in which all four plugins can be installed:
+Implementation would propose this amendment to plugins/CLAUDE.md; this design does not edit that file:
 
-- `llm-kit`
-- `llm-scripting-kit`
-- `content-pipeline-kit`
-- `job-kit`
-
-The design copies behavior into llm-kit; it does not move code out of the old plugins. The old plugins keep their import names and behavior throughout the freeze.
+> **Approved consolidation exception: llm-kit.** The user-approved llm-kit merge may copy and restructure behavior from llm-scripting-kit, content-pipeline-kit, and job-kit into llm-kit. The old plugins retain their source during migration and freeze. This exception does not generalize to other plugin-boundary cohesion work. Every renamed or removed public name follows docs/reference/deprecation-policy.md.
 
 ## Terms and package principles
 
-### Mapping Martin's terms to this repository
+The plugin is the REP release unit: one manifest, version, marketplace entry, and release cadence. An import package is the component used for CCP, CRP, ADP, SDP, and SAP. The root llm_kit and grouping package llm_kit.pipeline contain no behavior and are not components.
 
-The plugin is the release unit for REP, the Reuse-Release Equivalence
-Principle. `llm-kit` has one plugin manifest, one version, one marketplace
-entry, and one release cadence. A user reuses and receives the plugin as one
-unit.
+- REP: every component ships in one llm-kit release.
+- CCP: code that changes for the same actor and reason belongs together.
+- CRP: consumers do not import or initialize unrelated behavior.
+- ADP: every allowed import points down the graph.
+- SDP: volatile applications depend on stable contracts and utilities.
+- SAP: stable packages expose abstractions at actual variation points.
 
-An import package is the component used here for CCP, CRP, ADP, SDP, and SAP analysis. Each listed package has a public boundary and allowed imports. The root `llm_kit` and grouping package `llm_kit.pipeline` contain no behavior and are not counted as components.
-
-REP therefore does not imply independent versions for `llm_kit.jobs` and
-`llm_kit.pipeline.execution`. A change in either increments the one llm-kit
-version. This prevents the undeclared version skew that forced the old plugins
-to probe one another, but it gives up TanStack's ability to release each npm
-package independently.
-
-### How the principles decide a boundary
-
-- REP: everything in this document ships in one `llm-kit` release.
-- CCP: code that changes for the same actor and reason belongs in one package.
-- CRP: a consumer should not import or initialize features it does not use.
-- ADP: every allowed import points down the graph; there are no package cycles.
-- SDP: volatile application packages depend on stable contracts and utilities.
-- SAP: stable packages expose protocols and value contracts where variation is expected.
-
-SAP is not a command to add an interface to every function. Frozen concrete
-formats such as canonical JSON and SQLite connection posture are intentionally
-concrete. Their stability comes from compatibility tests and append-only change
-rules. The planned abstractness values below make those exceptions visible.
+One release prevents undeclared internal skew, but gives up TanStack's ability to version each npm package independently. SAP does not require an interface for frozen formats; schemas, DDL, and event bytes remain concrete and are protected by compatibility fixtures.
 
 ## Proposed source tree
 
-The plugin owns this library shape:
-
-```text
+~~~text
 plugins/llm-kit/
-  lib/
-    llm_kit/
+  lib/llm_kit/
+    __init__.py
+    schema/
+    completion/
+    registry/
+    scaffold/
+    adapters/
+    dispatch/
+    storage/
+    execution/
+    jobs/
+    pipeline/
       __init__.py
-      schema/
-      completion/
-      registry/
-      scaffold/
-      adapters/
-      dispatch/
-      storage/
+      core/
+      artifacts/
+      runtime/
       execution/
-      jobs/
-      pipeline/
-        __init__.py
-        core/
-        artifacts/
-        runtime/
-        execution/
-        analysis/
-      frontdoor/
-      cli/
-```
+      analysis/
+    frontdoor/
+    cli/
+~~~
 
-`llm_kit.__init__` contains only version metadata and a deliberately small
-package identity. It must not re-export subpackages. `llm_kit.pipeline` is an
-empty grouping namespace and also must not re-export children. Those rules
-remove the root-package cycle found in `llm_scripting_kit`.
-
-The names below are public import addresses unless a module inside them is
-explicitly marked private during implementation. Public symbols are exported
-from the package that owns their reason to change, not from the root.
+Public symbols are exported from their owning component, never the root.
 
 ## Package boundaries
 
-Each row names the owned behavior, its one primary reason to change under CCP,
-and the measured or intended consumer that can reuse it without the rest under
-CRP. The final column names behavior excluded to keep that boundary honest.
-
-| Package | Responsibility and contents | CCP reason to change | CRP reuse without the rest |
+| Package | Responsibility | CCP reason to change | CRP reuse without the rest |
 |---|---|---|---|
-| `llm_kit.schema` | Frozen JSON Schema subset, validation, errors, and deterministic almost-JSON repair. | The supported schema subset or repair rules change. | Bootstrap interrupt validation, jobs, and pipeline execution need it without transports. |
-| `llm_kit.registry` | Endpoint/model declarations, effort vocabulary, conserve metadata, credentials, account metadata, config resolution, and declaration syntax. | Configuration schema, endpoint identity, credential precedence, or declaration syntax changes. | awesome-kit, git-kit, p4-kit, workflow-kit, jobs, runtime, and frontdoor resolve models without pipeline products. |
-| `llm_kit.storage` | SQLite connection posture, product-parameterized migration runner, WAL/network-path handling, transactions, and atomic JSON. | Safe local persistence posture changes. | Jobs, pipeline execution, and spend ledger reuse it without importing one another. |
-| `llm_kit.scaffold` | Public command dispatch, scope filtering, did-you-mean, YAML rendering, and stable exit codes. | Reusable command-composition semantics change. | Pipeline authors documented against `content_pipeline.cli.scaffold` use it without llm-kit CLI commands. |
-| `llm_kit.completion` | Provider-neutral request/result/usage/halt/capability/requirement/output-contract/skill-context types and protocols. | The meaning of one completion call or capability changes. | Direct completion consumers type calls without registry parsing, transports, jobs, or pipelines. |
-| `llm_kit.execution` | Bootstrap event/interrupt adapters, common request/resolution values, lapse delegation, and bounded-pool control. | Bootstrap contract shape or common bounded-execution semantics change. | Jobs and pipeline execution reuse it without sharing state machines or schemas. |
-| `llm_kit.adapters` | OpenAI-compatible, Claude, Codex, OpenCode, harness, local-swapper, process, and raw usage-source integrations. | An external SDK, CLI, filesystem source, process protocol, or transport changes. | Dispatch and frontdoor acceptance reuse transports; completion-only consumers import none. |
-| `llm_kit.dispatch` | Declaration describe/run, backend factory, endpoint profiles, reachability, seats, usage pacing/cache, observer, and review-lane service. | Selection, reachability, pacing, or invocation policy changes. | The four measured llm-scripting-kit code consumers invoke models without job or pipeline packages. |
-| `llm_kit.jobs` | Flat jobs, schema-12 ledger, selection, runner, workers, acceptance, backpressure, workspaces, status, events, and interrupts. | Flat-job, workspace, acceptance, or job-ledger policy changes. | skills-kit's md-domain emitter needs jobs and no leased pipeline execution. |
-| `llm_kit.pipeline.core` | Stages, work units, gates, convergence, deterministic seeding, validator/rejection contracts, and VCS/artifact/provider ports. | Pipeline unit, stage, validation, or extension-port meaning changes. | Runtime, artifacts, execution, and analysis reuse it. yaml-data-editor-kit also imports it, but not alone: it imports runtime and execution too. |
-| `llm_kit.pipeline.artifacts` | Attributed/candidate stores, unsupported registry, freshness, delivery, round trip, provider assembly, and Git/null adapters. | Artifact identity, human precedence, freshness, correction, delivery, or concrete VCS behavior changes. | Runtime, pipeline execution, and analysis are measured consumers. No external artifacts-only consumer was found. |
-| `llm_kit.pipeline.runtime` | Dispatch binding, retry/backpressure/cache/cost/budget/validate loop, spend ledger, YAML extraction, and public budget guard. | Pipeline call economics, retry, cache, validation, or spend policy changes. | Inline pipeline callers and yaml-data-editor-kit use it without leased reporting or flat jobs. |
-| `llm_kit.pipeline.execution` | Schema-10 unit store, claims, fencing, lease, controller, waves, scheduler, worker protocol/packs, status, deadlines, failure cache, and drivers. | Worker, lease, claim, wave, or durable-unit policy changes. | yaml-data-editor-kit consumes it without flat jobs. |
-| `llm_kit.pipeline.analysis` | Audit classification/reporting, reasoning chains, provenance, call audits, snapshots, replay, and impact-per-cost views. | Traceability, replay, audit, or reporting requirements change. | llm-kit's reporting CLI consumes it. No external analysis-only library consumer was found. |
-| `llm_kit.frontdoor` | FastAPI routes, request translation, group routing, server lifecycle, and swapper acceptance. | HTTP compatibility or server lifecycle changes. | Server operators import it; other paths avoid FastAPI, Uvicorn, and httpx. |
-| `llm_kit.cli` | llm-kit argv parsing, subcommand routing, formatting, bootstrap guard, and lazy application composition. | User-facing syntax or command composition changes. | Executable entry points only; reusable scaffold, budget, and unsupported APIs live outside it. |
+| llm_kit.schema | JSON Schema subset, validation, errors, deterministic repair. | The supported subset or repair rules change. | Bootstrap interrupt validation and both execution products need no transports. |
+| llm_kit.registry | Endpoint/model declarations, effort vocabulary, conserve metadata, credential paths and precedence, config resolution. No HTTP. | Configuration, endpoint identity, credential precedence, or declaration syntax changes. | awesome-kit, git-kit, p4-kit, workflow-kit, jobs, runtime, and frontdoor resolve models without pipeline products. |
+| llm_kit.storage | SQLite connection/transaction posture, WAL/network handling, atomic JSON, schema and run lock primitives. Product DDL and migration loops stay out. | Safe local persistence and cross-process ownership mechanics change. | Jobs, pipeline execution, and spend ledger reuse mechanics without sharing schemas. |
+| llm_kit.scaffold | Command dispatch, scope filtering, suggestions, YAML rendering, stable exit codes. | Reusable command-composition semantics change. | Pipeline authors use it without llm-kit commands. |
+| llm_kit.completion | Request/result/usage/halt/capability/requirement/output-contract types plus LLMBackend, BackendFactory, and CapabilityProvider protocols. No filled adapter tables or factories. | The meaning of a completion call or provider-neutral contract changes. | Completion-only consumers type calls without config, transports, jobs, or pipelines. |
+| llm_kit.execution | Bootstrap event/interrupt adapters, common request/resolution values, lapse delegation, bounded-pool control. | Bootstrap contract shape or common bounded-execution semantics change. | Jobs and pipeline execution reuse it without sharing state machines. |
+| llm_kit.adapters | OpenAI-compatible, Claude, Codex, OpenCode, harness, swapper, process, usage-source and account-probe integrations; adapter capability tables. | An SDK, CLI, wire request, filesystem source, process protocol, or account endpoint changes. | Dispatch and frontdoor reuse integrations; completion-only consumers import none. |
+| llm_kit.dispatch | Declaration/run policy, configured backend factory, endpoint profiles, reachability, seats, pacing cache, observer, review-lane service. | Selection, construction, reachability, pacing, or invocation policy changes. | Measured direct LLM consumers need no job or pipeline product. |
+| llm_kit.jobs | Flat jobs, schema-12 ledger and migration loop, selection, runner, workers, acceptance, workspaces, events, interrupts. | Flat-job, workspace, acceptance, or job-ledger policy changes. | skills-kit's emitter needs jobs without leased pipeline execution. |
+| llm_kit.pipeline.core | Stages, work units, gates, convergence, seeding, validator/rejection contracts, extension ports. | Pipeline unit, stage, validation, or port meaning changes. | Runtime, artifacts, execution, and analysis reuse it. |
+| llm_kit.pipeline.artifacts | Stores, unsupported registry, freshness, delivery, round trip, provider assembly, Git/null adapters. | Artifact identity, precedence, freshness, correction, or delivery changes. | Runtime, pipeline execution, and analysis reuse it. |
+| llm_kit.pipeline.runtime | Factory binding, retry/backpressure/cache/cost/budget/validate loop, spend ledger, YAML extraction. | Pipeline call economics, retry, cache, validation, or spend policy changes. | Inline callers and yaml-data-editor-kit need no leased reporting or flat jobs. |
+| llm_kit.pipeline.execution | Schema-10 migration loop, unit store, claims, fencing, leases, controller, waves, workers, status, drivers. | Worker, lease, claim, wave, or durable-unit policy changes. | yaml-data-editor-kit consumes it without flat jobs. |
+| llm_kit.pipeline.analysis | Audit reports, reasoning chains, provenance, call audits, snapshots, replay, impact-per-cost views. | Traceability, replay, audit, or reporting requirements change. | The reporting CLI needs no worker controller. |
+| llm_kit.frontdoor | FastAPI routes, translation, group routing, server lifecycle, swapper acceptance. | HTTP compatibility or server lifecycle changes. | Other paths avoid FastAPI, Uvicorn, and httpx. |
+| llm_kit.cli | argv parsing, subcommand routing, formatting, bootstrap guard, lazy composition. | User-facing syntax or application composition changes. | Executable entry points only. |
 
 ## Execution-overlap ruling
 
-The recommendation in `dev/tasks/llm-plugins-merge/execution-overlap.md` is adopted with one modification.
+The recommendation in dev/tasks/llm-plugins-merge/execution-overlap.md is adopted with a split shared kernel. Flat jobs and leased pipeline execution keep different state machines, schemas, users, and acceptance rules. A job runner owns a call; a pipeline worker claims a unit under a lease and fencing token. Combining them would violate CRP and weaken the pipeline concurrency contract.
 
-Flat jobs and leased pipeline execution remain separate because their state
-machines, users, schemas, and acceptance rules differ. A job runner owns the
-call and accepts by command result. A pipeline worker claims a unit under a
-lease and fencing token. Layering pipeline execution on jobs would erase the
-pipeline's concurrency contract; unifying them would make each consumer reuse
-the other's unrelated policy, violating CRP.
-
-The proposed shared kernel is split into `llm_kit.execution` and
-`llm_kit.storage`. Bootstrap event/interrupt contracts change for a different
-reason than SQLite WAL and transaction posture. Keeping those reasons in two
-packages satisfies CCP while retaining all measured reuse.
-
-Only common interrupt request/resolution values move into `execution`.
-Job-specific and unit-specific interrupt records remain in their product
-packages. The state transitions in `resolve_interrupt` and `expire_interrupts`
-also remain product-owned because continuation and release behavior differ.
+Shared bootstrap execution contracts live in execution; SQLite and ownership mechanics live in storage. Product interrupt records, transitions, schemas, and migration loops remain product-owned. A generic migration runner is not in the first contract. Differential parity tests must first show that the legacy runners share an algorithm rather than only similar syntax.
 
 ## Exact dependency graph
 
-An entry `A -> {B, C}` is the complete inter-package import set for A.
-Same-package imports are unrestricted. An omitted edge is forbidden. This
-ASCII layered graph is also the import guard's input.
+A -> {B} is the complete inter-component import set. Same-package imports are unrestricted; an omitted edge is forbidden.
 
-```text
+~~~text
 Layer 6  cli                -> {schema, completion, registry, adapters, dispatch, jobs,
                                 pipeline.runtime, pipeline.execution, pipeline.analysis,
                                 frontdoor, scaffold}
@@ -177,413 +123,255 @@ Layer 0  schema             -> {}
          storage            -> {}
          pipeline.core      -> {}
          scaffold           -> {}
-```
+~~~
 
-`frontdoor` intentionally has no `dispatch` edge. The old server does not
-import dispatch; acceptance imports swapper acceptance, so the real edge is
-`frontdoor -> adapters`. The graph includes the previously omitted
-`jobs -> registry`, `pipeline.runtime -> registry`, and direct CLI edges.
+### Required moves and composition seams
 
-### Required symbol moves
-
-These moves are part of the package contract, not implementation suggestions.
-
-| Old location | Destination | Edge removed |
+| Legacy source | Destination or rule | Dependency result |
 |---|---|---|
-| `usage_budget.ConserveSpec`, `ConserveConfigError`, `parse_conserve_usage` | `registry.conserve` | `registry -> dispatch` from `model_endpoints` and `models` |
-| `declaration._model_declaration` and its bootstrap declaration probe | `registry.declaration_syntax` | lazy `registry -> dispatch` from `models` |
-| `harness_adapters.harness_effort_order` and the static effort-order tables | `registry.effort` | lazy `registry -> adapters` from `effort` |
-| Raw Claude/Codex usage readers and their source result values | `adapters.usage_sources` | `adapters -> dispatch` from `codex_backend` |
-| Pacing decisions, session pinning, and verdict-cache writes from `usage_budget` | `dispatch.usage_budget` | keeps policy above adapters and registry |
-| `claude_runner.AgentTimeoutError` | `completion.halt` | `completion -> adapters`; runners import the lower exception |
-| `freshness.seed` | `pipeline.core.seed` | `pipeline.core -> pipeline.artifacts` from `single_pass` |
+| usage_budget conserve values and parsing | registry.conserve | registry stays below dispatch. |
+| declaration._model_declaration and declaration probe | registry.declaration_syntax | Removes lazy registry -> dispatch. |
+| Static effort-order tables | registry.effort | Removes lazy registry -> adapters. |
+| Raw Claude/Codex usage readers | adapters.usage_sources | Adapters do not import pacing policy. |
+| Pacing, session pinning, verdict writes | dispatch.usage_budget | Policy stays above sources. |
+| completion.adapter_capabilities filled records | adapters.capabilities | Capability types stay in completion; tables change with adapter emission. |
+| account HTTP, decoding, status translation, endpoint probes | adapters.account | Registry keeps credential/config contracts and performs no transport I/O. |
+| claude_runner.AgentTimeoutError | completion.halt | Removes completion -> adapters. |
+| freshness.seed | pipeline.core.seed | Removes pipeline.core -> artifacts. |
+| content_pipeline.llm.backends concrete construction | dispatch.pipeline_backends | Runtime wrappers call dispatch, never adapters. |
 
-`completion.adapter_capabilities` remains in `completion` because it is the
-provider-neutral filled capability record. `completion.endpoint_profile` and
-`completion.factory` move to `dispatch` because they combine registry facts
-with adapter selection. Codex quota classification calls the sibling raw usage
-reader in `adapters.usage_sources`; it never imports pacing policy.
+pipeline.runtime.backends keeps the public pipeline wrappers and every constructor option: endpoint, project root, client, timeout, retry, diagnostics, executable, argv prefix, runner, and model endpoint. Each wrapper passes an immutable construction spec to an injected completion.BackendFactory; the default is dispatch.ConfiguredBackendFactory. Dispatch maps names to concrete adapter classes. CLI is the composition root and injects the configured factory into jobs, pipeline runtime, and frontdoor. Direct library users either inject the protocol or call the public dispatch builder.
+
+The old llm_scripting_kit.completion facade is split, not copied. Neutral result, option, halt, requirement, output-contract, skill-context, and capability TYPE exports move to llm_kit.completion. The other exports move as follows:
+
+- ADAPTER_CAPABILITIES, adapter_capabilities, OpenRouterBackend, ClaudeCliBackend, CodexCliBackend, OpencodeCliBackend, CodexRunError, OpencodeRunError, run_cli_streaming, run_claude_streaming, looks_like_hard_stop, compose_prompt, and their transport constants -> llm_kit.adapters.
+- BackendSelection, create_backend, create_transport_backend, EndpointProfile, and endpoint-profile functions -> llm_kit.dispatch.
+- EffortDelivery, EffortPlan, and plan_effort -> llm_kit.registry.effort.
+
+AgentTimeoutError moves to llm_kit.completion.halt as a provider-neutral halt type; the concrete runner imports it from that lower package.
+
+No llm_kit.completion initializer re-export may restore an adapters or dispatch edge. A selected adapter supplies its filled capability record through CapabilityProvider; consumers receive it through the injected factory. The account CLI resolves credentials through registry and injects them into adapters.account. These concrete composition paths, not protocol counts alone, are the SAP mechanism.
 
 ### Planned coupling and abstractness
 
-Metrics count only the 16 packages and the exact edges above. `Ca` is fan-in,
-`Ce` is fan-out, and `I = Ce / (Ca + Ce)`. Planned A is named abstract
-classes/protocols divided by the projected class count after duplicate value
-types are consolidated. Implementation verifies the denominator; a changed
-edge requires design review.
+Metrics count the 16 components and exact edges above. I = Ce / (Ca + Ce). Planned A is named protocols divided by projected class count; implementation verifies each denominator.
 
-| Package | Ca | Ce | I | Planned A | Abstract classes/protocols counted |
-|---|---:|---:|---:|---:|---|
-| `schema` | 3 | 0 | 0.00 | 1/4 = 0.25 | `SchemaValidator` |
-| `registry` | 6 | 0 | 0.00 | 3/8 = 0.38 | `ModelResolver`, `EndpointResolver`, `CredentialResolver` |
-| `storage` | 3 | 0 | 0.00 | 2/6 = 0.33 | `MigrationVersionPolicy`, `ConnectionPolicy` |
-| `pipeline.core` | 4 | 0 | 0.00 | 6/12 = 0.50 | `Stage`, `WorkUnitStrategy`, `Validator`, `VcsBackend`, `ContextProvider`, `ArtifactPort` |
-| `scaffold` | 1 | 0 | 0.00 | 1/2 = 0.50 | `Handler` |
-| `completion` | 6 | 1 | 0.14 | 4/10 = 0.40 | `CompletionBackend`, `CompletionObserver`, `SkillMaterializer`, `OutputContractJudge` |
-| `execution` | 2 | 1 | 0.33 | 3/8 = 0.38 | `EventSink`, `InterruptContract`, `BoundedExecutor` |
-| `adapters` | 3 | 2 | 0.40 | 0/18 = 0.00 | none; implementations satisfy completion protocols |
-| `dispatch` | 3 | 3 | 0.50 | 3/12 = 0.25 | `DeclarationRunner`, `ReachabilityProbe`, `UsageSource` |
-| `jobs` | 1 | 5 | 0.83 | 2/30 = 0.07 | `WorkspaceProvider`, `AcceptanceCheck` |
-| `pipeline.artifacts` | 3 | 1 | 0.25 | 0/25 = 0.00 | none; extension ports live in `pipeline.core` |
-| `pipeline.runtime` | 2 | 6 | 0.75 | 2/14 = 0.14 | `PipelineBackend`, `AttemptObserver` |
-| `pipeline.execution` | 1 | 5 | 0.83 | 2/28 = 0.07 | `RunAdapter`, `WorkerDriver` |
-| `pipeline.analysis` | 1 | 2 | 0.67 | 2/11 = 0.18 | `Recorder`, `CallAuditor` |
-| `frontdoor` | 1 | 3 | 0.75 | 0/5 = 0.00 | none |
-| `cli` | 0 | 11 | 1.00 | n/a | none planned |
+| Package | Ca | Ce | I | Planned A and variation points |
+|---|---:|---:|---:|---|
+| schema | 3 | 0 | 0.00 | 1/4: SchemaValidator |
+| registry | 6 | 0 | 0.00 | 3/8: model, endpoint, credential resolvers |
+| storage | 3 | 0 | 0.00 | 2/6: connection policy, owner lock |
+| pipeline.core | 4 | 0 | 0.00 | 6/12: stage, work-unit, validator, VCS, context, artifact ports |
+| scaffold | 1 | 0 | 0.00 | 1/2: handler |
+| completion | 6 | 1 | 0.14 | 6/12: backend, factory, capability provider, observer, materializer, output judge |
+| execution | 2 | 1 | 0.33 | 3/8: event sink, interrupt contract, bounded executor |
+| adapters | 3 | 2 | 0.40 | 0/20: concrete implementations |
+| dispatch | 3 | 3 | 0.50 | 3/12: declaration runner, reachability probe, usage source |
+| jobs | 1 | 5 | 0.83 | 2/30: workspace provider, acceptance check |
+| pipeline.artifacts | 3 | 1 | 0.25 | 0/25: ports live in core |
+| pipeline.runtime | 2 | 6 | 0.75 | 2/14: pipeline backend, attempt observer |
+| pipeline.execution | 1 | 5 | 0.83 | 2/28: run adapter, worker driver |
+| pipeline.analysis | 1 | 2 | 0.67 | 2/11: recorder, call auditor |
+| frontdoor | 1 | 3 | 0.75 | 0/5: application boundary |
+| cli | 0 | 11 | 1.00 | n/a: composition root |
 
-Registry is deliberately stable, but it is not left concrete in the zone of
-pain. The measured high-change pairs are `default_config.yaml` plus `models.py`
-in 18 commits and `model_endpoints.py` plus `models.py` in 12. The three
-resolver protocols isolate consumers from parsing and precedence changes;
-concrete YAML, environment, and credential resolution remains behind them.
+SDP holds because high-I applications point toward lower-I contracts. SAP holds at the listed injected seams. Stable concrete formats are protected by byte and schema fixtures rather than decorative interfaces.
 
-SDP holds because high-I application packages point toward lower-I contracts.
-SAP holds at the named variation points. Stable concrete schema and artifact
-behavior are exceptions by design: compatibility fixtures, append-only
-migrations, and byte contracts protect them.
+## Cycles removed
 
-## Cycles found and how the design breaks them
+The 2026-10-16 inventory found one eager subpackage cycle and five module cycles when lazy imports were included:
 
-The 2026-10-16 inventory found no eager module cycle, one eager subpackage
-cycle, and five module cycles when lazy imports were included.
+1. Root <-> completion: both new namespace initializers are empty.
+2. effort -> harness_adapters -> model_endpoints -> effort: effort tables move to registry.
+3. swapper <-> _swapper_process: the process primitive imports no service.
+4. The ten-module completion/config/declaration cycle: neutral types, concrete tables/transports, registry syntax, and dispatch policy separate as above.
+5. workerpack -> controller -> protocol -> workerpack: a private worker-types leaf holds shared values; composition moves to drivers.
+6. job_kit.store <-> workspace: workspace calls store; store performs no workspace operations.
 
-1. `llm_scripting_kit` root `<-> completion` disappears because both new namespace initializers are empty.
-2. `effort -> harness_adapters -> model_endpoints -> effort` disappears when `harness_effort_order` and its static tables move into `registry.effort`; registry imports no adapter.
-3. `swapper <-> _swapper_process` becomes a one-way adapter-internal edge: swapper service imports process primitives, and the primitive module imports no service.
-4. The ten-module completion/config/declaration cycle is split: declaration syntax and conserve values move to registry; capability types stay in completion; transports move to adapters; endpoint profile, factory, and run policy move to dispatch.
-5. `execution.workerpack -> controller -> protocol -> workerpack` is broken by a private `pipeline.execution.worker_types` leaf; controller, protocol, and workerpack import it, while composition moves to drivers.
-6. `job_kit.store <-> workspace` becomes one-way: workspace calls store; store records workspace facts but performs no workspace operations.
+## Optional dependencies
 
-The four newly identified upward edges are removed explicitly: raw usage
-sources keep adapters below dispatch, timeout error ownership keeps completion
-below adapters, deterministic seed ownership keeps pipeline core independent,
-and registry-owned declaration/conserve values keep registry at layer 0.
+The base shared-library path is standard-library only.
 
-## Optional dependency boundaries
-
-The base shared-library path is standard-library only. Optional dependency
-groups are:
-
-| Extra | Packages that may use it | Third-party requirements |
+| Extra | Reachable package | Requirements |
 |---|---|---|
-| `config` | `registry`, `dispatch` | `pyyaml>=6.0` |
-| `sdk` | the OpenAI SDK adapter in `adapters` | `openai>=1.0.0` |
-| `local` | local swapper/process adapter | `psutil>=6.0` |
-| `frontdoor` | `frontdoor` | `fastapi>=0.110`, `uvicorn>=0.29`, `httpx>=0.27` |
-| `jobs` | job file parsing and CLI | `pyyaml>=6.0` |
-| `pipeline` | pipeline YAML extraction and CLI | `pyyaml>=6.0` |
-| `dev` | tests | the repository's selected pytest floor |
+| config | registry and dispatch config paths | pyyaml>=6.0 |
+| sdk | OpenAI-compatible adapter | openai>=1.0.0 |
+| local | local swapper/process adapter | psutil>=6.0 |
+| frontdoor | frontdoor | fastapi>=0.110, uvicorn>=0.29, httpx>=0.27 |
+| jobs | job YAML and CLI | pyyaml>=6.0 |
+| pipeline | pipeline YAML and CLI | pyyaml>=6.0 |
 
-`ruamel.yaml` is not carried forward because the inventory found no import of
-it. It can be added only with a concrete caller and test.
+The owner venv enables every extra its bundled CLI and skills reach. Importing llm_kit.completion costs only the source link and standard library. A dispatch consumer enables config; selecting the SDK adapter also enables sdk. Optional imports occur at the call site and a missing requested capability refuses.
 
-The llm-kit owner's bootstrap manifest enables every extra needed by its own
-CLI and bundled skills. This makes every shipped command supported in the
-owner venv, as required by the optional-dependency contract.
+## Namespace and public-name migration
 
-A different plugin that imports the shared library owns the third-party
-dependencies of the path it uses. A completion-only consumer importing
-`llm_kit.completion` pays for the llm-kit source link and Python's standard
-library. It does not need PyYAML, OpenAI, psutil, FastAPI, Uvicorn, httpx, job
-code, or pipeline code. A consumer of `dispatch` enables `config`; one that
-selects the SDK adapter also enables `sdk`.
+Option A, recommended: publish only llm_kit. Consumers change imports and shared_lib_imports once. Bootstrap recognizes both llm_kit and llm_scripting_kit during coexistence; distinct shared-library names avoid cache and .pth collisions.
 
-Optional third-party imports are lazy at the call site. Missing support must
-REFUSE when the requested action cannot produce a true artifact. No adapter
-silently substitutes another adapter. A capability that remains true without
-an optional adapter may DEGRADE only when the rendered artifact names the
-omission.
+Option B: llm-kit also publishes llm_scripting_kit, content_pipeline, and job_kit. This is rejected during coexistence because old plugins own those names and shared-library publication is keyed by package name.
 
-The edge from llm-kit to bootstrap is REQUIRED. llm-kit's plugin manifest
-depends on bootstrap, its bootstrap manifest imports `bootstrap_lib`, and code
-that needs a bootstrap contract probes the frontier call shape before opening
-a ledger or launching a process.
+Legacy names remain owned by their old plugins. After llm-kit parity, each old plugin ships deprecation shims that emit DeprecationWarning with stacklevel=2 and delegate to the final llm_kit address for at least two minor versions. llm-kit never publishes the old top-level packages. Removal records remain in each public-surface listing.
 
-## Namespace options and public-name migration
-
-### Option A: one `llm_kit` top-level package -- recommended
-
-Every consumer changes its import and `shared_lib_imports` entry once.
-Bootstrap adds `llm_kit` to first-party recognition while retaining
-`llm_scripting_kit` for the freeze. The package can coexist because its
-shared-library directory and `.pth` name are distinct.
-
-### Option B: retain the three old top-level packages -- rejected for coexistence
-
-Consumers could keep imports, but llm-kit would publish
-`llm_scripting_kit`, `content_pipeline`, and `job_kit` under names already
-owned by frozen plugins. Owners in the same marketplace target the same
-`_shared_libs/<name>` directory; standalone `.pth` files are also keyed only
-by name. The last bootstrap pass would choose an implementation silently.
-
-Keeping unregistered copies only inside llm-kit's venv avoids the broadcast
-collision but does not help shared-library consumers, so they still change
-imports. Transparent old-name shims become possible only after old-plugin
-deletion and would prolong ambiguous ownership. They are not part of this
-design.
-
-### Old-to-new public-name map
-
-The longest matching prefix wins. Every `public` entry in
-`plugins/content-pipeline-kit/contract/public-surface.json` follows this map;
-entries marked `removed` remain removed.
-
-| Old public name or prefix | New public name or prefix |
+| Old surface | New surface |
 |---|---|
-| `llm_scripting_kit.completion.{json_schema,json_repair}` | `llm_kit.schema.{json_schema,json_repair}` |
-| `llm_scripting_kit.completion.{backends,claude_runner,codex_backend,opencode_backend}` | `llm_kit.adapters.*` |
-| `llm_scripting_kit.completion.{endpoint_profile,factory}` | `llm_kit.dispatch.*` |
-| other `llm_scripting_kit.completion.*`; `request_protocol` | `llm_kit.completion.*` |
-| `llm_scripting_kit.{account,api_key,constants,effort,env_file,model_endpoints,models}` | `llm_kit.registry.*` |
-| `llm_scripting_kit.{declaration,observer,reachability,review_lane,seats,usage_budget}` | `llm_kit.dispatch.*` |
-| `llm_scripting_kit.{client,harness_adapters,swapper,swapper_acceptance,_swapper_process}` | `llm_kit.adapters.*` |
-| `llm_scripting_kit.frontdoor.*` | `llm_kit.frontdoor.*` |
-| `llm_scripting_kit.cli.*` | `llm_kit.cli.*` |
-| `job_kit.*` | `llm_kit.jobs.*` public facades; shared internals delegate to `execution` and `storage` |
-| `content_pipeline.audit.*`; `content_pipeline.provenance.*` | `llm_kit.pipeline.analysis.*` |
-| `content_pipeline.cli.scaffold` | `llm_kit.scaffold` |
-| `content_pipeline.cli.budget` | `llm_kit.pipeline.runtime.budget` |
-| `content_pipeline.cli.unsupported` | `llm_kit.pipeline.artifacts.unsupported` |
-| `content_pipeline.cli.run` | `llm_kit.cli.pipeline` |
-| `content_pipeline.{deliver,freshness,providers,roundtrip,store,vcs}.*` | `llm_kit.pipeline.artifacts.*` except the next two rows |
-| `content_pipeline.freshness.seed` | `llm_kit.pipeline.core.seed` |
-| `content_pipeline.vcs.seam` | `llm_kit.pipeline.core.vcs` |
-| `content_pipeline.validate.*`; `content_pipeline.pipeline.*`; `content_pipeline.llm.convergence` | `llm_kit.pipeline.core.*` |
-| other `content_pipeline.llm.*` | `llm_kit.pipeline.runtime.*` |
-| `content_pipeline.execution.*` | `llm_kit.pipeline.execution.*` public facades; shared internals delegate to `execution` and `storage` |
-
-awesome-kit, git-kit, p4-kit, workflow-kit, yaml-data-editor-kit, and skills-kit
-move only after llm-kit stability is established. Old consumers keep old
-imports during the freeze; provenance version lists add `llm_kit` without
-rewriting frozen records.
+| Neutral llm_scripting_kit.completion exports | llm_kit.completion |
+| Completion transports, runners, capability tables | llm_kit.adapters |
+| Completion factory/profile exports | llm_kit.dispatch |
+| llm_scripting_kit.account network APIs | llm_kit.adapters.account |
+| Model/config/credential resolution | llm_kit.registry |
+| Declaration, seats, reachability, pacing | llm_kit.dispatch |
+| job_kit.* | llm_kit.jobs.* facades |
+| Content pipeline audit/provenance | llm_kit.pipeline.analysis.* |
+| content_pipeline.cli.scaffold | llm_kit.scaffold |
+| Content pipeline artifacts and VCS implementations | llm_kit.pipeline.artifacts.* |
+| Content pipeline stages, validation, convergence, seed, VCS port | llm_kit.pipeline.core.* |
+| Content pipeline LLM wrappers and spend policy | llm_kit.pipeline.runtime.* |
+| Content pipeline backend construction | llm_kit.dispatch.pipeline_backends |
+| content_pipeline.execution.* | llm_kit.pipeline.execution.* facades |
 
 ## Skills, agents, workflows, CLIs, and shims
 
-All five skill identities survive under llm-kit:
+The final qualified names are llm-kit:openrouter-account, llm-kit:content-pipeline-domain, llm-kit:background-pipeline, llm-kit:execute-work-unit, llm-kit:workflow-pipeline, llm-kit:pipeline-worker, and llm-kit:run-ready-wave.
 
-| Skill | Qualified identity | Route |
-|---|---|---|
-| `openrouter-account` | `llm-kit:openrouter-account` | `llm-kit account` through registry and dispatch |
-| `content-pipeline-domain` | `llm-kit:content-pipeline-domain` | pipeline core, artifacts, and runtime |
-| `background-pipeline` | `llm-kit:background-pipeline` | pipeline execution Claude driver |
-| `execute-work-unit` | `llm-kit:execute-work-unit` | pipeline execution worker protocol |
-| `workflow-pipeline` | `llm-kit:workflow-pipeline` | `llm-kit:run-ready-wave` workflow |
+Legacy registrations are not converted to refusals. pipeline-worker can be selected explicitly through launch flags, and resumable workflows can persist qualified names. Before activation, implementation must migrate maintained qualified references, launch flags, and resumable records, or provide a tested old-name translator. Both old and new registrations must execute equivalent behavior if automatic selection chooses either; description wording is not a safety mechanism.
 
-The pipeline-worker agent and run-ready-wave workflow also move under the
-llm-kit namespace. Qualified names solve explicit invocation only. To prevent
-description-based auto-trigger collisions, each old plugin's freeze release
-rewrites every duplicated skill `description`, the pipeline-worker agent
-description, and the run-ready-wave workflow description to begin exactly:
-`Do NOT use; use llm-kit:<name>.` Their bodies become redirect-only refusals;
-they do not run the frozen implementation.
+Activation requires all of these machine-checkable conditions:
 
-The one console script is `llm-kit = llm_kit.cli:main`, with command groups
-`account`, `completion`, `models`, `jobs`, `pipeline`, `frontdoor`, and
-`local`. Old executable names remain owned by old plugins during the freeze.
-The qwen server and switch capabilities move under `llm-kit local`.
+1. Source and manifest scans find no unsupported old qualified reference.
+2. Old-created resumable fixtures resume through both the legacy alias and final llm-kit name.
+3. Contract listings record since, remove_after, and replacement names.
+4. Legacy bodies remain functional and emit a user-visible deprecation warning.
+5. Rollback tests disable llm-kit registration and resume through the old names.
 
-The plugin ships `bin/llm-kit` and `bin/llm-kit.cmd`. With no redirected data
-root, both try the version-independent llm-kit plugin venv first, then a
-validated `BOOTSTRAP_PYTHON`, then `python3`/`python` on POSIX or `python.exe`
-on Windows. A missing dependency refuses the selected subcommand; it does not
-silently use a reduced registry.
+Retirement requires the two-minor window, zero maintained old references, and zero nonterminal persisted records that require an untranslated old identity. Rollback restores routing to the still-functional legacy registrations; it does not reverse persisted data.
 
-Two refusals run before interpreter selection:
+The console script is llm-kit = llm_kit.cli:main, with account, completion, models, jobs, pipeline, frontdoor, and local groups. Old executable names remain compatibility shims in old plugins. POSIX and .cmd launchers are venv-first and retain redirected-data-root and cached-copy refusals; launcher tests cover both platforms.
 
-1. If `CLAUDE_BOOTSTRAP_DATA_ROOT` is set, the redirected llm-kit venv is the only candidate. If missing, exit 2 and refuse fallback to the production venv or PATH.
-2. If `CLAUDE_PLUGIN_TEST` is set and the shim is under the tested marketplace cache, exit 2; when `CLAUDE_PLUGIN_TEST_MARKETPLACE` is unset, refuse every cache marketplace.
+## Sequencing decision
 
-Implementation adds llm-kit to both
-`tests/repo-scripts/test_launcher_shim_data_root_redirect.py` and
-`tests/repo-scripts/test_forced_interpreter_order.py`, for POSIX and `.cmd`.
-`CLI_COMMAND` and its redirected form name the llm-kit data directory, venv,
-and executable; they never point at llm-scripting-kit's venv.
+Option A, recommended:
+
+1. Add coordination protocols to the legacy implementations and test them.
+2. Consolidate behavior privately under the final llm_kit namespace.
+3. Establish old-vs-llm-kit differential parity for API, CLI, events, schemas, state, and failure behavior.
+4. Restructure one boundary at a time and enforce the final import graph.
+5. Activate the final public namespace and migrate consumers once.
+6. Migrate skills, agents, workflows, launch flags, and resumable references; keep functional aliases through the deprecation window.
+7. Freeze and retire old plugins under separate acceptance gates.
+
+An llm-kit plugin version may ship before step 5, but it exposes no temporary public namespace and triggers no consumer migration. A generic migration runner is considered only after step 3 demonstrates reusable behavior.
+
+Option B exposes the fully restructured public API first and accepts packaging, persistence coordination, execution refactoring, consumer migration, and legacy retirement together. It shortens the release sequence but makes failures hard to localize and can force a second consumer migration. Option B is not recommended.
 
 ## TanStack insights
 
-| Insight | Disposition and reason |
+| Insight | Decision and reason |
 |---|---|
-| Core plus adapters | Adopt. Stable `completion` contracts sit below concrete `adapters`, matching TanStack's direction without separate plugin versions. |
-| Durability as its own layer | Adopt with a finer CCP split. `storage` owns persistence posture and `execution` owns execution contracts; completion and adapters import neither. |
-| Uniform naming | Adopt. Every public package uses `llm_kit.*`, making ownership legible and avoiding top-level collisions. |
-| Independent versions | Reject. npm can express hard version ranges, but the Claude Code plugin is the release unit and bootstrap cannot install subpackages independently. |
-| Many separately installed packages | Reject while keeping internal components. Version-independent shared source links would recreate skew probes across plugins. |
+| Core plus adapters | Adopt: completion contracts sit below concrete adapters. |
+| Durability as a layer | Adopt with two CCP packages: execution contracts and storage mechanics. |
+| Uniform naming | Adopt: public components use llm_kit.*. |
+| Independent versions | Reject: the plugin is one REP unit and cannot express internal install ranges. |
+| Many installed packages | Reject: shared links would recreate cross-plugin skew probes. |
 
 ## Persisted-state compatibility
 
-### Plugin-name-keyed files and environment contracts
+### Credentials, config, and verdict cache
 
-During coexistence and the freeze, llm-kit shares legacy state in place. It
-does not copy state into a second llm-kit-named location. A copy would let two
-verdict caches spend from one subscription pool and would strand keys or
-overrides depending on which plugin handled a call.
+llm-kit uses the legacy credential and config locations and preserves all public environment-variable spelling and precedence until old-plugin deletion. It does not seed competing llm-kit user layers. CLI_COMMAND is the exception: it names the llm-kit venv and executable.
 
-| Contract | llm-kit decision during coexistence and freeze |
-|---|---|
-| User credential `.env` | Read and write `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/.env`; do not create an llm-kit credential file. |
-| Project credential `.env` | Preserve precedence of `.local-data/plugins-kit/llm-scripting-kit/.env`, then `.local-data/llm-scripting-kit/.env`. |
-| User configuration | Ship the same default model data under registry; preserve `~/.claude/config/llm-scripting-kit.yaml`, `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/config.yaml`, and `.local-data/plugins-kit/llm-scripting-kit/config.yaml` in the existing precedence. Do not seed parallel llm-kit user layers. |
-| `usage-verdicts.json` | Both plugins read, lock, atomically update, and prune `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/usage-verdicts.json`. |
-| `LLM_SCRIPTING_KIT_USAGE_SESSION` | Keep this canonical explicit session key, with `CLAUDE_CODE_SESSION_ID` fallback. Do not add a competing variable during the freeze. |
-| `CONTENT_PIPELINE_LLM_MODELS` | Keep this process routing variable. Do not add a competing variable during the freeze. |
-| Other public endpoint/key/spend-ledger environment names | Preserve their spelling and precedence under the public-name migration. |
-| `CLI_COMMAND` | Do not share: llm-kit names `${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}/plugins-kit/llm-kit/.venv/bin/llm-kit` (or `Scripts/llm-kit.exe`), never llm-scripting-kit's venv. |
+LEGACY_LLM_DATA/usage-verdicts.json remains exactly the legacy single-session pacing cache. The legacy implementation reads one session's dictionary, rewrites the whole file, and uses atomic replacement without an interprocess lock. llm-kit retains those semantics during coexistence:
 
-Renaming legacy state paths is a separate post-deletion migration requiring a
-copy-once marker, conflict policy, and rollback plan. It is not authorized by
-this architecture.
+- Simultaneous writers are last-writer-wins, including writers from different sessions and writers updating different endpoints.
+- Atomic replacement prevents torn JSON but does not prevent lost updates.
+- A lost verdict causes recomputation and may alter pacing.
+- The file is advisory pacing state, not authorization, accounting, reservation, or double-spend prevention.
 
-### SQLite schemas, runner policy, and coexistence
+Barrier-synchronized old/new process tests cover same-session and different-session writers. They assert parseable legacy-shaped output and recomputation by the losing writer; they do not assert merged verdict retention. A stronger merge/lock protocol requires a separate compatibility release in the legacy plugin before llm-kit may use it.
 
-llm-kit preserves job schema 12, pipeline schema 10, spend-ledger schema 1,
-canonical JSON, interrupt documents, and event bytes. The legacy event sources
-`job-kit` and `content-pipeline-kit` remain wire identities; they do not claim
-which distribution wrote a row.
+### SQLite compatibility, ownership, and handover
 
-Product DDL and migration byte strings stay in `jobs`,
-`pipeline.execution`, and `pipeline.runtime`. `storage` accepts explicit
-product policies rather than imposing one bookkeeping algorithm:
+llm-kit preserves job schema 12, pipeline schema 10, spend-ledger schema 1, canonical JSON, interrupt documents, DDL, pragma order, and event bytes. Product migration loops stay in jobs and pipeline.execution; spend ledger keeps its one create schema, autocommit, and configurable synchronous value.
 
-| Product | Version bookkeeping | Connection/pragmas |
-|---|---|---|
-| Jobs | Migration 1 inserts version 1 inside its unchanged DDL; after each later migration the runner performs the existing update. | Preserve job connection isolation, WAL, foreign keys, busy timeout, and pragma order. |
-| Pipeline execution | The runner performs the existing insert-or-update of `schema_version` after each unchanged migration. | Preserve execution-store connection isolation, WAL, foreign keys, busy timeout, and pragma order. |
-| Spend ledger | No generic migration loop: one unchanged create schema, `isolation_level=None`, and the caller's configurable `synchronous`. | Preserve autocommit and the exact synchronous value; do not inherit job/execution defaults. |
+Coexistence permits concurrent readers but exactly one execution owner per logical run. A compatibility release of job-kit and content-pipeline-kit ships the same sidecar lock protocol before llm-kit can resume a legacy nonterminal run:
 
-Fresh-create tests create each database with frozen old code and with llm-kit,
-then compare ordered `sqlite_master` and `schema_version` rows. Prefix fixtures
-cover every supported migration. Pragma tests compare effective
-`journal_mode`, `foreign_keys`, `busy_timeout`, `synchronous`, and isolation
-posture. Byte fixtures compare exported events, interrupts, and canonical JSON.
+- The tuple (ledger-id, product, run-id) selects an advisory OS lock held for the full controller or resume lifetime.
+- A separate ledger-schema lock covers open/migrate, then releases.
+- Every mutating entry point verifies ownership before opening its transaction.
+- Clean handover stops the owner, releases the lock, then starts the other.
+- Process death releases the OS lock; takeover never relies on a stale timestamp.
+- Filesystems without verified cross-process lock semantics refuse active-run sharing rather than simulate ownership.
 
-The old and new implementations may open the same ledger during coexistence;
-tests alternate old/new readers and writers against one fixture. No job,
-pipeline, or spend-ledger schema change is allowed during the freeze: an
-llm-kit-only migration would strand the frozen plugin. A schema change waits
-until old-plugin deletion or requires a separately signed-off dual-readable
-format and conversion plan.
+An unpatched legacy version may read terminal records but cannot coexist as an active writer. llm-kit refuses to resume its nonterminal run. Rollback means the patched freeze version: stop llm-kit, release ownership, acquire through the old implementation, and resume unchanged bytes. Arbitrary pre-protocol downgrade is not a supported active-run rollback.
 
-## Python floor
+Compatibility tests use simultaneous processes, not alternating calls:
 
-llm-kit requires Python 3.12. This removes no host that can run the supported
-plugin graph: `bootstrap_lib` already has a 3.12 floor and is linked into the
-same consumer venvs. A `.pth` link does not enforce metadata, so migration must
-raise `requires-python` from `>=3.10` to `>=3.12` in awesome-kit, workflow-kit,
-yaml-data-editor-kit, and skills-kit and update their CI matrices. The real
-cost is declaration/test churn and any unmeasured direct external library
-consumer on 3.10 or 3.11, not loss of a supported in-repo host.
+- Old and new contenders for one run: one owns and one refuses.
+- Distinct runs in one ledger: both proceed under distinct run locks.
+- Owner termination during execution: SQLite recovers and the other version takes ownership and resumes nonterminal work once.
+- Termination during migration: the schema lock releases and SQLite rollback or idempotent migration completes on reopen.
+- llm-kit-to-old rollback resumes a new-created nonterminal run with identical events and terminal state.
+- Fresh-create and every migration prefix compare sqlite_master, version rows, pragmas, isolation posture, events, interrupts, and canonical JSON.
 
-## Bootstrap and marketplace changes implied by the design
+No schema change is allowed during coexistence. A change requires a separate dual-readable format, conversion, ownership, and rollback decision.
 
-Implementation and migration would change this infrastructure:
+## Python, bootstrap, marketplace, and guard changes
 
-- add `plugins/llm-kit` and a published llm-kit entry to `.claude-plugin/marketplace.json` through the repository's generator;
-- declare `shared_libs: [{name: llm_kit, src: lib}]` and `shared_lib_imports: [bootstrap_lib]` in llm-kit's bootstrap manifest;
-- add `llm_kit` to bootstrap's `_FIRST_PARTY_LIBS` while retaining `llm_scripting_kit` through the freeze;
-- let llm-kit's interrupt adapter probe `llm_kit.schema` while old adapters continue to probe `llm_scripting_kit.completion.json_schema`;
-- retain bootstrap's frozen `VALIDATOR_MODULE` and `VALIDATOR_SUBSET` compatibility constants for old consumers, and add a separately named llm-kit validator constant if bootstrap documentation needs one;
-- migrate consumer `plugins` entries and `shared_lib_imports` only after llm-kit stability is established;
-- keep all three old marketplace entries published throughout the freeze; and
-- ship redirect-only freeze releases for duplicate skills, the worker agent, and the workflow.
+llm-kit requires Python 3.12. Migration raises requires-python in awesome-kit, workflow-kit, yaml-data-editor-kit, and skills-kit and updates their CI matrices.
 
-The singular bootstrap `VALIDATOR_MODULE` must not be changed in place during
-the freeze. Frozen job-kit and content-pipeline-kit code explicitly probe the
-old validator, and bootstrap tests pin the old constant. llm-kit's adapter can
-inject its own validator because the interrupt contract accepts a caller-
-provided validator and does not import the named module itself.
+Implementation also:
 
-## Import-direction guard
+- Adds plugins/llm-kit and its generated marketplace entry.
+- Publishes llm_kit through shared_libs and imports bootstrap_lib.
+- Adds llm_kit to bootstrap first-party recognition while retaining llm_scripting_kit through coexistence.
+- Keeps the old interrupt validator constant and adds an llm-kit-specific probe.
+- Migrates consumer plugin declarations and shared imports only after parity.
+- Keeps all old marketplace entries through their deprecation windows.
 
-Implementation adds an AST-based test over `plugins/llm-kit/lib/llm_kit`.
-The guard is generated from the exact adjacency set in the dependency graph
-and a checked-in machine-readable copy beside the test. The appendix maps every
-source module to a package. The guard asserts:
-
-- every internal import targets the same package or an allowed lower package;
-- eager imports, function-local imports, `TYPE_CHECKING` imports, and literal `importlib.import_module` calls all count;
-- `llm_kit.__init__` and `llm_kit.pipeline.__init__` do not re-export component symbols;
-- no llm-kit source imports `llm_scripting_kit`, `content_pipeline`, or `job_kit`;
-- `jobs` and `pipeline.execution` do not import one another;
-- the required symbol splits leave `registry`, `storage`, `pipeline.core`, and `scaffold` with no internal package imports;
-- product DDL remains in its product package;
-- only `cli` is allowed to import every application surface for composition.
-
-The test reports source package, target package, import mode, and line number.
-It has no broad allowlist for private modules. A changed edge requires a design
-change, not a local exception.
-
-Per the repository's non-vacuous-check rule, implementation must demonstrate
-the guard by adding one forbidden import, observing the named test fail, then
-removing the import and observing it pass.
+An AST guard over plugins/llm-kit/lib/llm_kit uses the exact adjacency set above. It counts eager, local, TYPE_CHECKING, and literal dynamic imports; forbids root re-exports and old-package imports; forbids jobs/execution cross-imports; keeps product DDL and migration loops product-owned; and reports both packages, import mode, and line. Implementation proves the guard by observing a forbidden import fail before removing it and observing the test pass.
 
 ## Decisions for sign-off
 
-1. Use `llm_kit` as the only top-level package, with no transparent legacy shims during coexistence. Recommendation: yes. Cost: every consumer changes imports; benefit: deterministic side-by-side installation.
-2. Treat the 16 packages, module map, required symbol moves, and exact edge set as the implementation contract. Recommendation: yes. Cost: code is reorganized rather than copied as three intact trees.
-3. Keep jobs and leased pipeline execution separate above shared `execution` and `storage`. Recommendation: yes. Cost: two product models and stores remain; benefit: neither consumer receives the other's state machine.
-4. Preserve ledger DDL, product-specific runner bookkeeping/pragmas, event bytes, and forbid schema changes throughout the freeze. Recommendation: yes. Cost: frozen fixtures constrain refactoring; benefit: old and new code can share ledgers.
-5. Share legacy credential, config, verdict-cache, and routing environment contracts in place until old-plugin deletion. Recommendation: yes. Cost: llm-kit carries legacy path names; benefit: no lost keys, split policy, or double spending.
-6. Replace both old CLIs for migrated users with one venv-first `llm-kit` executable and the listed subcommands. Recommendation: yes. Cost: scripts change names; benefit: no shim collision.
-7. Keep the five skill short names under llm-kit and make old skill/agent/workflow registrations redirect-only in freeze releases. Recommendation: yes. Cost: old plugins need one freeze release; benefit: no duplicate auto-trigger.
-8. Keep third-party dependencies in extras around a standard-library completion core. Recommendation: yes. Cost: each consumer declares the groups it reaches; benefit: completion-only users avoid unrelated dependencies.
-9. Require Python 3.12 and raise awesome-kit, workflow-kit, yaml-data-editor-kit, and skills-kit declarations during migration. Recommendation: yes. Cost: metadata and CI changes, plus possible unmeasured external 3.10/3.11 users.
-10. Retain bootstrap's old validator constant and add llm-kit recognition rather than replacing old names. Recommendation: yes. Cost: dual-name knowledge lasts through the freeze; benefit: old and new interrupt consumers coexist.
-11. Release all subpackages under one llm-kit version. Recommendation: yes. Cost: one product change releases the whole plugin; benefit: no internal install-time skew.
+1. Use only llm_kit as the new top-level package. Recommendation: yes. Cost: consumers change imports once; benefit: deterministic coexistence.
+2. Accept the corrected 16-package map, facade splits, factory injection, and exact edges. Recommendation: yes. Cost: code is reorganized rather than copied as three intact trees.
+3. Keep jobs and leased pipeline execution separate above shared execution/storage. Recommendation: yes. Cost: two product models remain; benefit: neither receives the other's policy.
+4. Choose sequencing option A (legacy coordination, private consolidation, parity, incremental restructuring, one consumer migration) over option B (one combined acceptance event). Recommendation: A. Cost: more gates; benefit: isolated rollback and no temporary namespace.
+5. Preserve DDL/events and require per-run ownership plus tested handover before active ledger coexistence. Recommendation: yes. Cost: legacy compatibility releases; benefit: no dual resume.
+6. Retain the verdict cache's advisory last-writer-wins semantics rather than add locking during the merge. Recommendation: yes. Cost: concurrent verdict loss and recomputation; benefit: no incompatible state protocol in the merge.
+7. Share legacy credential, config, and routing environment contracts until deletion. Recommendation: yes. Cost: llm-kit carries legacy logical names.
+8. Replace migrated CLI use with one venv-first llm-kit command while old commands remain deprecation shims. Recommendation: yes. Cost: scripts migrate.
+9. Keep final skill short names under llm-kit, migrate explicit and resumable references first, and keep functional old registrations through the deprecation window. Recommendation: yes. Cost: duplicate registrations temporarily exist; benefit: either selection path succeeds.
+10. Keep third-party dependencies in extras around a standard-library completion core. Recommendation: yes. Cost: consumers declare reached groups.
+11. Require Python 3.12 and raise the four lagging declarations. Recommendation: yes. Cost: metadata, CI, and possible external 3.10/3.11 users.
+12. Retain bootstrap's old validator identity and add llm-kit recognition. Recommendation: yes. Cost: dual-name knowledge during coexistence.
+13. Release all components under one llm-kit version. Recommendation: yes. Cost: one component change releases the plugin; benefit: no internal skew.
+14. Approve the narrow plugin-boundary exception and proposed plugins/CLAUDE.md amendment while retaining maintainer-content and deprecation rules. Recommendation: yes. Cost: one explicit repository-policy exception.
 
-Sign-off means accepting all recommendations or naming the numbered decisions
-that must change. No llm-kit implementation should begin before that response.
+Sign-off accepts all recommendations or names decisions that must change. No implementation begins before that response.
 
-## Appendix A: complete legacy module-to-package map
+## Appendix A: legacy module map
 
-Prefixes: `L` is `llm_scripting_kit`, `C` is `content_pipeline`, and `J` is
-`job_kit`. Names omit `.py`; within a cell, an unprefixed name inherits the
-most recent `L`, `C`, or `J` prefix. Every one of the 133 inventoried modules
-appears below. A `*` marks a primary public facade whose shared internals are
-extracted by the required-symbol table or the execution/storage ruling.
+Prefixes: L is llm_scripting_kit, C is content_pipeline, and J is job_kit. An asterisk means a facade whose internals split by the rules above.
 
-| Destination package | Legacy modules |
+| Destination | Legacy modules |
 |---|---|
-| Empty namespaces | `L:__init__`; `C:__init__` |
-| `schema` | `L:completion/json_repair`, `completion/json_schema` |
-| `registry` | `L:account`, `api_key`, `constants`, `effort*`, `env_file`, `model_endpoints*`, `models*`; slices of `declaration*`, `harness_adapters*`, `usage_budget*` |
-| `completion` | `L:completion/__init__`, `completion/adapter_capabilities`, `completion/capabilities`, `completion/contract`, `completion/contract_types`, `completion/halt*`, `completion/prompt_fold`, `completion/requirements`, `completion/results`, `completion/skill_context`, `completion/skill_context_types`, `completion/types`, `request_protocol`; `AgentTimeoutError` slice of `completion/claude_runner*` |
-| `adapters` | `L:_swapper_process`, `client`, `completion/backends`, `completion/claude_runner*`, `completion/codex_backend*`, `completion/opencode_backend`, `harness_adapters*`, `swapper`, `swapper_acceptance`; raw-reader slice of `usage_budget*` |
-| `dispatch` | `L:completion/endpoint_profile`, `completion/factory`, `declaration*`, `observer`, `reachability`, `review_lane`, `seats`, `usage_budget*` |
-| `frontdoor` | `L:frontdoor/__init__`, `frontdoor/__main__`, `frontdoor/acceptance`, `frontdoor/server` |
-| `scaffold` | `C:cli/scaffold` |
-| `storage` | `C:execution/_atomic_json`; SQLite slices of `C:execution/store*`, `C:llm/spend_ledger*`, and `J:store*` |
-| `execution` | Shared slices of `C:execution/events*`, `execution/interrupts*`, `execution/model*`, `execution/scheduler*`, and `J:events*`, `interrupts*`, `model*`, `run*` |
-| `jobs` | `J:__init__`, `events*`, `interrupts*`, `model*`, `run*`, `select`, `store*`, `workspace` |
-| `pipeline.core` | `C:freshness/seed`, `llm/convergence`, `pipeline/__init__`, `pipeline/cell_policy`, `pipeline/convergence_loop`, `pipeline/gate`, `pipeline/single_pass`, `pipeline/stage`, `pipeline/workunit`, `validate/__init__`, `validate/contract`, `validate/floor_guard`, `validate/riders`, `vcs/seam` |
-| `pipeline.artifacts` | `C:cli/unsupported`, `deliver/__init__`, `deliver/inplace`, `deliver/projection`, `freshness/__init__`, `freshness/classify`, `freshness/ensure`, `freshness/hashing`, `freshness/tier`, `providers/__init__`, `providers/assembly`, `providers/registry`, `roundtrip/__init__`, `roundtrip/questions`, `roundtrip/returns`, `store/__init__`, `store/attributed`, `store/candidate`, `store/intermediary`, `store/projection`, `vcs/__init__`, `vcs/git_vcs`, `vcs/null_vcs` |
-| `pipeline.runtime` | `C:cli/budget`, `llm/__init__`, `llm/backends`, `llm/gate`, `llm/platform`, `llm/spend_ledger*`, `llm/yaml_extract` |
-| `pipeline.execution` | `C:execution/__init__`, `execution/adapter`, `execution/controller`, `execution/deadlines`, `execution/drivers/__init__`, `execution/drivers/claude_bg`, `execution/drivers/inline`, `execution/events*`, `execution/failure_cache`, `execution/interrupts*`, `execution/model*`, `execution/parallel_graph`, `execution/protocol`, `execution/scheduler*`, `execution/status`, `execution/store*`, `execution/wave`, `execution/workerpack` |
-| `pipeline.analysis` | `C:audit/__init__`, `audit/auditor`, `audit/reasoning_chain`, `audit/report`, `provenance/__init__`, `provenance/call_audit`, `provenance/record`, `provenance/replay`, `provenance/snapshot` |
-| `cli` | `L:bootstrap_guard`, `cli`, `scripts/llm_scripting_kit_cli`; `C:cli/__init__`, `cli/run`, `scripts/check_consumer_contract`; `J:cli` |
+| Empty namespaces | L:__init__; C:__init__ |
+| schema | L:completion/json_repair, completion/json_schema |
+| registry | L:api_key, constants, effort*, env_file, model_endpoints*, models*; slices of declaration*, harness_adapters*, usage_budget* |
+| completion | Neutral slice of L:completion/__init__; completion/capabilities, contract, contract_types, halt*, prompt_fold, requirements, results, skill_context, skill_context_types, types; request_protocol; AgentTimeoutError slice of completion/claude_runner* |
+| adapters | L:account, _swapper_process, client, completion/backends, completion/adapter_capabilities, completion/claude_runner*, completion/codex_backend*, completion/opencode_backend, harness_adapters*, swapper, swapper_acceptance; raw-reader slice of usage_budget* |
+| dispatch | L:completion/endpoint_profile, completion/factory, declaration*, observer, reachability, review_lane, seats, usage_budget*; construction slice of C:llm/backends* |
+| frontdoor | L:frontdoor/__init__, frontdoor/__main__, frontdoor/acceptance, frontdoor/server |
+| scaffold | C:cli/scaffold |
+| storage | C:execution/_atomic_json; connection/transaction/lock slices of C:execution/store*, C:llm/spend_ledger*, and J:store*; no product migration loop |
+| execution | Shared slices of C:execution/events*, interrupts*, model*, scheduler* and J:events*, interrupts*, model*, run* |
+| jobs | J:__init__, events*, interrupts*, model*, run*, select, store*, workspace, including product DDL and migration loop |
+| pipeline.core | C:freshness/seed, llm/convergence, pipeline/__init__, cell_policy, convergence_loop, gate, single_pass, stage, workunit, validate/__init__, validate/contract, validate/floor_guard, validate/riders, vcs/seam |
+| pipeline.artifacts | C:cli/unsupported, deliver/*, freshness/* except seed, providers/*, roundtrip/*, store/*, vcs/__init__, vcs/git_vcs, vcs/null_vcs |
+| pipeline.runtime | C:cli/budget, llm/__init__, runtime wrapper slice of llm/backends*, llm/gate, llm/platform, llm/spend_ledger*, llm/yaml_extract |
+| pipeline.execution | C:execution/__init__, adapter, controller, deadlines, drivers/*, events*, failure_cache, interrupts*, model*, parallel_graph, protocol, scheduler*, status, store*, wave, workerpack, including product DDL and migration loop |
+| pipeline.analysis | C:audit/__init__, audit/auditor, audit/reasoning_chain, audit/report, provenance/__init__, provenance/call_audit, provenance/record, provenance/replay, provenance/snapshot |
+| cli | L:bootstrap_guard, cli, scripts/llm_scripting_kit_cli; C:cli/__init__, cli/run, scripts/check_consumer_contract; J:cli |
 
-The primary facade rule means, for example, old `job_kit.events` callers move
-to `llm_kit.jobs.events`; that facade delegates envelope mechanics to
-`llm_kit.execution.events`. It does not permit the implementation to live in
-both packages.
+## Appendix B: evidence
 
-## Appendix B: load-bearing evidence
-
-The underlying private task records are
-`dev/tasks/llm-plugins-merge/inventory-coupling.md` and
-`dev/tasks/llm-plugins-merge/execution-overlap.md`. This design depends on the
-following measurements from 2026-10-16:
-
-- Corpus: 133 modules, 20 first-level legacy units, and 55,629 lines across the three import packages and two script entry points.
-- Cross-package edges: content-pipeline reaches llm-scripting-kit lazily from execution interrupts and LLM backends/platform; job-kit reaches it eagerly from package init, run, and select and lazily from interrupts. No job-kit/content-pipeline edge exists.
-- Legacy cycles: one eager root/completion subpackage cycle and five lazy module cycles, all named in this document.
-- Legacy abstractness: maximum A was 0.20; content-pipeline execution had 0/92 abstract classes and job-kit 0/56.
-- External code/manifest consumers: awesome-kit, git-kit, p4-kit, workflow-kit, and yaml-data-editor-kit consume llm-scripting-kit; yaml-data-editor-kit consumes content-pipeline; skills-kit consumes the job-kit CLI. No external consumer was found that needs both execution products.
-- yaml-data-editor-kit imports `content_pipeline.execution.{adapter,controller,drivers,model,protocol,store,workerpack}`, `content_pipeline.llm`, and `pipeline.workunit`; it is not a pipeline-core-only consumer.
-- Change coupling: plugin commit counts were llm-scripting-kit 134, content-pipeline-kit 142, job-kit 54; cross-plugin co-change counts were 26, 18, and 8. Registry pairs were 18 commits for default config/models and 12 for model-endpoints/models.
-- Execution overlap: shared logic is contract probes/adapters, interrupt values/lapse, SQLite posture, and bounded-pool control. Product schemas, transitions, leases, workspaces, acceptance, and drivers differ.
-- Persisted baselines: job schema 12, pipeline migration list length 10, spend-ledger schema 1; job and pipeline use different version bookkeeping, and spend ledger uses autocommit plus configurable synchronous mode.
-- Infrastructure coupling: bootstrap hard-codes `llm_scripting_kit` in first-party recognition and the interrupt validator; shared-library publication and `.pth` links are keyed by package name.
-
-These measurements justify the boundaries and planned Ca/Ce table above; the
-appendices are sufficient to review the design without access to the task
-repository.
+- dev/tasks/llm-plugins-merge/inventory-coupling.md
+- dev/tasks/llm-plugins-merge/execution-overlap.md
