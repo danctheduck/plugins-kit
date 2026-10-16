@@ -1,7 +1,8 @@
 # Shipped SKILL.md standards
 
-The frontmatter-hygiene criteria (description and skill-type) and the
-body-size and references-layout criteria skills-kit
+The frontmatter-hygiene criteria (description and skill-type), the
+body-size and references-layout criteria, and the YAML-contract floor criteria
+(facts and caution) skills-kit
 ships for every SKILL.md. This file
 is layer 0 of the standards configuration: `standards_resolve.resolve()` reads
 it before the user and project layers, and every SKILL.md audit applies the
@@ -34,13 +35,23 @@ without declaring them, so tuning `body_max_lines` or `body_max_tokens` through
 and `body-token-count` are informational count rows: they always pass and carry
 the count in their note, and `rules: {body-line-count: off}` removes one.
 
+Four criteria are record floors over the YAML contract block and report in the
+`yaml_contract` list, after the portable-unit rows. They have a row only when
+pyyaml can parse the block, and the evaluator's `applies` gate decides which
+document gets which: `facts-floor` applies to a reference-skill (the contract
+root `reference_skill`, or, with no recognized root, a `skill-type:
+reference-skill` tag), and `facts-gotcha` and `facts-example` apply to it only
+once at least one fact is declared. `caution-floor` applies to a document that
+carries a `technique_skill:` block. None declares a threshold: each floor is
+"at least one".
+
 An authored standards file may not declare a criterion with one of these ids:
 a criterion id repeated anywhere in the resolved layers is an error.
 
 ```yaml
 standards_set:
   _schema_version: "1"
-  identity: Shipped frontmatter-hygiene standards (description and skill-type) for every SKILL.md.
+  identity: Shipped frontmatter-hygiene, body-size, references-layout and YAML-contract floor standards for every SKILL.md.
   applies_to: skill_md
   criteria:
     - id: desc-160-char
@@ -90,5 +101,25 @@ standards_set:
       statement: "`references/` is one hop deep, except that a nested reference file counts as one hop when SKILL.md's `index.references[]` declares that file's own relative path or its containing directory."
       severity: fail
       keywords: [one hop deep, nested references, index.references, references layout, ADP]
+      enforcement: mechanical
+    - id: facts-floor
+      statement: A reference-skill declares at least one fact (nested in `reference_skill:` or as a top-level `facts:` unit).
+      severity: fail
+      keywords: [facts floor, reference-skill facts, at least one fact, record floors, cross-source]
+      enforcement: mechanical
+    - id: facts-gotcha
+      statement: At least one fact carries a `gotchas` list.
+      severity: fail
+      keywords: [fact gotchas, gotchas list, record floors, cross-source]
+      enforcement: mechanical
+    - id: facts-example
+      statement: At least one fact carries an `example` block.
+      severity: fail
+      keywords: [fact example, example block, record floors, cross-source]
+      enforcement: mechanical
+    - id: caution-floor
+      statement: A technique-skill carries at least one per-technique gotcha or at least one `anti_patterns` record.
+      severity: fail
+      keywords: [caution floor, technique gotchas, anti_patterns, caution surface, record floors]
       enforcement: mechanical
 ```

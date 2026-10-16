@@ -185,10 +185,6 @@ through `audit-framework.yaml`.
 | Rule id | Meaning |
 |---------|---------|
 | `step-tracking` | A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation. |
-| `facts-floor` | A reference-skill declares at least one fact (nested in `reference_skill:` or as a top-level `facts:` unit). |
-| `facts-gotcha` | At least one fact carries a `gotchas` list. |
-| `facts-example` | At least one fact carries an `example` block. |
-| `caution-floor` | A technique-skill carries at least one per-technique gotcha or at least one `anti_patterns` record. |
 | `ref-example-block` | A reference-skill body has an "Example" heading. |
 | `ref-gotcha-block` | A reference-skill body has a "Gotcha" heading. |
 | `ref-prohibited-discipline` | A reference-skill body omits discipline content (rule+counter, RED/GREEN/REFACTOR). |
@@ -237,6 +233,10 @@ source of each statement, severity and threshold default.
 | `body-token-count` | `skill_md` | info | Reports the approximate SKILL.md body token count (informational count row that always passes). |
 | `body-size-signal` | `skill_md` | judgment | A SKILL.md body within `body_max_lines` lines and `body_max_tokens` approximate tokens needs no split; an over-threshold body with no `references/` directory raises a judgment on whether its sections serve different reading tasks. |
 | `refs-one-hop-deep` | `skill_md` | fail | `references/` is one hop deep, except that a nested reference file counts as one hop when SKILL.md's `index.references[]` declares that file's own relative path or its containing directory. |
+| `facts-floor` | `skill_md` | fail | A reference-skill declares at least one fact (nested in `reference_skill:` or as a top-level `facts:` unit). |
+| `facts-gotcha` | `skill_md` | fail | At least one fact carries a `gotchas` list. |
+| `facts-example` | `skill_md` | fail | At least one fact carries an `example` block. |
+| `caution-floor` | `skill_md` | fail | A technique-skill carries at least one per-technique gotcha or at least one `anti_patterns` record. |
 
 ### Inoffensive -- no knob
 
@@ -455,7 +455,10 @@ degrading to an empty config, and the message names the problem:
   size, and the two count rows carry no count. `claude-md-import-size` and
   `claude-md-size-signal` are deferred rows on a CLAUDE.md, and
   `claude-md-record-floor` has no row because the `claude_md:` block it needs
-  cannot be parsed.
+  cannot be parsed. The four SKILL.md contract floors (`facts-floor`,
+  `facts-gotcha`, `facts-example`, `caution-floor`) have no row for the same
+  reason: they read the parsed contract block, so without pyyaml they report
+  nothing, not a deferred row.
 - **A `--primitive` no lane consumes.** `scripts/resolve_standards.py
   --primitive code_directory`, or an unknown name, exits 2 with a usage error.
   No lane applies authored standards for that subject, so its list could only

@@ -656,4 +656,52 @@ claude_md:
         from hard-coded code.
       origin: Surface, finding and follow-up above; milestone M6 wave 3 of the configurable-standards work.
       added: "2026-10-16"
+    - id: contract_floor_criteria_shipped
+      keywords: [facts-floor, facts-gotcha, facts-example, caution-floor, yaml_contract section, SkillContext yaml_root, yaml_units, applies gate, contract-staged, no pyyaml, no deferred row, record floors, M6, shipped standards]
+      summary: "skills-kit 0.96.0 moves facts-floor, facts-gotcha, facts-example and caution-floor out of audit.py's check_facts_cross_rules and check_technique_caution_cross_rule and out of rule_catalog.RULES into the shipped SKILL-standards.md as mechanical criteria that join the yaml_contract list. Extends body_refs_criteria_shipped."
+      detail: |
+        Surface: four optional YAML-contract floors were emitted by two
+        hard-coded functions that ran after the portable-unit rows, and were
+        catalogued in rule_catalog.RULES as record-floors rules. The skill_md
+        evaluators so far ran inside check_universal, before the contract is
+        parsed.
+        Finding: these floors read two things the universal rows never had,
+        the document's parsed YAML units and the contract root the audit
+        resolved (the facts floor gates on that root, with the frontmatter tag
+        as the fallback only for a document with no recognized root). The
+        yaml_contract section already existed for claude-md-record-floor, but a
+        skill_md audit placed none of its rows by section.
+        Rulings: (1) SkillContext gains yaml_root and a cached yaml_units. The
+        root is a result of the contract check, so the universal context leaves
+        it unset and audit() builds a second context once the root exists;
+        the units are parsed on first use and shared, so the four evaluators
+        parse the body once. (2) The four evaluators declare section
+        "yaml_contract"; check_universal runs only the universal ones, and
+        audit() runs the yaml_contract ones after check_portable_units and
+        before check_asset_dependencies_resolve, which is where the removed
+        functions emitted. Row order, labels, notes and verdicts are unchanged.
+        (3) facts-gotcha and facts-example have an applies gate that is true
+        only when at least one fact is declared, because the removed function
+        returned after the floor row when no fact existed. (4) None declares a
+        threshold: each floor is "at least one", with no count in THRESHOLDS.
+        (5) The catalog counts become 28 optional, 11 inoffensive, 3
+        architectural. (6) The two removed functions are deleted, not kept as
+        wrappers.
+        No-pyyaml output is preserved exactly: the floors had no row on a
+        bare interpreter, so the applies gate is false without pyyaml and the
+        rows are not deferred rows. That differs from waves 1 to 3, whose rows
+        become deferred there, and it is why this wave has no accepted
+        regression.
+        Behaviour kept that the contract-only reading would miss: a SKILL.md
+        tagged skill-type: reference-skill with no contract block still gets a
+        facts-floor row (the tag is the fallback gate), and a reference block
+        that fails to parse still gets one.
+        Follow-up: none for these ids. Verification: the output of 39 fixtures
+        (every case above, with and without pyyaml) was byte-identical before
+        and after, the golden corpus stayed byte-identical, and the
+        shipped-standards regression tests fail when a criterion is removed
+        from a copy of the shipped file while the rows come from hard-coded
+        code.
+      origin: Surface, finding and follow-up above; milestone M6 wave 4 of the configurable-standards work.
+      added: "2026-10-16"
 ```

@@ -18,6 +18,7 @@ import re
 import sys
 from urllib.parse import unquote
 from dataclasses import dataclass, asdict
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -90,11 +91,26 @@ class CheckResult:
 
 @dataclass(frozen=True)
 class SkillContext:
-    """The parsed SKILL.md a mechanical skill_md evaluator reads."""
+    """The parsed SKILL.md a mechanical skill_md evaluator reads.
+
+    yaml_root is the contract root the audit resolved for the document (None
+    when no contract block was recognized); it is set only on the context the
+    yaml_contract-section evaluators receive, because it is a result of the
+    contract check and does not exist when the universal rows are evaluated.
+    yaml_units is every recognized (root, block data) unit in the body, parsed
+    on first use and shared by the evaluators that read it; it is empty
+    without pyyaml.
+    """
 
     fm: Frontmatter
     body: Body
     skill_dir: Path
+    yaml_root: str | None = None
+
+    @cached_property
+    def yaml_units(self) -> list[tuple[str, dict]]:
+        units, _, _ = collect_yaml_units(self.body.text)
+        return units
 
 
 @dataclass(frozen=True)
@@ -149,8 +165,10 @@ class MechanicalEvaluator:
       reads without owning. A criterion never declares one of these; a user
       tunes it through `thresholds:` and every reader sees the same value.
     - section: the report list the row joins ("universal" or "yaml_contract").
-      Only the claude_md audit places rows by section; skill_md rows are all
-      "universal".
+      A claude_md audit appends yaml_contract rows after the contract rows. A
+      skill_md audit emits them after the portable-unit rows and before the
+      asset-dependency rows, with a SkillContext that carries yaml_root; its
+      universal rows are evaluated inside check_universal.
     """
 
     applies_to: str
@@ -281,6 +299,114 @@ def _eval_refs_one_hop_deep(ctx: SkillContext, th: dict[str, int]) -> tuple[str,
     return label, True, ""
 
 
+def _is_reference_skill(ctx: SkillContext) -> bool:
+    """Gated on the YAML ROOT when a contract block was recognized, NOT on the
+    frontmatter skill-type: the frontmatter tag is advisory and judgment-only,
+    so a `reference_skill:` document with no (or a disagreeing) tag must not
+    skip the facts floor (I8). The tag is the fallback gate only for a
+    document that carries no recognized root at all."""
+    if ctx.yaml_root is not None:
+        return ctx.yaml_root == "reference_skill"
+    return ctx.fm.fields.get("skill-type") == "reference-skill"
+
+
+def _declared_facts(ctx: SkillContext) -> list[dict]:
+    """Every fact across the union of its sources: nested in a `reference_skill:`
+    unit's `facts` and in a top-level `facts:` unit. The facts criteria apply
+    over the union, not per source."""
+    all_facts: list[dict] = []
+    for unit_root, block_data in ctx.yaml_units:
+        if unit_root == "reference_skill":
+            inner = block_data.get("reference_skill", {})
+            if isinstance(inner, dict):
+                inner_facts = inner.get("facts", [])
+                if isinstance(inner_facts, list):
+                    all_facts.extend(f for f in inner_facts if isinstance(f, dict))
+        elif unit_root == "facts":
+            top_facts = block_data.get("facts", [])
+            if isinstance(top_facts, list):
+                all_facts.extend(f for f in top_facts if isinstance(f, dict))
+    return all_facts
+
+
+def _facts_floor_applies(ctx: SkillContext) -> bool:
+    # Without pyyaml the units cannot be parsed, so there is no row (not a
+    # deferred one): the contract-staged state skips these floors.
+    return HAVE_YAML and _is_reference_skill(ctx)
+
+
+def _facts_declared_applies(ctx: SkillContext) -> bool:
+    # With no fact declared, facts-floor reports the gap once and the two
+    # per-fact criteria have nothing to read.
+    return _facts_floor_applies(ctx) and bool(_declared_facts(ctx))
+
+
+def _eval_facts_floor(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    label = "yaml: facts present (cross-source)"
+    facts = _declared_facts(ctx)
+    if not facts:
+        return (
+            label,
+            False,
+            "reference-skill requires at least one fact (nested in reference_skill: or as a top-level facts: unit, or both)",
+        )
+    return label, True, f"{len(facts)} facts across all sources"
+
+
+def _eval_facts_gotcha(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    ok = any(f.get("gotchas") for f in _declared_facts(ctx))
+    return (
+        "yaml: >=1 fact carries gotchas (cross-source)",
+        ok,
+        "" if ok else "no fact carries a gotchas list across any source",
+    )
+
+
+def _eval_facts_example(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    ok = any(f.get("example") for f in _declared_facts(ctx))
+    return (
+        "yaml: >=1 fact carries example (cross-source)",
+        ok,
+        "" if ok else "no fact carries an example block across any source",
+    )
+
+
+def _technique_unit(ctx: SkillContext) -> dict | None:
+    """The inner mapping of the document's first `technique_skill:` unit whose
+    value is a mapping, or None."""
+    for unit_root, block_data in ctx.yaml_units:
+        if unit_root != "technique_skill":
+            continue
+        inner = block_data.get("technique_skill", {})
+        if isinstance(inner, dict):
+            return inner
+    return None
+
+
+def _caution_floor_applies(ctx: SkillContext) -> bool:
+    return HAVE_YAML and _technique_unit(ctx) is not None
+
+
+def _eval_caution_floor(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+    """The technique-skill caution-surface OR-rule. Per-technique gotchas are
+    optional at the schema level; the document-level floor is >=1 gotcha across
+    techniques OR >=1 anti_patterns record. The two are alternate containers
+    for the same caution surface -- duplicating one caution across both is an
+    anti-pattern (the reader pays twice)."""
+    inner = _technique_unit(ctx)
+    techniques = inner.get("techniques", [])
+    has_gotcha = isinstance(techniques, list) and any(
+        isinstance(t, dict) and t.get("gotchas") for t in techniques)
+    anti_patterns = inner.get("anti_patterns")
+    has_anti = isinstance(anti_patterns, list) and len(anti_patterns) >= 1
+    ok = has_gotcha or has_anti
+    return (
+        "yaml: >=1 gotcha OR >=1 anti_pattern record (caution-surface OR-rule)",
+        ok,
+        "" if ok else "no technique carries a gotchas list and no anti_patterns record exists",
+    )
+
+
 def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
     return ctx.claude_md is not None
 
@@ -377,6 +503,27 @@ MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
         "skill_md", None,
         "references one-hop-deep (ADP) (deferred)", _always, _eval_refs_one_hop_deep,
     ),
+    "facts-floor": MechanicalEvaluator(
+        "skill_md", None,
+        "yaml: facts present (cross-source) (deferred)", _facts_floor_applies, _eval_facts_floor,
+        section="yaml_contract",
+    ),
+    "facts-gotcha": MechanicalEvaluator(
+        "skill_md", None,
+        "yaml: >=1 fact carries gotchas (cross-source) (deferred)", _facts_declared_applies, _eval_facts_gotcha,
+        section="yaml_contract",
+    ),
+    "facts-example": MechanicalEvaluator(
+        "skill_md", None,
+        "yaml: >=1 fact carries example (cross-source) (deferred)", _facts_declared_applies, _eval_facts_example,
+        section="yaml_contract",
+    ),
+    "caution-floor": MechanicalEvaluator(
+        "skill_md", None,
+        "yaml: >=1 gotcha OR >=1 anti_pattern record (caution-surface OR-rule) (deferred)",
+        _caution_floor_applies, _eval_caution_floor,
+        section="yaml_contract",
+    ),
     "claude-md-import-size": MechanicalEvaluator(
         "claude_md", "import_max_lines",
         "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
@@ -409,12 +556,21 @@ class MechanicalCriterion:
 
 
 def _criterion_rows(
-    ctx: AuditContext, criteria: Sequence[MechanicalCriterion], th: dict[str, int]
+    ctx: AuditContext,
+    criteria: Sequence[MechanicalCriterion],
+    th: dict[str, int],
+    section: str | None = None,
 ) -> list[tuple[str, CheckResult]]:
-    """Evaluate criteria against ctx; return (report section, row) pairs in order."""
+    """Evaluate criteria against ctx; return (report section, row) pairs in order.
+
+    section, when given, restricts the run to criteria whose evaluator joins
+    that report section; the other criteria are skipped, not evaluated.
+    """
     rows: list[tuple[str, CheckResult]] = []
     for crit in criteria:
         evaluator = MECHANICAL_EVALUATORS[crit.id]
+        if section is not None and evaluator.section != section:
+            continue
         if not evaluator.applies(ctx):
             continue
         if crit.severity is None:
@@ -462,8 +618,10 @@ def check_universal(
     skill_criteria is required: the mechanical skill_md standards criteria to
     evaluate right after the description row (present or absent), in order
     (see mechanical_criteria("skill_md", ...)); each evaluator's `applies` gate decides whether it
-    has a row for this document. An empty sequence evaluates none -- a caller
-    passes it explicitly, never by omission.
+    has a row for this document. Only criteria whose evaluator joins the
+    "universal" section run here; the yaml_contract ones run in audit(). An
+    empty sequence evaluates none -- a caller passes it explicitly, never by
+    omission.
     """
     th = thresholds if thresholds is not None else THRESHOLDS
     out: list[CheckResult] = []
@@ -496,7 +654,7 @@ def check_universal(
         out.append(CheckResult("frontmatter.description present", FAIL, rule="desc-present"))
     else:
         out.append(CheckResult("frontmatter.description present", PASS, rule="desc-present"))
-    out.extend(row for _section, row in _criterion_rows(ctx, skill_criteria, th))
+    out.extend(row for _section, row in _criterion_rows(ctx, skill_criteria, th, section="universal"))
 
     # Match local references/X.md citations only; exclude cross-plugin refs.
     cited = set(re.findall(r"(?<![/:])references/([a-zA-Z0-9_\-]+\.md)", body.text))
@@ -785,115 +943,6 @@ def check_portable_units(body_text: str) -> list[CheckResult]:
             for path, msg in fails:
                 results.append(CheckResult(f"yaml: {path}", FAIL, msg, rule="yaml-contract"))
     return results
-
-
-def check_facts_cross_rules(
-    body_text: str,
-    declared_type: str | None,
-    yaml_root: str | None = None,
-) -> list[CheckResult]:
-    """Enforce document-level facts cross-rules across the union of all sources.
-
-    Facts can live nested in `reference_skill.facts` OR as a top-level `facts:`
-    portable unit, OR both. The cross-rules ("at least one fact carries gotchas",
-    "at least one fact carries example", "at least one fact exists") apply over
-    the union, not per-source. Only applies to reference-skill documents.
-
-    Gated on the YAML ROOT (like check_technique_caution_cross_rule) when a
-    contract block is present, NOT on the frontmatter skill-type -- the
-    frontmatter tag is advisory/judgment-only, so a `reference_skill:`
-    document with no (or a disagreeing) frontmatter skill-type must not
-    silently skip the facts floor (I8). Frontmatter is the fallback gate only
-    for a legacy document that carries no YAML root at all.
-    """
-    is_reference = (
-        yaml_root == "reference_skill"
-        if yaml_root is not None
-        else declared_type == "reference-skill"
-    )
-    if not is_reference:
-        return []
-    if not HAVE_YAML:
-        return []
-
-    all_facts: list[dict] = []
-    units, _, _ = collect_yaml_units(body_text)
-    for unit_root, block_data in units:
-        if unit_root == "reference_skill":
-            inner = block_data.get("reference_skill", {})
-            if isinstance(inner, dict):
-                inner_facts = inner.get("facts", [])
-                if isinstance(inner_facts, list):
-                    all_facts.extend(f for f in inner_facts if isinstance(f, dict))
-        elif unit_root == "facts":
-            top_facts = block_data.get("facts", [])
-            if isinstance(top_facts, list):
-                all_facts.extend(f for f in top_facts if isinstance(f, dict))
-
-    results: list[CheckResult] = []
-    if not all_facts:
-        results.append(CheckResult(
-            "yaml: facts present (cross-source)",
-            FAIL,
-            "reference-skill requires at least one fact (nested in reference_skill: or as a top-level facts: unit, or both)",
-            rule="facts-floor",
-        ))
-        return results
-
-    results.append(CheckResult(
-        "yaml: facts present (cross-source)",
-        PASS,
-        f"{len(all_facts)} facts across all sources",
-        rule="facts-floor",
-    ))
-    has_gotcha = any(f.get("gotchas") for f in all_facts)
-    results.append(CheckResult(
-        "yaml: >=1 fact carries gotchas (cross-source)",
-        PASS if has_gotcha else FAIL,
-        "" if has_gotcha else "no fact carries a gotchas list across any source",
-        rule="facts-gotcha",
-    ))
-    has_example = any(f.get("example") for f in all_facts)
-    results.append(CheckResult(
-        "yaml: >=1 fact carries example (cross-source)",
-        PASS if has_example else FAIL,
-        "" if has_example else "no fact carries an example block across any source",
-        rule="facts-example",
-    ))
-    return results
-
-
-def check_technique_caution_cross_rule(body_text: str) -> list[CheckResult]:
-    """Enforce the technique-skill caution-surface OR-rule.
-
-    Per-technique gotchas are optional at the schema level; the document-level
-    floor is >=1 gotcha across techniques OR >=1 anti_patterns record. The two
-    are alternate containers for the same caution surface -- duplicating one
-    caution across both is an anti-pattern (the reader pays twice).
-    """
-    if not HAVE_YAML:
-        return []
-
-    units, _, _ = collect_yaml_units(body_text)
-    for unit_root, block_data in units:
-        if unit_root != "technique_skill":
-            continue
-        inner = block_data.get("technique_skill", {})
-        if not isinstance(inner, dict):
-            continue
-        techniques = inner.get("techniques", [])
-        has_gotcha = isinstance(techniques, list) and any(
-            isinstance(t, dict) and t.get("gotchas") for t in techniques)
-        anti_patterns = inner.get("anti_patterns")
-        has_anti = isinstance(anti_patterns, list) and len(anti_patterns) >= 1
-        ok = has_gotcha or has_anti
-        return [CheckResult(
-            "yaml: >=1 gotcha OR >=1 anti_pattern record (caution-surface OR-rule)",
-            PASS if ok else FAIL,
-            "" if ok else "no technique carries a gotchas list and no anti_patterns record exists",
-            rule="caution-floor",
-        )]
-    return []
 
 
 _PROJECT_MARKERS = (".git", ".hg", ".svn", ".p4config.txt")
@@ -1548,8 +1597,12 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
         ))
 
     yaml_results.extend(check_portable_units(body.text))
-    yaml_results.extend(check_facts_cross_rules(body.text, declared_type, yaml_root))
-    yaml_results.extend(check_technique_caution_cross_rule(body.text))
+    # The yaml_contract-section criteria (facts and caution floors) read the
+    # parsed units and the resolved root, so they run once both exist.
+    contract_ctx = SkillContext(
+        fm if fm is not None else Frontmatter(raw="", fields={}), body, skill_dir, yaml_root)
+    yaml_results.extend(
+        row for _section, row in _criterion_rows(contract_ctx, skill_criteria, th, section="yaml_contract"))
     yaml_results.extend(check_asset_dependencies_resolve(body.text, skill_dir))
 
     cross_block_drift = check_cross_block_drift(body.text)

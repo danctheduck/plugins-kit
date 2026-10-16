@@ -3,9 +3,10 @@ mechanical evaluators that serve its criteria.
 
 desc-160-char, desc-directive-form, desc-exclusion-clause, skill-type-tag,
 skill-type-valid, body-line-count, body-token-count, body-size-signal and
-refs-one-hop-deep are criteria of the shipped SKILL-standards.md; claude-md-
-import-size, claude-md-size-signal and claude-md-record-floor are criteria of
-the shipped CLAUDE-md-standards.md. All twelve are evaluated by
+refs-one-hop-deep, facts-floor, facts-gotcha, facts-example and caution-floor
+are criteria of the shipped SKILL-standards.md; claude-md-import-size,
+claude-md-size-signal and claude-md-record-floor are criteria of the shipped
+CLAUDE-md-standards.md. All sixteen are evaluated by
 audit.MECHANICAL_EVALUATORS and absent from rule_catalog.RULES. These tests pin
 that the file, not the code, decides which rows an audit emits (the
 red-on-revert tests drop a criterion from a copy of the file), and that every
@@ -42,7 +43,8 @@ RESOLVE_CLI = PLUGIN / "scripts" / "resolve_standards.py"
 DESC_IDS = ["desc-160-char", "desc-directive-form", "desc-exclusion-clause"]
 SHIPPED_IDS = [*DESC_IDS, "skill-type-tag", "skill-type-valid"]
 BODY_IDS = ["body-line-count", "body-token-count", "body-size-signal", "refs-one-hop-deep"]
-SKILL_IDS = [*SHIPPED_IDS, *BODY_IDS]
+CONTRACT_IDS = ["facts-floor", "facts-gotcha", "facts-example", "caution-floor"]
+SKILL_IDS = [*SHIPPED_IDS, *BODY_IDS, *CONTRACT_IDS]
 CLAUDE_IDS = ["claude-md-import-size", "claude-md-size-signal", "claude-md-record-floor"]
 
 
@@ -143,16 +145,16 @@ def _standards_md(criteria_yaml):
 # ---------------------------------------------------------------------------
 
 
-def test_the_twelve_ids_left_the_catalog_and_nothing_else_did():
+def test_the_sixteen_ids_left_the_catalog_and_nothing_else_did():
     for rid in [*SKILL_IDS, *CLAUDE_IDS]:
         assert rid not in rule_catalog.RULES
     buckets = [b for b, _g, _d in rule_catalog.RULES.values()]
     assert (buckets.count("optional"), buckets.count("inoffensive"),
-            buckets.count("architectural")) == (32, 11, 3)
+            buckets.count("architectural")) == (28, 11, 3)
     assert "import_max_lines" not in audit_mod.THRESHOLDS
 
 
-def test_shipped_file_declares_the_nine_mechanical_criteria():
+def test_shipped_file_declares_the_thirteen_mechanical_criteria():
     criteria = _shipped_block()["standards_set"]["criteria"]
     assert [c["id"] for c in criteria] == SKILL_IDS
     assert all(c["enforcement"] == "mechanical" for c in criteria)
@@ -160,7 +162,9 @@ def test_shipped_file_declares_the_nine_mechanical_criteria():
     assert {c["id"]: c["severity"] for c in criteria[3:]} == {
         "skill-type-tag": "judgment", "skill-type-valid": "fail",
         "body-line-count": "info", "body-token-count": "info",
-        "body-size-signal": "judgment", "refs-one-hop-deep": "fail"}
+        "body-size-signal": "judgment", "refs-one-hop-deep": "fail",
+        "facts-floor": "fail", "facts-gotcha": "fail", "facts-example": "fail",
+        "caution-floor": "fail"}
     assert all(len(c["keywords"]) >= 3 for c in criteria)
     assert "desc_max_chars" not in audit_mod.THRESHOLDS
     # The body limits are built in (D1): no body criterion declares a threshold.
@@ -1061,3 +1065,291 @@ def test_without_pyyaml_the_body_rows_are_deferred(tmp_path):
         assert rows[rid]["verdict"] == JUDGMENT
         assert "pyyaml unavailable" in rows[rid]["note"]
     assert "refs-cited-exist" in rows
+
+
+# ---------------------------------------------------------------------------
+# the YAML-contract floor criteria (M6 wave 4)
+# ---------------------------------------------------------------------------
+
+REF_HEAD = "reference_skill:\n  identity: i\n  scope:\n    covers: [a]\n    excludes: [b]\n"
+TECH_HEAD = ("technique_skill:\n  identity: i\n  scope:\n    covers: [a]\n    excludes: [b]\n"
+             "  steps:\n    - id: s1\n      action: do\n")
+FACT = "    - id: f1\n      summary: s\n      keywords: [a, b, c]\n      detail: d\n"
+FACT2 = FACT.replace("f1", "f2")
+GOTCHAS = "      gotchas:\n        - g\n"
+EXAMPLE = "      example:\n        input: i\n        output: o\n"
+ANTI = "  anti_patterns:\n    - id: a1\n      what: w\n"
+TECHNIQUE_GOTCHA = "  techniques:\n    - id: t1\n      gotchas:\n        - g\n"
+
+FACTS_LABEL = "yaml: facts present (cross-source)"
+GOTCHA_LABEL = "yaml: >=1 fact carries gotchas (cross-source)"
+EXAMPLE_LABEL = "yaml: >=1 fact carries example (cross-source)"
+CAUTION_LABEL = "yaml: >=1 gotcha OR >=1 anti_pattern record (caution-surface OR-rule)"
+FLOOR_NOTE = ("reference-skill requires at least one fact (nested in reference_skill: "
+              "or as a top-level facts: unit, or both)")
+GOTCHA_NOTE = "no fact carries a gotchas list across any source"
+EXAMPLE_NOTE = "no fact carries an example block across any source"
+CAUTION_NOTE = "no technique carries a gotchas list and no anti_patterns record exists"
+
+
+def _fence(text):
+    return "```yaml\n" + text + "```\n"
+
+
+def _contract_skill(tmp_path, body, skill_type="reference-skill", name="contract"):
+    """A SKILL.md carrying `body` after the H1; skill_type=None omits the tag."""
+    d = tmp_path / name
+    d.mkdir()
+    p = d / "SKILL.md"
+    type_line = "" if skill_type is None else f"skill-type: {skill_type}\n"
+    p.write_text(
+        "---\nname: contract\ndescription: Use when doing X. Do NOT use for Y.\n"
+        f"{type_line}---\n# Contract\n\n{body}",
+        encoding="utf-8",
+    )
+    return p
+
+
+def _floor_rows(report):
+    """The four floor rows of a report as (rule, label, verdict, note), in order."""
+    return [(r["rule"], r["row"], r["verdict"], r["note"])
+            for r in report["yaml_contract"] if r["rule"] in CONTRACT_IDS]
+
+
+def _facts_pass(n):
+    return ("facts-floor", FACTS_LABEL, PASS, f"{n} facts across all sources")
+
+
+FLOOR_FAIL = ("facts-floor", FACTS_LABEL, FAIL, FLOOR_NOTE)
+GOTCHA_PASS = ("facts-gotcha", GOTCHA_LABEL, PASS, "")
+GOTCHA_FAIL = ("facts-gotcha", GOTCHA_LABEL, FAIL, GOTCHA_NOTE)
+EXAMPLE_PASS = ("facts-example", EXAMPLE_LABEL, PASS, "")
+EXAMPLE_FAIL = ("facts-example", EXAMPLE_LABEL, FAIL, EXAMPLE_NOTE)
+CAUTION_PASS = ("caution-floor", CAUTION_LABEL, PASS, "")
+CAUTION_FAIL = ("caution-floor", CAUTION_LABEL, FAIL, CAUTION_NOTE)
+
+#: name -> (skill-type tag, body, the exact floor rows an audit emits). Each
+#: expectation was recorded from the hard-coded checks before they moved.
+FLOOR_CASES = {
+    "reference_no_facts": (
+        "reference-skill", _fence(REF_HEAD), [FLOOR_FAIL]),
+    "reference_facts_without_gotchas_or_examples": (
+        "reference-skill", _fence(REF_HEAD + "  facts:\n" + FACT),
+        [_facts_pass(1), GOTCHA_FAIL, EXAMPLE_FAIL]),
+    "reference_gotcha_only": (
+        "reference-skill", _fence(REF_HEAD + "  facts:\n" + FACT + GOTCHAS),
+        [_facts_pass(1), GOTCHA_PASS, EXAMPLE_FAIL]),
+    "reference_example_only": (
+        "reference-skill", _fence(REF_HEAD + "  facts:\n" + FACT + EXAMPLE),
+        [_facts_pass(1), GOTCHA_FAIL, EXAMPLE_PASS]),
+    "reference_gotcha_and_example_on_different_facts": (
+        "reference-skill", _fence(REF_HEAD + "  facts:\n" + FACT + GOTCHAS + FACT2 + EXAMPLE),
+        [_facts_pass(2), GOTCHA_PASS, EXAMPLE_PASS]),
+    "reference_nested_and_top_level_facts_are_one_union": (
+        "reference-skill",
+        _fence(REF_HEAD + "  facts:\n" + FACT) + _fence("facts:\n" + FACT2 + GOTCHAS),
+        [_facts_pass(2), GOTCHA_PASS, EXAMPLE_FAIL]),
+    "top_level_facts_unit_under_the_tag_gate": (
+        "reference-skill", _fence("facts:\n" + FACT),
+        [_facts_pass(1), GOTCHA_FAIL, EXAMPLE_FAIL]),
+    "facts_that_are_not_mappings_do_not_count": (
+        "reference-skill", _fence(REF_HEAD + "  facts:\n    - just-a-string\n"), [FLOOR_FAIL]),
+    "unparsable_reference_block_still_gets_the_floor": (
+        "reference-skill", _fence("reference_skill:\n  identity: [unclosed\n"), [FLOOR_FAIL]),
+    "reference_root_without_a_tag": (None, _fence(REF_HEAD), [FLOOR_FAIL]),
+    "reference_root_under_a_disagreeing_tag": ("technique-skill", _fence(REF_HEAD), [FLOOR_FAIL]),
+    "tag_only_no_contract_block": ("reference-skill", "prose only\n", [FLOOR_FAIL]),
+    "technique_gotcha_satisfies_the_floor": (
+        "technique-skill", _fence(TECH_HEAD + TECHNIQUE_GOTCHA), [CAUTION_PASS]),
+    "technique_anti_pattern_satisfies_the_floor": (
+        "technique-skill", _fence(TECH_HEAD + ANTI), [CAUTION_PASS]),
+    "technique_with_neither_fails": (
+        "technique-skill", _fence(TECH_HEAD), [CAUTION_FAIL]),
+    "technique_empty_anti_patterns_fails": (
+        "technique-skill", _fence(TECH_HEAD + "  anti_patterns: []\n"), [CAUTION_FAIL]),
+    "technique_untyped_gated_on_the_root": (None, _fence(TECH_HEAD), [CAUTION_FAIL]),
+    "first_technique_unit_decides": (
+        "technique-skill", _fence(TECH_HEAD) + _fence(TECH_HEAD + ANTI), [CAUTION_FAIL]),
+    "mapping_technique_unit_after_a_non_mapping_one": (
+        "technique-skill", _fence("technique_skill: nope\n") + _fence(TECH_HEAD + ANTI),
+        [CAUTION_PASS]),
+    "reference_and_technique_blocks_get_both_in_file_order": (
+        "reference-skill", _fence(REF_HEAD + "  facts:\n" + FACT) + _fence(TECH_HEAD),
+        [_facts_pass(1), GOTCHA_FAIL, EXAMPLE_FAIL, CAUTION_FAIL]),
+}
+
+#: documents that must produce no floor row at all: name -> (tag, body)
+NO_ROW_CASES = {
+    "untyped_no_contract": (None, "prose only\n"),
+    "technique_tag_no_contract": ("technique-skill", "prose only\n"),
+    "pattern_contract": ("pattern-skill", _fence(
+        "pattern_skill:\n  identity: i\n  scope:\n    covers: [a]\n    excludes: [b]\n")),
+    "facts_unit_in_a_domain_skill": ("domain-skill", _fence("facts:\n" + FACT)),
+    "technique_root_that_is_not_a_mapping": ("technique-skill", _fence("technique_skill: nope\n")),
+    "unparsable_technique_block": ("technique-skill", _fence("technique_skill:\n  identity: [unclosed\n")),
+    "unrecognised_root_under_a_non_reference_tag": ("pattern-skill", _fence("bogus_root:\n  a: 1\n")),
+}
+
+
+@pytest.mark.parametrize("case", FLOOR_CASES)
+def test_floor_rows_keep_their_labels_notes_verdicts_and_order(tmp_path, case):
+    skill_type, body, expected = FLOOR_CASES[case]
+    assert _floor_rows(audit(_contract_skill(tmp_path, body, skill_type))) == expected
+
+
+@pytest.mark.parametrize("case", NO_ROW_CASES)
+def test_no_floor_row_where_none_applies(tmp_path, case):
+    skill_type, body = NO_ROW_CASES[case]
+    report = audit(_contract_skill(tmp_path, body, skill_type))
+    assert _floor_rows(report) == []
+    assert not set(CONTRACT_IDS) & {r["rule"] for r in report["universal"]}
+
+
+def test_a_document_with_no_frontmatter_still_gets_the_floor(tmp_path):
+    d = tmp_path / "bare"
+    d.mkdir()
+    (d / "SKILL.md").write_text("# T\n\n" + _fence(REF_HEAD), encoding="utf-8")
+    assert _floor_rows(audit(d / "SKILL.md")) == [FLOOR_FAIL]
+
+
+def test_gotcha_and_example_are_absent_until_a_fact_exists(tmp_path):
+    empty = _floor_rows(audit(_contract_skill(tmp_path, _fence(REF_HEAD))))
+    assert [row[0] for row in empty] == ["facts-floor"]
+    other = tmp_path / "other"
+    other.mkdir()
+    one = _floor_rows(audit(_contract_skill(other, _fence(REF_HEAD + "  facts:\n" + FACT))))
+    assert [row[0] for row in one] == ["facts-floor", "facts-gotcha", "facts-example"]
+
+
+def _all_four_body():
+    """A document that gets every floor row: a reference block with one fact
+    plus a technique block with no caution."""
+    return _fence(REF_HEAD + "  facts:\n" + FACT) + _fence(TECH_HEAD)
+
+
+@pytest.mark.parametrize("rid", CONTRACT_IDS)
+def test_removing_a_floor_criterion_from_the_shipped_file_drops_only_its_row(tmp_path, monkeypatch, rid):
+    """Red on revert: with the floors hard-coded in audit() again, editing the
+    shipped file changes nothing and this test fails."""
+    path = _contract_skill(tmp_path, _all_four_body())
+    baseline = audit(path)
+    assert [row[0] for row in _floor_rows(baseline)] == CONTRACT_IDS
+
+    shipped = _write_shipped(
+        tmp_path, lambda cs: cs.__setitem__(slice(None), [c for c in cs if c["id"] != rid]))
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", shipped)
+    report = audit(path)
+
+    expected = {key: [r for r in baseline[key] if r["rule"] != rid]
+                for key in ("universal", "yaml_contract", "type_specific")}
+    assert {key: report[key] for key in expected} == expected
+    assert report["mixed_type"] == baseline["mixed_type"]
+
+
+def test_floor_rows_sit_between_the_portable_unit_rows_and_the_asset_rows(tmp_path):
+    asset = _fence("asset_dependencies:\n  - path: SKILL.md\n    kind: file\n    purpose: p\n")
+    body = _fence(REF_HEAD + "  facts:\n" + FACT) + _fence("facts:\n" + FACT2) + _fence(TECH_HEAD) + asset
+    rows = audit(_contract_skill(tmp_path, body))["yaml_contract"]
+    rules = [r["rule"] for r in rows]
+    first = {rid: rules.index(rid) for rid in [*CONTRACT_IDS, "asset-paths-resolve"]}
+    assert list(first) == sorted(first, key=first.get)
+    portable = [i for i, r in enumerate(rows) if r["row"].startswith("yaml: portable unit")]
+    assert portable and max(portable) < first["facts-floor"]
+
+
+def test_floor_rows_are_not_in_the_universal_list(tmp_path):
+    report = audit(_contract_skill(tmp_path, _all_four_body()))
+    assert not set(CONTRACT_IDS) & {r["rule"] for r in report["universal"]}
+    assert [row[0] for row in _floor_rows(report)] == CONTRACT_IDS
+
+
+def test_floor_criteria_below_fail_severity_report_judgment(tmp_path, monkeypatch):
+    def soften(cs):
+        for c in cs:
+            if c["id"] in CONTRACT_IDS:
+                c["severity"] = "judgment"
+    monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", _write_shipped(tmp_path, soften))
+    other = tmp_path / "s"
+    other.mkdir()
+    rows = _floor_rows(audit(_contract_skill(other, _all_four_body())))
+    assert [(rid, verdict) for rid, _label, verdict, _note in rows] == [
+        ("facts-floor", PASS), ("facts-gotcha", JUDGMENT), ("facts-example", JUDGMENT),
+        ("caution-floor", JUDGMENT)]
+
+
+def test_floor_evaluators_are_yaml_contract_rows_that_own_no_threshold():
+    for rid in CONTRACT_IDS:
+        ev = MECHANICAL_EVALUATORS[rid]
+        assert (ev.applies_to, ev.section, ev.threshold, ev.reads_builtin_thresholds) == (
+            "skill_md", "yaml_contract", None, ())
+    assert all(MECHANICAL_EVALUATORS[rid].section == "universal"
+               for rid in [*SHIPPED_IDS, *BODY_IDS])
+    criteria = _shipped_block()["standards_set"]["criteria"]
+    assert all("threshold" not in c for c in criteria if c["id"] in CONTRACT_IDS)
+    assert sr.resolve(None).threshold_defaults == {"desc_max_chars": 160, "import_max_lines": 50}
+
+
+def test_rules_off_removes_each_floor_row(tmp_path):
+    resolved = _tune(tmp_path, "rules:\n" + "".join(f"  {rid}: off\n" for rid in CONTRACT_IDS))
+    report = audit(_contract_skill(tmp_path, _all_four_body()), resolved)
+    assert _floor_rows(report) == []
+    assert any(r["rule"] == "yaml-contract" for r in report["yaml_contract"])
+
+
+def test_rules_off_removes_one_floor_row_and_keeps_the_others(tmp_path):
+    resolved = _tune(tmp_path, "rules:\n  facts-gotcha: off\n")
+    rows = _floor_rows(audit(_contract_skill(tmp_path, _all_four_body()), resolved))
+    assert [row[0] for row in rows] == ["facts-floor", "facts-example", "caution-floor"]
+
+
+def test_opting_out_of_the_shipped_layer_removes_every_floor_row(tmp_path):
+    resolved = sr.resolve(None, shipped_dir=None)
+    report = audit(_contract_skill(tmp_path, _all_four_body()), resolved)
+    assert _floor_rows(report) == []
+
+
+def test_floor_knobs_stay_valid_when_the_shipped_layer_is_opted_out(tmp_path):
+    (_user_layer(tmp_path) / "config.yaml").write_text(
+        "rules:\n" + "".join(f"  {rid}: off\n" for rid in CONTRACT_IDS), encoding="utf-8")
+    r = sr.resolve(None, shipped_dir=None)
+    assert r.disabled_rules == set(CONTRACT_IDS)
+
+
+@pytest.mark.parametrize("rid", CONTRACT_IDS)
+def test_authored_id_repeating_a_floor_criterion_raises_naming_both(tmp_path, rid):
+    layer = _user_layer(tmp_path)
+    (layer / "SKILL-standards.md").write_text(_standards_md(f"""\
+        - id: {rid}
+          statement: Mine.
+          severity: info
+          keywords: [a, b, c]
+        """), encoding="utf-8")
+    with pytest.raises(sr.StandardsConfigError) as exc:
+        sr.resolve(None)
+    msg = str(exc.value)
+    assert rid in msg and str(SHIPPED_FILE) in msg and str(layer / "SKILL-standards.md") in msg
+
+
+def _bare_report(tmp_path, path):
+    proc = _bare(tmp_path, (
+        "import json\nfrom skills_kit_lib.audit import audit\n"
+        f"print(json.dumps(audit(__import__('pathlib').Path({str(path)!r}))))\n"
+    ))
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)
+
+
+@pytest.mark.parametrize("case", [
+    "reference_facts_without_gotchas_or_examples", "reference_no_facts",
+    "technique_with_neither_fails", "tag_only_no_contract_block"])
+def test_without_pyyaml_the_floors_have_no_row_at_all(tmp_path, case):
+    """Without pyyaml the block cannot be parsed, so the floors never had a row
+    and are not deferred either: the contract-staged state reports only the
+    staged-contract row."""
+    skill_type, body, _expected = FLOOR_CASES[case]
+    report = _bare_report(tmp_path, _contract_skill(tmp_path, body, skill_type))
+    every = [r["rule"] for key in ("universal", "yaml_contract", "type_specific") for r in report[key]]
+    assert not set(CONTRACT_IDS) & set(every)
+    if case != "tag_only_no_contract_block":
+        assert [r["rule"] for r in report["yaml_contract"]] == ["yaml-contract"]
+        assert report["yaml_contract"][0]["verdict"] == JUDGMENT
