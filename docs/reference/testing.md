@@ -115,8 +115,8 @@ the exported plugin roots and the harvest):
   once per target. The literal `1`, which guards older than this format honored as
   the opt-out, is untrusted: a guard that inherits it prints one stderr line naming
   it as legacy, re-execs once and writes its token, so an old parent cannot loop or
-  pin a new child. The residual is the reverse pairing (a new parent's token
-  reaching an old child, which trusts any truthy value), closed when that plugin
+  pin a child whose guard writes the target token. The residual is the reverse pairing (the token of a parent that writes it
+  reaching a child whose guard predates the token format, which trusts any truthy value), closed when that plugin
   updates its vendored guard copy.
 - **A plugin root inside the plugin cache is refused.** With `CLAUDE_PLUGIN_TEST`
   set, the engine's per-plugin export, its `plugin_roots` record and the SessionStart
@@ -159,7 +159,7 @@ item names the tests that pin it.
   `plugins/` that names the `claude` executable and is neither wired nor an
   anchored exemption.
 - **Launch paths follow the redirect.** llm-scripting-kit's console script and
-  `scripts/llm_scripting_kit_cli.py` re-exec into the redirected venv, and its
+  `plugins/llm-scripting-kit/scripts/llm_scripting_kit_cli.py` re-exec into the redirected venv, and its
   messages name the redirected console script (`cli_command()`). pdf-kit's
   `html_to_pdf.py`, workflow-kit's scripts and unreal-kit's `ue-runner.cmd` take
   the same redirect. Each exits 2 when the redirected interpreter is missing and

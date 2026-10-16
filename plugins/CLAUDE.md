@@ -606,7 +606,7 @@ never use `uv run python` outside a skill preload.
 rather than substitutes.** The order of each Python-invoking
 `plugins/<name>/bin/` shim (a plugin-venv shim takes its venv first; a shim
 whose CLI needs no venv takes the standalone interpreter first) is stated once,
-in the root CLAUDE.md, "Scoped exception: Python CLI launcher shims". A new shim
+in the root CLAUDE.md, "Scoped exception: Python CLI launcher shims". A Python-invoking shim
 also exits 2 when `CLAUDE_BOOTSTRAP_DATA_ROOT` is set and its redirected venv is
 missing (never the production venv), and exits 2 when `CLAUDE_PLUGIN_TEST` is
 set and the shim runs from the plugin cache. Register its order in the allowlist

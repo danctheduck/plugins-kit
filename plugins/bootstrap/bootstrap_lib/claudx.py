@@ -170,7 +170,7 @@ def refuse_supervised(
 
 def is_claude_executable(argv0: str) -> bool:
     """True when ``argv0`` names the ``claude`` CLI (any directory, .exe/.cmd/.bat)."""
-    name = Path(argv0).name.lower()
+    name = argv0.replace("\\", "/").rsplit("/", 1)[-1].lower()
     for suffix in _EXECUTABLE_SUFFIXES:
         if name.endswith(suffix):
             name = name[: -len(suffix)]

@@ -185,6 +185,25 @@ def test_is_claude_executable(argv0, expected):
     assert claudx.is_claude_executable(argv0) is expected
 
 
+@pytest.mark.parametrize(
+    "argv0, expected",
+    [
+        (r"C:\tools\Claude.EXE", True),
+        (r"C:\tools/mixed\claude.cmd", True),
+        (r"C:\tools\claudex.exe", False),
+    ],
+)
+def test_is_claude_executable_splits_both_separators_on_a_posix_host(
+    monkeypatch, argv0, expected
+):
+    # Simulate POSIX path semantics: PurePosixPath(r"C:\tools\Claude.EXE").name is the
+    # whole string, so a basename taken through pathlib cannot see a Windows path.
+    import pathlib
+
+    monkeypatch.setattr(claudx, "Path", pathlib.PurePosixPath)
+    assert claudx.is_claude_executable(argv0) is expected
+
+
 def test_contract_command_is_unchanged_outside_claudx():
     command = ("claude", "-p", "go")
     assert contract_command(command, parent_env={"PATH": "x"}) == command

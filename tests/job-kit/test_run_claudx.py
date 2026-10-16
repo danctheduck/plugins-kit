@@ -13,14 +13,18 @@ Revert-to-red: passing ``contract.command`` to Popen instead of the
 
 from __future__ import annotations
 
+import builtins
 import os
 import subprocess
+import sys
+import types
 
 import pytest
 
 from bootstrap_lib.claudx import ClaudxPropagationError
 from job_kit import run as run_module
 from job_kit.model import Contract
+from job_kit.run import ClaudxSupportError
 
 FLAG = "CLAUDE_PLUGIN_TEST"
 DATA_ROOT = "CLAUDE_BOOTSTRAP_DATA_ROOT"
@@ -134,3 +138,64 @@ def test_a_contract_environment_with_another_directory_list_is_refused(
     assert run_module._claudx_contract_command(("claude", "-p", "go"), dict(os.environ)) == [
         "claude", "--plugin-dir", plugin_dirs[0], "--plugin-dir", plugin_dirs[1], "-p", "go",
     ]
+
+
+# --- cross-plugin edge: bootstrap_lib.claudx is REFUSE-class -----------------
+# Revert-to-red: removing the ``except ImportError`` around the lazy
+# ``from bootstrap_lib.claudx import ...`` turns the three tests below red (the
+# absent and no-module cases surface a bare ModuleNotFoundError, the
+# missing-symbol case a bare ImportError, none of them ClaudxSupportError).
+
+
+def _hide_bootstrap_lib(monkeypatch):
+    # What importing a submodule of a package that is not installed raises:
+    # a ModuleNotFoundError whose name is the top-level package.
+    monkeypatch.delitem(sys.modules, "bootstrap_lib.claudx", raising=False)
+    real = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "bootstrap_lib.claudx":
+            raise ModuleNotFoundError("No module named 'bootstrap_lib'", name="bootstrap_lib")
+        return real(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+
+def test_absent_bootstrap_lib_refuses_with_the_install_message(claudx_session, monkeypatch, tmp_path, _popen):
+    _hide_bootstrap_lib(monkeypatch)
+    with pytest.raises(ClaudxSupportError) as caught:
+        _run(["claude", "-p", "check it"], tmp_path)
+    message = str(caught.value)
+    assert "claude plugin install bootstrap@plugins-kit" in message
+    assert "0.154.1" in message and "Nothing was" in message
+    assert "claude plugin update" not in message
+    assert _popen.started == []
+
+
+def test_a_bootstrap_lib_without_the_claudx_module_refuses_with_the_update_message(
+    claudx_session, monkeypatch, tmp_path, _popen
+):
+    monkeypatch.setitem(sys.modules, "bootstrap_lib.claudx", None)
+    with pytest.raises(ClaudxSupportError) as caught:
+        _run(["claude", "-p", "check it"], tmp_path)
+    message = str(caught.value)
+    assert "claude plugin update bootstrap@plugins-kit" in message
+    assert "0.154.1" in message and "no claudx module" in message
+    assert "claude plugin install" not in message
+    assert _popen.started == []
+
+
+def test_a_claudx_module_without_the_symbol_refuses_with_the_update_message(
+    claudx_session, monkeypatch, tmp_path, _popen
+):
+    monkeypatch.setitem(
+        sys.modules, "bootstrap_lib.claudx", types.ModuleType("bootstrap_lib.claudx")
+    )
+    with pytest.raises(ClaudxSupportError) as caught:
+        _run(["claude", "-p", "check it"], tmp_path)
+    message = str(caught.value)
+    assert "claude plugin update bootstrap@plugins-kit" in message
+    assert "has no contract_command" in message and "0.154.1" in message
+    assert "claude plugin install" not in message
+    assert _popen.started == []
+
