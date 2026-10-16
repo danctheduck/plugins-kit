@@ -100,12 +100,19 @@ class SkillContext:
     yaml_units is every recognized (root, block data) unit in the body, parsed
     on first use and shared by the evaluators that read it; it is empty
     without pyyaml.
+
+    contract_staged is True when the document carries a YAML contract block
+    (parsed, or detected by regex on a bare interpreter); it is set only on the
+    context the type_specific-section evaluators receive, whose `body` is the
+    NARRATIVE body (code fences stripped), because the legacy per-type
+    heuristics must not count markers inside fenced examples.
     """
 
     fm: Frontmatter
     body: Body
     skill_dir: Path
     yaml_root: str | None = None
+    contract_staged: bool = False
 
     @cached_property
     def yaml_units(self) -> list[tuple[str, dict]]:
@@ -158,26 +165,40 @@ class MechanicalEvaluator:
       judgment-required) or None (not applicable: the row's verdict is n/a).
       None is for a criterion that applies to the document but has nothing to
       check on it, so its row still appears; a criterion with no row at all
-      uses `applies`. The thresholds mapping holds only `threshold` and
-      `reads_builtin_thresholds`, so an evaluator cannot read a limit its
-      record does not name.
+      uses `applies`. The outcome may also be the string JUDGMENT: the
+      mechanical test found what it looks for but a judgment remains for the
+      agent, so the row is judgment-required whatever the criterion's severity
+      (a miss still follows the severity). The thresholds mapping holds only
+      `threshold` and `reads_builtin_thresholds`, so an evaluator cannot read a
+      limit its record does not name.
     - reads_builtin_thresholds: built-in thresholds (THRESHOLDS) the evaluator
       reads without owning. A criterion never declares one of these; a user
       tunes it through `thresholds:` and every reader sees the same value.
-    - section: the report list the row joins ("universal" or "yaml_contract").
-      A claude_md audit appends yaml_contract rows after the contract rows. A
-      skill_md audit emits them after the portable-unit rows and before the
-      asset-dependency rows, with a SkillContext that carries yaml_root; its
-      universal rows are evaluated inside check_universal.
+    - section: the report list the row joins ("universal", "yaml_contract" or
+      "type_specific"). A claude_md audit appends yaml_contract rows after the
+      contract rows. A skill_md audit emits them after the portable-unit rows
+      and before the asset-dependency rows, with a SkillContext that carries
+      yaml_root; its universal rows are evaluated inside check_universal. The
+      type_specific rows are the legacy per-skill-type heuristics: a skill_md
+      audit evaluates them last, with a SkillContext whose body is the
+      narrative body and which carries contract_staged, and each evaluator's
+      `applies` gate holds only for a document with no staged contract whose
+      declared skill-type is the one the criterion covers.
+    - bare_severity: the severity applied when the shipped standards file
+      cannot be read (no pyyaml), instead of a deferred row. Set only for a
+      criterion whose row a bare interpreter has always reported with its real
+      verdict; a test pins it equal to the severity the shipped file declares,
+      so the file stays the source and this is the bare-interpreter copy of it.
     """
 
     applies_to: str
     threshold: str | None
     deferred_row: str
     applies: Callable[[Any], bool]
-    evaluate: Callable[[Any, dict[str, int]], tuple[str, bool | None, str]]
+    evaluate: Callable[[Any, dict[str, int]], tuple[str, bool | str | None, str]]
     reads_builtin_thresholds: tuple[str, ...] = ()
     section: str = "universal"
+    bare_severity: str | None = None
 
     def __post_init__(self) -> None:
         unknown = [n for n in self.reads_builtin_thresholds if n not in THRESHOLDS]
@@ -407,6 +428,53 @@ def _eval_caution_floor(ctx: SkillContext, th: dict[str, int]) -> tuple[str, boo
     )
 
 
+def _legacy_applies(skill_type: str) -> Callable[[SkillContext], bool]:
+    """The scope gate of one legacy per-type heuristic: it holds only for a
+    document with NO staged YAML contract (a contract block, parsed or merely
+    detected, supersedes the heuristics) whose declared skill-type is
+    `skill_type`. It is a predicate, not data in the standards file, for the
+    same reason the facts floors gate on the contract root: the scope is part of
+    what the evaluator checks, and the criterion's statement names the type."""
+
+    def applies(ctx: SkillContext) -> bool:
+        return not ctx.contract_staged and ctx.fm.fields.get("skill-type") == skill_type
+
+    return applies
+
+
+def _marker_present(
+    label: str, test: Callable[[str], bool], miss_note: str
+) -> Callable[[SkillContext, dict[str, int]], tuple[str, bool, str]]:
+    """Evaluator for a legacy row that passes when its marker IS in the
+    narrative body and carries `miss_note` when it is not."""
+
+    def evaluate(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+        ok = test(ctx.body.text)
+        return label, ok, "" if ok else miss_note
+
+    return evaluate
+
+
+def _marker_absent(
+    label: str, test: Callable[[str], bool], hit_note: str
+) -> Callable[[SkillContext, dict[str, int]], tuple[str, bool, str]]:
+    """Evaluator for a legacy "prohibited:" row that passes when its marker is
+    NOT in the narrative body and carries `hit_note` when it is."""
+
+    def evaluate(ctx: SkillContext, th: dict[str, int]) -> tuple[str, bool, str]:
+        hit = test(ctx.body.text)
+        return label, not hit, hit_note if hit else ""
+
+    return evaluate
+
+
+def _discipline_content(text: str) -> bool:
+    return has_red_green_refactor(text) or has_excuse_reality_table(text)
+
+
+_REFERENCE_SKILL_APPLIES = _legacy_applies("reference-skill")
+
+
 def _has_claude_md_block(ctx: ClaudeMdContext) -> bool:
     return ctx.claude_md is not None
 
@@ -524,6 +592,42 @@ MECHANICAL_EVALUATORS: dict[str, MechanicalEvaluator] = {
         _caution_floor_applies, _eval_caution_floor,
         section="yaml_contract",
     ),
+    "ref-example-block": MechanicalEvaluator(
+        "skill_md", None,
+        ">=1 example block (deferred)", _REFERENCE_SKILL_APPLIES,
+        _marker_present(
+            ">=1 example block",
+            lambda text: has_heading(text, "Example", "Examples"),
+            "no 'Example' heading detected",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "ref-gotcha-block": MechanicalEvaluator(
+        "skill_md", None,
+        ">=1 gotcha block (deferred)", _REFERENCE_SKILL_APPLIES,
+        _marker_present(
+            ">=1 gotcha block",
+            lambda text: has_heading(text, "Gotcha", "Gotchas", "Known gotchas"),
+            "no 'Gotcha' heading detected",
+        ),
+        section="type_specific", bare_severity="judgment",
+    ),
+    "ref-prohibited-discipline": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: discipline content (rule+counter, RED/GREEN/REFACTOR) (deferred)", _REFERENCE_SKILL_APPLIES,
+        _marker_absent(
+            "prohibited: discipline content (rule+counter, RED/GREEN/REFACTOR)",
+            _discipline_content,
+            "discipline markers detected",
+        ),
+        section="type_specific", bare_severity="fail",
+    ),
+    "ref-prohibited-checklist": MechanicalEvaluator(
+        "skill_md", None,
+        "prohibited: workflow checklist (deferred)", _REFERENCE_SKILL_APPLIES,
+        _marker_absent("prohibited: workflow checklist", has_tickbox_list, "tickbox list present"),
+        section="type_specific", bare_severity="fail",
+    ),
     "claude-md-import-size": MechanicalEvaluator(
         "claude_md", "import_max_lines",
         "@imports <= import_max_lines lines (deferred)", _always, _eval_import_size,
@@ -573,7 +677,8 @@ def _criterion_rows(
             continue
         if not evaluator.applies(ctx):
             continue
-        if crit.severity is None:
+        severity = crit.severity if crit.severity is not None else evaluator.bare_severity
+        if severity is None:
             rows.append((evaluator.section, CheckResult(
                 evaluator.deferred_row,
                 JUDGMENT,
@@ -586,9 +691,13 @@ def _criterion_rows(
         label, passed, note = evaluator.evaluate(ctx, evaluator.threshold_view(th))
         if passed is None:
             verdict = NA
+        elif isinstance(passed, str):
+            if passed != JUDGMENT:
+                raise ValueError(f"evaluator '{crit.id}' returned outcome {passed!r}; a string outcome must be JUDGMENT")
+            verdict = JUDGMENT
         elif passed:
             verdict = PASS
-        elif crit.severity == "fail":
+        elif severity == "fail":
             verdict = FAIL
         else:
             verdict = JUDGMENT
@@ -667,36 +776,6 @@ def check_universal(
         else:
             out.append(CheckResult("references cited in body all exist", PASS, f"checked {len(cited)} references", rule="refs-cited-exist"))
 
-    return out
-
-
-def check_reference_skill(body: Body, skill_dir: Path) -> list[CheckResult]:
-    out: list[CheckResult] = []
-    out.append(CheckResult(
-        ">=1 example block",
-        PASS if has_heading(body.text, "Example", "Examples") else JUDGMENT,
-        "no 'Example' heading detected" if not has_heading(body.text, "Example", "Examples") else "",
-        rule="ref-example-block",
-    ))
-    out.append(CheckResult(
-        ">=1 gotcha block",
-        PASS if has_heading(body.text, "Gotcha", "Gotchas", "Known gotchas") else JUDGMENT,
-        "no 'Gotcha' heading detected" if not has_heading(body.text, "Gotcha", "Gotchas", "Known gotchas") else "",
-        rule="ref-gotcha-block",
-    ))
-    discipline_hit = has_red_green_refactor(body.text) or has_excuse_reality_table(body.text)
-    out.append(CheckResult(
-        "prohibited: discipline content (rule+counter, RED/GREEN/REFACTOR)",
-        FAIL if discipline_hit else PASS,
-        "discipline markers detected" if discipline_hit else "",
-        rule="ref-prohibited-discipline",
-    ))
-    out.append(CheckResult(
-        "prohibited: workflow checklist",
-        FAIL if has_tickbox_list(body.text) else PASS,
-        "tickbox list present" if has_tickbox_list(body.text) else "",
-        rule="ref-prohibited-checklist",
-    ))
     return out
 
 
@@ -882,7 +961,6 @@ def mixed_type_signal(body_text: str, threshold: int | None = None) -> tuple[int
 # since the special case always intercepted it before this dict was ever
 # indexed for that key).
 TYPE_RUNNERS = {
-    "reference-skill": check_reference_skill,
     "pattern-skill": check_pattern_skill,
     "discipline-skill": check_discipline_skill,
     "domain-skill": check_domain_skill,
@@ -1609,18 +1687,23 @@ def audit(skill_md_path: Path, resolved: "ResolvedStandards | None" = None) -> d
     if cross_block_drift is not None:
         yaml_results.append(cross_block_drift)
 
-    type_specific: list[CheckResult] = []
+    # Legacy heuristics run on the NARRATIVE body -- code fences stripped, like
+    # mixed_type_signal (strip_code_fences_before_heuristics insight): numbered
+    # lists / markers inside fenced examples must not count. Each evaluator's
+    # `applies` gate holds only with no staged contract and a matching declared
+    # skill-type, so the section is empty for every other document.
+    narrative_body = Body(
+        text=strip_code_fences(body.text),
+        lines=body.lines,
+        tokens_approx=body.tokens_approx,
+    )
+    type_ctx = SkillContext(contract_ctx.fm, narrative_body, skill_dir, yaml_root, contract_staged)
+    type_specific: list[CheckResult] = [
+        row for _section, row in _criterion_rows(type_ctx, skill_criteria, th, section="type_specific")
+    ]
     if not contract_staged and (
         declared_type in TYPE_RUNNERS or declared_type == "technique-skill"
     ):
-        # Legacy heuristics run on the NARRATIVE body -- code fences stripped,
-        # like mixed_type_signal (strip_code_fences_before_heuristics insight):
-        # numbered lists / markers inside fenced examples must not count.
-        narrative_body = Body(
-            text=strip_code_fences(body.text),
-            lines=body.lines,
-            tokens_approx=body.tokens_approx,
-        )
         if declared_type == "technique-skill":
             type_specific = check_technique_skill(narrative_body, skill_dir, fm)
         else:

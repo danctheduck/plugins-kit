@@ -91,6 +91,16 @@ absent: the agent then infers the type from content. `skill-type-valid` (fail)
 reports a row only when the tag is present, and fails a value outside the
 canonical skill types. Each switches off with `rules: {<id>: off}`.
 
+A SKILL.md that declares a `skill-type` and carries no YAML contract block also
+gets the legacy per-skill-type heuristic criteria, declared in
+`skills_kit_lib/defaults/standards/SKILL-legacy-standards.md` and reported in
+the `type_specific` list: heading, marker and filesystem tests that stand in
+for the type contract until the skill is on it. A criterion applies only to the
+skill type its statement names, and reads the body with fenced code removed.
+The reference-skill criteria are `ref-example-block`, `ref-gotcha-block`,
+`ref-prohibited-discipline` and `ref-prohibited-checklist`. Each switches off
+with `rules: {<id>: off}`.
+
 ### 2.2 Schemas are floors, not ceilings
 
 The per-type YAML schemas validate the required minimum: which keys must be

@@ -4,9 +4,10 @@ mechanical evaluators that serve its criteria.
 desc-160-char, desc-directive-form, desc-exclusion-clause, skill-type-tag,
 skill-type-valid, body-line-count, body-token-count, body-size-signal and
 refs-one-hop-deep, facts-floor, facts-gotcha, facts-example and caution-floor
-are criteria of the shipped SKILL-standards.md; claude-md-import-size,
-claude-md-size-signal and claude-md-record-floor are criteria of the shipped
-CLAUDE-md-standards.md. All sixteen are evaluated by
+are criteria of the shipped SKILL-standards.md; the legacy per-skill-type
+heuristic ids (LEGACY_IDS) are criteria of the shipped SKILL-legacy-standards.md;
+claude-md-import-size, claude-md-size-signal and claude-md-record-floor are
+criteria of the shipped CLAUDE-md-standards.md. All of them are evaluated by
 audit.MECHANICAL_EVALUATORS and absent from rule_catalog.RULES. These tests pin
 that the file, not the code, decides which rows an audit emits (the
 red-on-revert tests drop a criterion from a copy of the file), and that every
@@ -36,6 +37,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGIN = REPO_ROOT / "plugins" / "skills-kit"
 SHIPPED_DIR = PLUGIN / "skills_kit_lib" / "defaults" / "standards"
 SHIPPED_FILE = SHIPPED_DIR / "SKILL-standards.md"
+LEGACY_SHIPPED_FILE = SHIPPED_DIR / "SKILL-legacy-standards.md"
 CLAUDE_SHIPPED_FILE = SHIPPED_DIR / "CLAUDE-md-standards.md"
 REFERENCES_STANDARDS = PLUGIN / "skills" / "md-domain" / "references" / "standards"
 RESOLVE_CLI = PLUGIN / "scripts" / "resolve_standards.py"
@@ -45,6 +47,8 @@ SHIPPED_IDS = [*DESC_IDS, "skill-type-tag", "skill-type-valid"]
 BODY_IDS = ["body-line-count", "body-token-count", "body-size-signal", "refs-one-hop-deep"]
 CONTRACT_IDS = ["facts-floor", "facts-gotcha", "facts-example", "caution-floor"]
 SKILL_IDS = [*SHIPPED_IDS, *BODY_IDS, *CONTRACT_IDS]
+REF_LEGACY_IDS = ["ref-example-block", "ref-gotcha-block", "ref-prohibited-discipline", "ref-prohibited-checklist"]
+LEGACY_IDS = [*REF_LEGACY_IDS]
 CLAUDE_IDS = ["claude-md-import-size", "claude-md-size-signal", "claude-md-record-floor"]
 
 
@@ -75,7 +79,7 @@ def _write_shipped(tmp_path, mutate, which=SHIPPED_FILE):
     file (SKILL by default); the other required file is copied verbatim."""
     d = tmp_path / "shipped"
     d.mkdir()
-    for src in (SHIPPED_FILE, CLAUDE_SHIPPED_FILE):
+    for src in (SHIPPED_FILE, LEGACY_SHIPPED_FILE, CLAUDE_SHIPPED_FILE):
         if src != which:
             shutil.copy(src, d / src.name)
     data = _shipped_block(which)
@@ -145,12 +149,12 @@ def _standards_md(criteria_yaml):
 # ---------------------------------------------------------------------------
 
 
-def test_the_sixteen_ids_left_the_catalog_and_nothing_else_did():
-    for rid in [*SKILL_IDS, *CLAUDE_IDS]:
+def test_the_shipped_ids_left_the_catalog_and_nothing_else_did():
+    for rid in [*SKILL_IDS, *LEGACY_IDS, *CLAUDE_IDS]:
         assert rid not in rule_catalog.RULES
     buckets = [b for b, _g, _d in rule_catalog.RULES.values()]
     assert (buckets.count("optional"), buckets.count("inoffensive"),
-            buckets.count("architectural")) == (28, 11, 3)
+            buckets.count("architectural")) == (24, 11, 3)
     assert "import_max_lines" not in audit_mod.THRESHOLDS
 
 
@@ -191,14 +195,16 @@ def test_shipped_claude_md_file_declares_the_three_mechanical_criteria():
 
 def test_registry_keys_are_exactly_the_shipped_mechanical_ids():
     """No evaluator without a shipped criterion, no criterion without one."""
-    assert list(MECHANICAL_EVALUATORS) == [*SKILL_IDS, *CLAUDE_IDS]
+    assert list(MECHANICAL_EVALUATORS) == [*SKILL_IDS, *LEGACY_IDS, *CLAUDE_IDS]
     assert {ev.applies_to for rid, ev in MECHANICAL_EVALUATORS.items() if rid in CLAUDE_IDS} == {"claude_md"}
 
 
 def test_resolve_loads_the_shipped_layer_by_default():
     r = sr.resolve(None)
     files = r.standards_by_primitive["skill_md"]
-    assert [(sf.layer, sf.path) for sf in files] == [("shipped", SHIPPED_FILE)]
+    # Two shipped skill_md files, in sorted file-name order.
+    assert [(sf.layer, sf.path) for sf in files] == [
+        ("shipped", LEGACY_SHIPPED_FILE), ("shipped", SHIPPED_FILE)]
     cfiles = r.standards_by_primitive["claude_md"]
     assert [(sf.layer, sf.path) for sf in cfiles] == [("shipped", CLAUDE_SHIPPED_FILE)]
     assert r.threshold_defaults == {"desc_max_chars": 160, "import_max_lines": 50}
@@ -406,6 +412,7 @@ def test_shipped_dir_without_the_claude_md_file_raises(tmp_path, monkeypatch):
     d = tmp_path / "shipped"
     d.mkdir()
     shutil.copy(SHIPPED_FILE, d / SHIPPED_FILE.name)
+    shutil.copy(LEGACY_SHIPPED_FILE, d / LEGACY_SHIPPED_FILE.name)
     monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", d)
     with pytest.raises(sr.StandardsConfigError) as exc:
         sr.resolve(None)
@@ -815,6 +822,7 @@ def test_missing_claude_md_shipped_file_exits_1_for_claude_md(tmp_path, monkeypa
     d = tmp_path / "shipped"
     d.mkdir()
     shutil.copy(SHIPPED_FILE, d / SHIPPED_FILE.name)
+    shutil.copy(LEGACY_SHIPPED_FILE, d / LEGACY_SHIPPED_FILE.name)
     monkeypatch.setattr(sr, "SHIPPED_STANDARDS_DIR", d)
     assert audit_mod.main([str(_claude_md(tmp_path))]) == 1
     assert "CLAUDE-md-standards.md" in capsys.readouterr().err
@@ -850,6 +858,7 @@ def test_without_pyyaml_a_missing_claude_md_shipped_file_exits_1(tmp_path):
     d = tmp_path / "shipped"
     d.mkdir()
     shutil.copy(SHIPPED_FILE, d / SHIPPED_FILE.name)
+    shutil.copy(LEGACY_SHIPPED_FILE, d / LEGACY_SHIPPED_FILE.name)
     proc = _bare(tmp_path, (
         "from pathlib import Path\nfrom skills_kit_lib import standards_resolve as sr\n"
         f"sr.SHIPPED_STANDARDS_DIR = Path({str(d)!r})\n"

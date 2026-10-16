@@ -21,12 +21,13 @@ field, it carries the judgment criteria an agent applies inside a workflow lane
 
 Criteria declared by the shipped standards layer (defaults/standards/) are not
 catalogued here: the shipped file is their source, and the resolver rejects a
-criterion id that repeats a catalog id. Sixteen ids live there: desc-160-char,
+criterion id that repeats a catalog id. Twenty ids live there: desc-160-char,
 desc-directive-form, desc-exclusion-clause, skill-type-tag, skill-type-valid,
 body-line-count, body-token-count, body-size-signal, refs-one-hop-deep,
 facts-floor, facts-gotcha, facts-example and caution-floor (SKILL-standards.md),
-and claude-md-import-size, claude-md-size-signal and claude-md-record-floor
-(CLAUDE-md-standards.md).
+ref-example-block, ref-gotcha-block, ref-prohibited-discipline and
+ref-prohibited-checklist (SKILL-legacy-standards.md), and claude-md-import-size,
+claude-md-size-signal and claude-md-record-floor (CLAUDE-md-standards.md).
 
 This module is the single source consumed by the standards resolver (for the
 reject-architectural check) and rendered into the configuring-standards.md
@@ -60,22 +61,20 @@ RULES: dict[str, tuple[str, str, str]] = {
     "mixed-type": ("architectural", "contract", "A SKILL.md declares exactly one skill-type root -- no drift across two type contracts (consumes `mixed_min_score`)."),
     "cross-block-drift": ("architectural", "contract", "Multiple YAML blocks in one document do not disagree about the document's type."),
     # -- optional: description hygiene ------------------------------------
-    # The sixteen shipped-criterion ids are not here: desc-160-char,
+    # The twenty shipped-criterion ids are not here: desc-160-char,
     # desc-directive-form, desc-exclusion-clause, skill-type-tag,
     # skill-type-valid, body-line-count, body-token-count, body-size-signal,
     # refs-one-hop-deep, facts-floor, facts-gotcha, facts-example and
-    # caution-floor (defaults/standards/SKILL-standards.md), and
-    # claude-md-import-size, claude-md-size-signal and claude-md-record-floor
+    # caution-floor (defaults/standards/SKILL-standards.md), ref-example-block,
+    # ref-gotcha-block, ref-prohibited-discipline and ref-prohibited-checklist
+    # (defaults/standards/SKILL-legacy-standards.md), and claude-md-import-size,
+    # claude-md-size-signal and claude-md-record-floor
     # (defaults/standards/CLAUDE-md-standards.md). They are criteria of the
     # shipped standards layer, evaluated by audit.MECHANICAL_EVALUATORS. A
     # criterion id may not repeat a catalog id.
     # -- optional: record floors ------------------------------------------
     "step-tracking": ("optional", "record-floors", "A technique-skill with more than three steps carries a tickbox checklist or a step-tracker invocation."),
     # -- optional: legacy per-type heuristic rows -------------------------
-    "ref-example-block": ("optional", "legacy-heuristics", 'A reference-skill body has an "Example" heading.'),
-    "ref-gotcha-block": ("optional", "legacy-heuristics", 'A reference-skill body has a "Gotcha" heading.'),
-    "ref-prohibited-discipline": ("optional", "legacy-heuristics", "A reference-skill body omits discipline content (rule+counter, RED/GREEN/REFACTOR)."),
-    "ref-prohibited-checklist": ("optional", "legacy-heuristics", "A reference-skill body omits a workflow tickbox checklist."),
     "pattern-recognition-block": ("optional", "legacy-heuristics", "A pattern-skill body carries a recognition-criteria marker."),
     "pattern-counter-example": ("optional", "legacy-heuristics", 'A pattern-skill body carries a counter-example or "do NOT apply" marker.'),
     "pattern-prohibited-bundle": ("optional", "legacy-heuristics", "A pattern-skill ships no `scripts/` or `bin/` utility bundle."),

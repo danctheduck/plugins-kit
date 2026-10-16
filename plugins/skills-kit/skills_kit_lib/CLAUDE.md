@@ -225,7 +225,8 @@ claude_md:
       summary: "A rule that moves out of rule_catalog.RULES into the shipped standards layer (defaults/standards/*-standards.md) keeps only its check in code: a MechanicalEvaluator registered in audit.MECHANICAL_EVALUATORS under the criterion id. Statement, severity and any threshold default live in the standards file."
       detail: |
         To move another rule: add the criterion to the shipped file for its
-        file type (SKILL-standards.md or CLAUDE-md-standards.md) with
+        file (SKILL-standards.md, SKILL-legacy-standards.md or
+        CLAUDE-md-standards.md) with
         enforcement: mechanical (and `threshold: {name, default}` when the
         check reads a limit only that criterion owns), register the evaluator
         with the same id (its `evaluate` takes a SkillContext of frontmatter,
@@ -242,7 +243,13 @@ claude_md:
         `reads_builtin_thresholds` names built-in thresholds it reads without
         declaring them; its `section` places the row in the universal or the
         yaml_contract list: check_universal evaluates the universal skill_md
-        criteria, audit() the yaml_contract ones after the portable-unit rows),
+        criteria, audit() the yaml_contract ones after the portable-unit rows
+        and the type_specific ones, the legacy per-skill-type heuristics,
+        last: their `applies` gate holds only with no staged contract and a
+        matching declared skill-type, the context's body is the fence-stripped
+        narrative body, and `bare_severity` keeps their real verdict on a
+        bare interpreter; the outcome may also be JUDGMENT, a row that is
+        judgment-required whatever the severity),
         delete the RULES entry (a criterion id may not
         repeat a catalog id), and run scripts/gen_standards_doc.py.
         standards_resolve raises when a mechanical criterion has no evaluator,
