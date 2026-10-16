@@ -3281,12 +3281,14 @@ def _run_plugin_uninstalls(resolution, installs_by_ref, project_dir,
                 display=f"plugin {_short_plugin_name(order.ref)}: uninstall failed")
             failures.append(_plugin_tier_failure(
                 order.ref, message,
-                f"Bootstrap could not uninstall plugin {order.ref} at "
-                f"{order.scope} scope, which the user's recorded profile answer "
-                f"says they do not want ({result.message}). Run `claude plugin "
-                f"uninstall {_cli_ref_of(order.ref)} --scope {order.scope}` from "
-                "the project root, then ask the user to type 'fix-all' to "
-                "re-run bootstrap."))
+                f"`claude plugin uninstall {_cli_ref_of(order.ref)} --scope "
+                f"{order.scope}` failed ({result.message}). The project's "
+                f"tracked .claude/bootstrap.json declares {order.ref} as tier "
+                "not_recommended, and the want:false entry that triggers the "
+                "removal lives in plugin_choices in .claude/bootstrap.local.json "
+                "(per-user, not version controlled). Show the user the error; "
+                "run the command from the project root only if they agree, then "
+                "ask them to type 'fix-all' to re-run bootstrap."))
     return failures
 
 

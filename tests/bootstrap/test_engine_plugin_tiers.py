@@ -205,6 +205,11 @@ class TestUninstallRecordedAnswer:
             assert failure["type"] == "plugin" and failure["ref"] == NOT_REC
             assert "uninstall" in failure["agent_msg"]
             assert "claude plugin uninstall norec@mkt --scope local" in failure["agent_msg"]
+            # Checkable, not self-certifying: names the tracked file and makes
+            # no claim of user agreement as authority.
+            assert ".claude/bootstrap.json" in failure["agent_msg"]
+            assert "recorded profile answer" not in failure["agent_msg"]
+            assert "only if they agree" in failure["agent_msg"]
             assert any("uninstall at local scope failed" in l for l in action)
             assert any("raw cli output" in q for q in quiet)
         assert len(world.uninstalls) == 2
