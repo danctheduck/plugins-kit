@@ -223,9 +223,15 @@ explicit allowlist reason.
    Any llm-kit release needs no user decision; stability remains separate.
 2. **M2 - Pointer-only freeze releases.** After `[USER: stability]`, apply
    section 5, bump and test each provider, then publish all three.
-3. **M3 - Activation checks.** Add the maintained-reference scan plus old/final
-   resume and rollback fixtures required by section 1. Show each guard red and
-   green. Consumer increments extend these fixtures before their own release.
+3. **M3 - Activation checks (DONE).** The maintained-reference scan is
+   `tests/repo-scripts/test_maintained_references.py`; its `ALLOWLIST` names the
+   unmigrated consumer files by owning increment, and each of M4-M9 deletes its
+   own entries (a leftover entry fails as stale). No repository store persists a
+   qualified skill, agent or workflow name, so conditions 2 and 3 are the
+   store-handover fixtures in `tests/llm-kit/test_cross_state_parity.py` plus the
+   tripwire and rollback guard in `tests/llm-kit/test_activation_checks.py`
+   (finding and evidence in its docstring). Each guard was shown red and green.
+   Consumer increments extend these fixtures before their own release.
 4. **M4 - workflow-kit migration and release.** Migrate runtime, manifest,
    generated material, docs, tests, dependencies, Python floor, and version;
    run its suite and dependency completeness, then publish.
