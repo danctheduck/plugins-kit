@@ -639,6 +639,19 @@ _SHELL_ALLOWLIST: dict[str, AllowlistEntry] = {
         "Windows shim invoking the bundled CLI via standalone Python.",
         "class C launcher shim (Windows); same standalone-first order, same "
         "cached-copy refusal under claudx"),
+    "plugins/task-kit/bin/task-kit": AllowlistEntry(
+        "the plugin venv bootstrap provisions -- it carries PyYAML, psutil and the",
+        "class C launcher shim; the redirected venv when CLAUDE_BOOTSTRAP_DATA_ROOT "
+        "is set (exit 2 when that interpreter is missing, never the production "
+        "venv), else the plugin venv first, then BOOTSTRAP_PYTHON only when its "
+        "realpath is inside the standalone directory, then the PATH-name "
+        "fallback; exits 2 under claudx when run as the cached copy or as the "
+        "data-directory launcher copy on PATH"),
+    "plugins/task-kit/bin/task-kit.cmd": AllowlistEntry(
+        "the plugin venv bootstrap provisions -- it carries PyYAML, psutil and the",
+        "class C launcher shim (Windows); same venv-first order, same exit 2 on "
+        "a missing redirected venv, same cached-copy and data-directory-copy "
+        "refusals under claudx"),
     "scripts/check-staged-version-bump.sh": AllowlistEntry(
         "Interpreter resolution mirrors pre-commit-version-check.sh",
         "class D-ish repo-root maintainer script; deliberately avoids uv "
