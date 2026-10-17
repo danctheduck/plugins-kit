@@ -1,8 +1,8 @@
 """Tests for the git-kit's thin endpoint-lane wrapper.
 
 The wrapper owns bootstrap setup, the shared-library REFUSE probe, and
-pass-through to llm_scripting_kit.review_lane.main. The seam itself is tested
-in tests/llm-scripting-kit/test_review_lane.py.
+pass-through to llm_kit.dispatch.review_lane.main. The seam itself is tested
+in tests/llm-kit.
 """
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ def _run_lane_with_effort(*, effort: str, **_kw) -> int:
 
 
 def _run_wrapper(monkeypatch: pytest.MonkeyPatch, package, review_lane):
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", package)
+    monkeypatch.setitem(sys.modules, "llm_kit", package)
     if review_lane is not None:
-        monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+        monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
     with pytest.raises(SystemExit) as excinfo:
         runpy.run_path(str(_SCRIPT), run_name="__main__")
     return excinfo.value.code
@@ -36,53 +36,53 @@ def _run_wrapper(monkeypatch: pytest.MonkeyPatch, package, review_lane):
 def test_absent_shared_library_refuses_with_install_command(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", None)
+    monkeypatch.setitem(sys.modules, "llm_kit", None)
 
     code = _run_wrapper(monkeypatch, None, None)
 
     assert code != 0
     stderr = capsys.readouterr().err
     assert "not installed" in stderr
-    assert "claude plugin install llm-scripting-kit@plugins-kit" in stderr
+    assert "claude plugin install llm-kit@plugins-kit" in stderr
     assert "claude plugin update" not in stderr
 
 
 def test_present_but_too_old_shared_library_refuses_with_update_command(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    old_review_lane = types.ModuleType("llm_scripting_kit.review_lane")
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", old_review_lane)
+    old_review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", old_review_lane)
 
     code = _run_wrapper(monkeypatch, package, old_review_lane)
 
     assert code != 0
     stderr = capsys.readouterr().err
     assert "too old" in stderr
-    assert "owner version 0.29.0" in stderr
-    assert "claude plugin update llm-scripting-kit@plugins-kit" in stderr
+    assert "owner version 0.1.9" in stderr
+    assert "claude plugin update llm-kit@plugins-kit" in stderr
     assert "claude plugin install" not in stderr
 
 
-def test_claimed_file_probe_names_0_37_0_when_owner_lacks_support(
+def test_claimed_file_probe_names_the_owner_floor_when_owner_lacks_support(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Reproduces the 0.29.0..0.36.x window: llm_scripting_kit.review_lane
-    exists and main is callable, but review_lane._parse_args first accepted
-    --claimed-file in 0.37.0. The wrapper must refuse BEFORE calling main --
-    naming 0.37.0, not the base 0.29.0 owner requirement -- rather than let
+    """Reproduces a skewed owner: llm_kit.dispatch.review_lane exists and
+    main is callable, but review_lane._parse_args does not accept
+    --claimed-file. The wrapper must refuse BEFORE calling main --
+    naming the llm-kit owner floor (0.1.9) -- rather than let
     argparse's raw exit(2) 'unrecognized arguments' escape and be read as
     'this lane is not endpoint-eligible' (the OTHER meaning of exit 2)."""
     import argparse
 
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = _run_lane_with_effort
 
     def _old_parse_args(argv):
-        # Mirrors the real pre-0.37.0 parser: no --claimed-file option.
+        # Mirrors a stale parser: no --claimed-file option.
         parser = argparse.ArgumentParser()
         parser.add_argument("--lane", required=True)
         parser.add_argument("--model", required=True)
@@ -95,7 +95,7 @@ def test_claimed_file_probe_names_0_37_0_when_owner_lacks_support(
         raise AssertionError("main must not run when the probe refuses first")
 
     review_lane.main = _main_must_not_run
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -110,25 +110,26 @@ def test_claimed_file_probe_names_0_37_0_when_owner_lacks_support(
     assert code != 0
     stderr = capsys.readouterr().err
     assert "too old" in stderr
-    assert "0.37.0" in stderr
+    assert "0.1.9" in stderr
+    assert "--claimed-file support" in stderr
 
 
 def test_claimed_file_falls_through_to_main_when_probe_symbol_is_absent(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """`_parse_args` is PRIVATE to llm-scripting-kit. An owner that renames or
+    """`_parse_args` is PRIVATE to llm-kit. An owner that renames or
     drops it must not be misdiagnosed as 'too old' -- that is a false refusal
     in the opposite direction from the bug the probe was added to fix. When
     the probe symbol is absent, the wrapper must fall through to main() and
     let the real argument parse produce whatever error it produces (the
     status quo for an owner without the probe at all)."""
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = _run_lane_with_effort
     # Deliberately NO _parse_args attribute on this fake owner module.
     review_lane.main = lambda: 42
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -150,9 +151,9 @@ def test_mechanical_finding_probe_refuses_old_owner(
 ) -> None:
     import argparse
 
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = _run_lane_with_effort
 
     def old_parse(argv):
@@ -164,7 +165,7 @@ def test_mechanical_finding_probe_refuses_old_owner(
 
     review_lane._parse_args = old_parse
     review_lane.main = lambda: 42
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
     monkeypatch.setattr(sys, "argv", [str(_SCRIPT), "--mechanical-scan-ran"])
 
     code = _run_wrapper(monkeypatch, package, review_lane)
@@ -177,9 +178,9 @@ def test_chunk_index_probe_refuses_old_owner(
 ) -> None:
     import argparse
 
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = _run_lane_with_effort
 
     def old_parse(argv):
@@ -192,7 +193,7 @@ def test_chunk_index_probe_refuses_old_owner(
 
     review_lane._parse_args = old_parse
     review_lane.main = lambda: 42
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -207,18 +208,19 @@ def test_chunk_index_probe_refuses_old_owner(
     assert code != 0
     stderr = capsys.readouterr().err
     assert "too old" in stderr
-    assert "0.49.0" in stderr
+    assert "0.1.9" in stderr
+    assert "--chunk-index" in stderr
 
 
 def test_chunk_index_falls_through_to_main_when_probe_symbol_is_absent(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = _run_lane_with_effort
     review_lane.main = lambda: 42
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -240,9 +242,9 @@ def test_chunk_index_probe_accepts_a_current_owner(
 ) -> None:
     import argparse
 
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = _run_lane_with_effort
 
     def new_parse(argv):
@@ -256,7 +258,7 @@ def test_chunk_index_probe_accepts_a_current_owner(
 
     review_lane._parse_args = new_parse
     review_lane.main = lambda: 0
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -273,12 +275,12 @@ def test_chunk_index_probe_accepts_a_current_owner(
 def test_wrapper_passes_through_to_shared_main(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = _run_lane_with_effort
     review_lane.main = lambda: 17
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
 
     assert _run_wrapper(monkeypatch, package, review_lane) == 17
 
@@ -288,18 +290,18 @@ def test_pass_through_prints_no_warning_prose(
 ) -> None:
     """Migration step 5: routing is silent on the success path.
 
-    The review skill chooses an entry with `llm-scripting-kit describe`
+    The review skill chooses an entry with `llm-kit models describe`
     before it calls this wrapper, and skipping an entry is silent (model
     declaration directions 13 and 16). So a lane that dispatches adds nothing
     of the wrapper's own to stderr: stderr stays the channel for a refusal or
     a failure, which the skill reports as a failed lane.
     """
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = _run_lane_with_effort
     review_lane.main = lambda: 0
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+    monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
     monkeypatch.setattr(
         sys, "argv", [str(_SCRIPT), "--lane", "x", "--model", "sol", "--chunk", "z"]
     )
@@ -311,14 +313,14 @@ def test_pass_through_prints_no_warning_prose(
 
 
 def _fake_owner(run_lane):
-    package = types.ModuleType("llm_scripting_kit")
+    package = types.ModuleType("llm_kit")
     package.__path__ = []
-    review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+    review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
     review_lane.run_lane = run_lane
     return package, review_lane
 
 
-def test_owner_without_effort_support_is_refused_naming_0_59_0(
+def test_owner_without_effort_support_is_refused_naming_the_owner_floor(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     def old_run_lane(lane, model, chunk, mechanical_check_phrases=None):
@@ -337,7 +339,7 @@ def test_owner_without_effort_support_is_refused_naming_0_59_0(
     assert code != 0
     stderr = capsys.readouterr().err
     assert "too old" in stderr
-    assert "0.60.0" in stderr
+    assert "0.1.9" in stderr
     assert "--effort" in stderr
 
 
@@ -391,15 +393,15 @@ def test_unconfirmable_effort_support_refuses_instead_of_falling_through(
     code = _run_wrapper(monkeypatch, package, review_lane)
 
     assert code != 0
-    assert "0.60.0" in capsys.readouterr().err
+    assert "0.1.9" in capsys.readouterr().err
 
 
 @pytest.fixture
 def real_owner(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make the in-repo llm_scripting_kit the one the wrapper imports."""
-    owner_lib = _SCRIPT.parents[2] / "llm-scripting-kit" / "lib"
+    """Make the in-repo llm_kit the one the wrapper imports."""
+    owner_lib = _SCRIPT.parents[2] / "llm-kit" / "lib"
     monkeypatch.syspath_prepend(str(owner_lib))
-    for name in [m for m in sys.modules if m.startswith("llm_scripting_kit")]:
+    for name in [m for m in sys.modules if m.startswith("llm_kit")]:
         monkeypatch.delitem(sys.modules, name)
 
 
@@ -423,7 +425,7 @@ def test_every_capability_probe_accepts_the_real_in_repo_owner(
 def test_probe_still_rejects_a_parser_lacking_the_capability_and_effort(
     real_owner: None,
 ) -> None:
-    """A pre-0.60 parser without the probed flag must still answer False."""
+    """A parser without the probed flag and without --effort must still answer False."""
     import argparse
 
     namespace = runpy.run_path(str(_SCRIPT), run_name="probe_only")

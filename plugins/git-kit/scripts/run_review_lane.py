@@ -3,7 +3,7 @@
 
 This thin wrapper is byte-identical in git-kit and p4-kit. It owns bootstrap
 setup and the REFUSE probe; the seam-calling implementation lives in
-llm_scripting_kit.review_lane.
+llm_kit.dispatch.review_lane.
 """
 
 from __future__ import annotations
@@ -68,25 +68,31 @@ _EXIT_USAGE = 2
 
 def _refuse_absent(exc: BaseException) -> None:
     print(
-        "the llm-scripting-kit plugin is not installed, so this endpoint lane "
+        "the llm-kit plugin is not installed, so this endpoint lane "
         "cannot start. Install it with "
-        "`claude plugin install llm-scripting-kit@plugins-kit` and start a "
-        "new session so bootstrap links its shared library.",
+        "`claude plugin install llm-kit@plugins-kit` and start a "
+        "new session so bootstrap links its shared library. An Agent-model "
+        "review lane needs no llm-kit.",
         file=sys.stderr,
     )
     raise SystemExit(_EXIT_USAGE) from exc
 
 
+#: The first published llm-kit release. Every capability probed below ships in
+#: it, so one floor names the owner version for every refusal.
+_OWNER_MIN_VERSION = "0.1.9"
+
+
 def _refuse_too_old(
     reason: str,
-    min_version: str = "0.29.0",
-    capability: str = "llm_scripting_kit.review_lane.main",
+    min_version: str = _OWNER_MIN_VERSION,
+    capability: str = "llm_kit.dispatch.review_lane.main",
 ) -> None:
     print(
-        f"the installed llm-scripting-kit is too old for this endpoint lane: "
+        f"the installed llm-kit is too old for this endpoint lane: "
         f"{capability} requires owner version {min_version}. "
         "Update it with "
-        "`claude plugin update llm-scripting-kit@plugins-kit` and start a "
+        "`claude plugin update llm-kit@plugins-kit` and start a "
         "new session so bootstrap re-syncs its shared library. "
         f"Underlying error: {reason}",
         file=sys.stderr,
@@ -95,16 +101,16 @@ def _refuse_too_old(
 
 
 try:
-    import llm_scripting_kit
+    import llm_kit
 except ModuleNotFoundError as exc:
-    if exc.name == "llm_scripting_kit":
+    if exc.name == "llm_kit":
         _refuse_absent(exc)
     raise
 
 try:
-    _review_lane = importlib.import_module("llm_scripting_kit.review_lane")
+    _review_lane = importlib.import_module("llm_kit.dispatch.review_lane")
 except ModuleNotFoundError as exc:
-    if exc.name == "llm_scripting_kit.review_lane":
+    if exc.name in ("llm_kit.dispatch", "llm_kit.dispatch.review_lane"):
         _refuse_too_old(str(exc))
     raise
 
@@ -113,35 +119,33 @@ if not callable(_main):
     _refuse_too_old("review_lane.main is missing")
 
 # review_lane.main is present but that alone does not mean it accepts every
-# flag THIS wrapper's caller may pass. --claimed-file first became a valid
-# review_lane._parse_args argument in llm-scripting-kit 0.37.0 (commit
-# 3d047281); against an owner in 0.29.0..0.36.x the module/main presence
-# checks above both PASS, and calling main() with --claimed-file on argv
-# reaches argparse's own "unrecognized arguments" error, which exits 2 --
+# flag THIS wrapper's caller may pass. A stale or skewed llm-kit passes the
+# module/main presence checks above, and calling main() with an unknown flag on
+# argv reaches argparse's own "unrecognized arguments" error, which exits 2 --
 # the SAME code this wrapper uses for "this lane is not endpoint-eligible".
 # The skill then tells the agent a 2 is a configuration error for the user
-# to fix, never mentioning that llm-scripting-kit itself needs an update.
-# Probe the CAPABILITY (does the parser accept --claimed-file) rather than
+# to fix, never mentioning that llm-kit itself needs an update.
+# Probe the CAPABILITY (does the parser accept the flag) rather than
 # comparing a version string, so a genuinely newer-but-differently-versioned
-# owner is not misdiagnosed.
-_CLAIMED_FILE_MIN_VERSION = "0.37.0"
+# owner is not misdiagnosed. Every capability named below ships in the owner
+# floor, so each refusal names that one version.
+_CLAIMED_FILE_MIN_VERSION = _OWNER_MIN_VERSION
 
+_MECHANICAL_FINDINGS_MIN_VERSION = _OWNER_MIN_VERSION
 
-_MECHANICAL_FINDINGS_MIN_VERSION = "0.40.0"
+_BUNDLE_MIN_VERSION = _OWNER_MIN_VERSION
 
-_BUNDLE_MIN_VERSION = "0.42.0"
+_BUNDLE_PHRASE_MAP_MIN_VERSION = _OWNER_MIN_VERSION
 
-_BUNDLE_PHRASE_MAP_MIN_VERSION = "0.43.0"
+_CHUNK_INDEX_MIN_VERSION = _OWNER_MIN_VERSION
 
-_CHUNK_INDEX_MIN_VERSION = "0.49.0"
-
-_EFFORT_MIN_VERSION = "0.60.0"
+_EFFORT_MIN_VERSION = _OWNER_MIN_VERSION
 
 
 def _parser_accepts(parse_args, probe_argv: list[str]) -> bool:
     """Return whether ``parse_args`` accepts ``probe_argv``.
 
-    Each probe asks about ONE capability. llm-scripting-kit 0.60.0 made
+    Each probe asks about ONE capability. llm-kit's parser makes
     ``--effort`` required, so a probe argv that omits it fails on that
     requirement instead of on the capability under test. Parse the bare argv
     first (a pre-0.60 parser answers it directly); only when that is rejected,
@@ -163,7 +167,7 @@ def _supports_claimed_file() -> bool | None:
     """True/False if the probe ran and observed an answer; None if it could
     not run at all because `_parse_args` is absent.
 
-    `_parse_args` is PRIVATE to llm-scripting-kit -- an owner that renames or
+    `_parse_args` is PRIVATE to llm-kit -- an owner that renames or
     drops it is not thereby "too old"; it is simply an owner this probe
     cannot ask, and that must not be misdiagnosed as the genuine too-old
     signal (a present parser that rejects --claimed-file). Distinguishing
@@ -228,10 +232,10 @@ def _supports_bundle_phrase_map() -> bool | None:
 def _supports_effort() -> bool | None:
     """Return whether run_lane takes the required per-entry ``effort``.
 
-    llm-scripting-kit 0.60.0 is the first version whose ``review_lane`` has
-    the required ``--effort`` flag and ``run_lane(effort=...)``. An older
-    owner ignores or rejects the flag, so the wrapper refuses it by name
-    instead of letting a lane run at an effort nobody chose. None means the
+    llm-kit's ``review_lane`` has the required ``--effort`` flag and
+    ``run_lane(effort=...)``. An owner without them ignores or rejects the
+    flag, so the wrapper refuses it by name instead of letting a lane run at
+    an effort nobody chose. None means the
     probe could not run (run_lane absent or uninspectable); the caller
     refuses that too.
     """

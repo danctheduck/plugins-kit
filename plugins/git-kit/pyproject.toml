@@ -1,6 +1,6 @@
 [project]
 name = "git-kit"
-version = "0.48.0"
+version = "0.49.0"
 description = "Host-side dependencies for git-kit plugin"
 requires-python = ">=3.12,!=3.14.*"
 
@@ -16,10 +16,13 @@ requires-python = ">=3.12,!=3.14.*"
 # of the shared-lib code paths this plugin actually calls has to be
 # declared here. regex is loaded when bundle assembly resolves configured
 # mechanical pattern checks, after the pipeline itself has imported.
+# PyYAML also serves llm_kit.dispatch.review_lane, which reads the model
+# registry configuration; it is the only third-party package that module
+# imports at load time.
 dependencies = ["pyyaml", "markdown-it-py", "regex"]
 
 # OPTIONAL, and deliberately not a hard dependency. A review lane reaches an
-# llm-scripting-kit endpoint only when the user configures a non-Agent `model`
+# llm-kit endpoint only when the user configures a non-Agent `model`
 # in a review profile, and only a TRANSPORT entry needs the SDK at all (a
 # harness entry shells out to a CLI). Everyone else -- which is everyone, by
 # default -- would be installing an SDK for a code path they never run.

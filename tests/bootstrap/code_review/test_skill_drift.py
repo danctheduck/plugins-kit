@@ -99,7 +99,7 @@ class TestDispatchRulePresent:
 class TestDeclarationRouting:
     """Migration step 5: route each reviewer's declaration by entry harness.
 
-    The skill calls `llm-scripting-kit describe`, prints its output (and so
+    The skill calls `llm-kit models describe`, prints its output (and so
     its `Ranking.rule`) verbatim, chooses, and announces. It no longer reads
     one model off the table by a closed alias set, and it carries no
     non-routable warning prose.
@@ -108,7 +108,9 @@ class TestDeclarationRouting:
     @pytest.mark.parametrize("vcs", ["git", "p4"])
     def test_multi_entry_declarations_go_through_describe(self, vcs: str) -> None:
         body = " ".join(gen.render_skill(vcs).split())
-        assert "llm-scripting-kit describe <entry>... --caller session" in body
+        assert "llm-kit models describe <entry>... --caller session" in body
+        assert "/plugins-kit/llm-kit/.venv/bin/llm-kit models describe" in body
+        assert "llm-scripting-kit" not in body
         assert "`--self <id>`" in body
         assert "print its stdout verbatim" in body
         assert "announce the choice in the form that rule gives" in body
@@ -128,8 +130,8 @@ class TestDeclarationRouting:
     @pytest.mark.parametrize("vcs", ["git", "p4"])
     def test_without_describe_core_ids_route_through_the_harness(self, vcs: str) -> None:
         body = " ".join(gen.render_skill(vcs).split())
-        assert "`llm-scripting-kit` is not on PATH" in body
-        assert "rejects `describe` as an invalid choice" in body
+        assert "`llm-kit` is not on PATH" in body
+        assert "rejects `models describe` as an invalid choice" in body
         assert "skip every other entry without comment" in body
 
     @pytest.mark.parametrize("vcs", ["git", "p4"])

@@ -174,8 +174,8 @@ technique_skill:
             - A one-entry declaration has no menu and no announcement: dispatch its entry by
               the entry-harness rule below.
             - For each declaration with two or more entries, run
-              `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <entry>... --caller session`
-              (Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe)
+              `"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-kit/.venv/bin/llm-kit models describe <entry>... --caller session`
+              (Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-kit/.venv/Scripts/llm-kit.exe)
               (the `${CLAUDE_BOOTSTRAP_DATA_ROOT:-...}` base is bash/zsh syntax, so run the command
               from a Claude Code Bash session; PowerShell and cmd do not expand it, so expand the
               base first -- the variable's value when it is set, else `$HOME/.claude/plugins/data`;
@@ -198,8 +198,9 @@ technique_skill:
               (reviewer, chunk) lane does not run; report it in step 9 under
               `## Lane failures` with that itemised list, and mark its coverage missing. Any other non-zero describe exit is reported the same
               way, with its stderr.
-            - When `llm-scripting-kit` is not on PATH, or its argument parser rejects
-              `describe` as an invalid choice (a release older than 0.46.0), route without a
+            - When `llm-kit` is not on PATH, or its argument parser rejects
+              `models describe` as an invalid choice (an llm-kit older than 0.1.9, the first
+              published release), route without a
               menu: take the declaration's `sonnet`, `opus`, `haiku` and `fable` entries in
               declared order, dispatch the first, and skip every other entry without
               comment. A declaration with none of those four does not run; report it in
@@ -227,7 +228,7 @@ technique_skill:
             Exit 2 from the runner is a REFUSAL: it declined the dispatch as configured --
             for example a lane it does not support by name, an effort outside a codex entry's
             effort menu, an effort a transport entry cannot deliver, or an installed
-            llm-scripting-kit older than 0.60.0, the first release that accepts `--effort`. A
+            llm-kit older than 0.1.9, the first published release, which accepts `--effort`. A
             refusal the launch-correction rule does not explain is a configuration error for
             the user to fix, not something to work around: report it in step 9 under
             `## Lane failures` with the runner's stderr verbatim and mark coverage missing.
@@ -388,7 +389,7 @@ technique_skill:
             chain. Endpoint envelopes already contain output from the same shared parser. A
             non-zero parser exit is a FAILED lane under the existing failure rule; never pass
             its unparsed issues to validators.
-          tool: Bash (the llm-scripting-kit venv CLI, `describe`) + Agent (per the entry-harness rule, a lane whose entry is not a `claude` entry runs as a Bash call to "${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" "${CLAUDE_PLUGIN_ROOT}/scripts/run_review_lane.py" instead)
+          tool: Bash (the llm-kit venv CLI, `models describe`) + Agent (per the entry-harness rule, a lane whose entry is not a `claude` entry runs as a Bash call to "${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" "${CLAUDE_PLUGIN_ROOT}/scripts/run_review_lane.py" instead)
           expected: JSON arrays of candidate issues from each launched reviewer (one array per (reviewer, chunk) lane), plus a recorded failure for any lane that exited non-zero.
         - n: 7
           action: |
@@ -579,7 +580,7 @@ technique_skill:
         - Every reviewer and validator entry dispatched at its own stated effort -- an Agent entry as `p4-kit:review-lane-<effort>` with its `id` as the model, a lane-tool entry with `--effort <effort>`; a re-selected entry at its own effort; a runner refusal (exit 2) reported under `## Lane failures`, not re-selected past
         - Filtered to confirmed-only
         - Launch rationale line emitted once (file-type-driven; md_trivial variant when the change is all-mechanical)
-        - Every multi-entry reviewer declaration routed through `llm-scripting-kit describe` (stdout printed verbatim, choice announced as a `route:` line) or, without describe, through its core entries; a FAILED lane re-selected per the printed `Re-select:` line, each entry at most once; every `route:` line carried into the `## Lane routes` section; a lane with no usable entry left still reports a `## Lane failures` entry with coverage missing
+        - Every multi-entry reviewer declaration routed through `llm-kit models describe` (stdout printed verbatim, choice announced as a `route:` line) or, without describe, through its core entries; a FAILED lane re-selected per the printed `Re-select:` line, each entry at most once; every `route:` line carried into the `## Lane routes` section; a lane with no usable entry left still reports a `## Lane failures` entry with coverage missing
         - md-domain subject-lens pass launched for the NON-TRIVIAL bundle.claimed_files when skills-kit md-domain is available (or claimed files folded back into the generic review on version-skew fallback); skipped silently when md-domain is absent
         - Trivial claimed files (prepare's `trivial` flag) reported via the `## Mechanical checks (audit skipped)` section, never as an audit or DIFF-CLEAN; nothing written to the ledger for them; whole review skipped when every claimed file is trivial and there are no generic diff chunks
         - Machine-emitted artifacts (bundle.machine_emitted_files) reported via the `## Machine-emitted artifacts (not reviewed)` section, naming each file's exclusion axis (content banner or declared plugin-write path) and the rule that matched, never as an audit or DIFF-CLEAN; review of machine-emitted output belongs on the generator

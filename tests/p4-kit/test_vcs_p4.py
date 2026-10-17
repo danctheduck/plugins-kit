@@ -10,12 +10,12 @@ the exact operation mapping required for safe changelist handling:
 - finalize_description dump-edit-restores, replacing ONLY the Description block
   and preserving the auto-populated ``Files:`` section.
 - delete_if_empty deletes an empty CL and leaves a non-empty one alone.
-- deliver_changeset (content_pipeline's backend-agnostic choreography) drives a
+- deliver_changeset (llm_kit's backend-agnostic choreography) drives a
   fake-runner P4Vcs end to end (duck-type conformance).
 
-content_pipeline is importable in this repo's test env (sibling plugin under
+llm_kit is importable in this repo's test env (sibling plugin under
 plugins/), so the integration test imports deliver_changeset from it; the p4_vcs
-module itself imports nothing from content_pipeline.
+module itself imports nothing from llm_kit.
 """
 
 import os
@@ -31,12 +31,12 @@ _P4KIT_LIB = os.path.normpath(
 if _P4KIT_LIB not in sys.path:
     sys.path.insert(0, _P4KIT_LIB)
 
-_CP_LIB = os.path.normpath(
+_LLM_KIT_LIB = os.path.normpath(
     os.path.join(os.path.dirname(__file__), os.pardir, os.pardir,
-                 "plugins", "content-pipeline-kit", "lib")
+                 "plugins", "llm-kit", "lib")
 )
-if _CP_LIB not in sys.path:
-    sys.path.insert(0, _CP_LIB)
+if _LLM_KIT_LIB not in sys.path:
+    sys.path.insert(0, _LLM_KIT_LIB)
 
 from p4kit_vcs.p4_vcs import (  # noqa: E402
     P4Changeset,
@@ -601,10 +601,10 @@ def test_describe_changeset_raises_on_real_failure_not_empty_paths():
         P4Vcs(runner=broken).describe_changeset("9")
 
 
-# -- end-to-end choreography via content_pipeline.deliver_changeset ----------
+# -- end-to-end choreography via llm_kit deliver_changeset -------------------
 
 def test_deliver_changeset_over_p4_backend_duck_types():
-    from content_pipeline.deliver.inplace import deliver_changeset
+    from llm_kit.pipeline.artifacts.deliver.inplace import deliver_changeset
 
     # change -o for the finalize step: a spec whose Files: lists the two paths.
     change_o = (
@@ -651,7 +651,7 @@ def test_deliver_changeset_over_p4_backend_duck_types():
 
 
 def test_deliver_changeset_empty_batch_deletes_cl():
-    from content_pipeline.deliver.inplace import deliver_changeset
+    from llm_kit.pipeline.artifacts.deliver.inplace import deliver_changeset
 
     fake = FakeP4(created_cl="4242")
     vcs = P4Vcs(client="c", user="u", runner=fake)
