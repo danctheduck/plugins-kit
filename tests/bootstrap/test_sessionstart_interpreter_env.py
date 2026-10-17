@@ -163,6 +163,8 @@ def _scaffold(tmp_path: Path, *, resolver_text: str | None = None,
     hook = plugin_root / "hooks" / "sessionstart" / "session-bootstrap.sh"
     hook.parent.mkdir(parents=True)
     hook.write_text(HOOK.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+    shutil.copyfile(HOOK.parent.parent / "marketplace-name.sh",
+                    plugin_root / "hooks" / "marketplace-name.sh")
     resolver = plugin_root / "shell" / "project-python.sh"
     resolver.parent.mkdir(parents=True)
     resolver.write_text(resolver_text if resolver_text is not None

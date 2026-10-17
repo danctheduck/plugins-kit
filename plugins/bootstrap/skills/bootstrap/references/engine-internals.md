@@ -545,6 +545,8 @@ bootstrap anywhere, and remediation would have to move to `bootstrap-stuck-fix`.
 
 ### Step 4 Processing Order
 
+**Marketplace name of bootstrap itself.** Bootstrap's own data directory is `data/<marketplace>/bootstrap`, and the same name labels its log (`<marketplace>:bootstrap@<version>`) and feeds `_plugin_sort_key`. It comes from the plugin root, two directories up. In the cache layout (`cache/<marketplace>/bootstrap/<version>`) that directory's name is the marketplace. In a dev checkout (`<checkout>/plugins/bootstrap`) it is `name` in `<checkout>/.claude-plugin/marketplace.json`, because the checkout directory carries whatever name it was cloned as; a checkout without that file falls back to the directory name. `marketplace_name.marketplace_name_for` is the Python derivation; the two hook scripts run before Python exists and source `hooks/marketplace-name.sh`, a bash port of it. A `marketplace.json` that exists but has no non-empty string top-level `name` raises in the engine (reported by the crash path); the hooks warn on stderr and use the directory name so they still emit their JSON. `tests/bootstrap/test_marketplace_name.py` runs both derivations on the same trees.
+
 Plugins are processed in a deterministic, dependency-aware order:
 1. **Bootstrap plugin** (`plugins-kit:bootstrap`)
 2. **Shared-library owners before consumers** within each marketplace, derived

@@ -51,6 +51,8 @@ def _run_hook(hook: Path, plugin_root: Path, env_extra: dict, console: bool):
     dest = plugin_root / hook.relative_to(BOOTSTRAP)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(hook.read_bytes())
+    (plugin_root / "hooks" / "marketplace-name.sh").write_bytes(
+        (BOOTSTRAP / "hooks" / "marketplace-name.sh").read_bytes())
     env = dict(os.environ)
     env.update(env_extra)
     args = ["bash", str(dest)] + (["--console"] if console else [])

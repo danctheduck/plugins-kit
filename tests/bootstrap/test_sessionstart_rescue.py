@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pytest
 
+from bootstrap_lib.marketplace_name import marketplace_name_for
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DISPLAY_HOOK = (
     REPO_ROOT / "plugins" / "bootstrap" / "hooks" / "userpromptsubmit" / "bootstrap-display.sh"
@@ -137,6 +139,8 @@ class TestRescueBehavior:
         ss_dir.mkdir(parents=True)
         display = ups_dir / "bootstrap-display.sh"
         display.write_text(DISPLAY_HOOK.read_text(), encoding="utf-8")
+        shutil.copyfile(DISPLAY_HOOK.parent.parent / "marketplace-name.sh",
+                        plugin_root / "hooks" / "marketplace-name.sh")
 
         record = tmp_path / "sb_invoked_stdin"
         stub = ss_dir / "session-bootstrap.sh"
@@ -404,7 +408,7 @@ class TestSessionBootstrapMarker:
 
     def test_gate_skipped_invocation_still_writes_marker(self, tmp_path: Path) -> None:
         fake_home = tmp_path / "home"
-        data_dir = fake_home / ".claude" / "plugins" / "data" / REPO_ROOT.name / "bootstrap"
+        data_dir = fake_home / ".claude" / "plugins" / "data" / marketplace_name_for(str(REPO_ROOT / "plugins" / "bootstrap")) / "bootstrap"
         cooldowns = data_dir / "cooldowns"
         cooldowns.mkdir(parents=True)
         # Same-session Layer-1 skip: guard stamp already holds this session id.

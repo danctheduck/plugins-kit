@@ -27,6 +27,17 @@ MODULE_PATH = Path(sm.__file__)
 REPO_ROOT = MODULE_PATH.parents[3]
 REPO_SKILLS = sorted(REPO_ROOT.glob("plugins/*/skills/*/SKILL.md"))
 
+# Skill names that intentionally exist in two plugins: (name, legacy plugin,
+# llm-kit). llm-kit carryover during the legacy freeze; remove an entry when
+# the legacy plugin is deleted.
+EXPECTED_DUPLICATE_SKILLS = frozenset({
+    ("background-pipeline", "content-pipeline-kit", "llm-kit"),
+    ("content-pipeline-domain", "content-pipeline-kit", "llm-kit"),
+    ("execute-work-unit", "content-pipeline-kit", "llm-kit"),
+    ("workflow-pipeline", "content-pipeline-kit", "llm-kit"),
+    ("openrouter-account", "llm-scripting-kit", "llm-kit"),
+})
+
 BIG = 1_000_000
 FENCE = "```"
 
@@ -793,6 +804,14 @@ def test_every_repo_skill_materializes_full_with_declared() -> None:
     assert declaring_skills >= 5, declaring_skills
     assert rendered_resources >= 40, rendered_resources
     assert expanded_directories >= 1, expanded_directories
-    everything = render(*(sm.SkillRef(str(path)) for path in REPO_SKILLS), budget=10_000_000)
-    assert len(everything.report.skills) == len(REPO_SKILLS)
+    # One selection may not hold two same-named skills: leave out the legacy
+    # member of each expected pair (every file was rendered singly above).
+    legacy = {(name, plugin) for name, plugin, _ in EXPECTED_DUPLICATE_SKILLS}
+    selected = [
+        path for path in REPO_SKILLS
+        if (path.parent.name, path.parents[2].name) not in legacy
+    ]
+    assert len(selected) == len(REPO_SKILLS) - len(EXPECTED_DUPLICATE_SKILLS)
+    everything = render(*(sm.SkillRef(str(path)) for path in selected), budget=10_000_000)
+    assert len(everything.report.skills) == len(selected)
     assert [item.reason for item in everything.report.suppressed if item.reason != "duplicate-resource"] == []

@@ -282,6 +282,8 @@ class TestShellFallbackClaimPattern:
         display = ups_dir / "bootstrap-display.sh"
         display.write_text(DISPLAY_HOOK.read_text(), encoding="utf-8")
         display.chmod(0o755)
+        shutil.copyfile(DISPLAY_HOOK.parent.parent / "marketplace-name.sh",
+                        plugin_root / "hooks" / "marketplace-name.sh")
         # Deliberately no bootstrap_lib/display_relay.py under plugin_root ->
         # the relay-preferred branch's file check fails and the plain
         # fallback tail runs.

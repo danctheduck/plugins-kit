@@ -32,6 +32,7 @@ from .atomic_write import write_atomic as _write_atomic
 # selection instead of truncation. See messages.py / engine-internals.md.
 from .messages import item_label as _item_label, numbered as _numbered
 from .records import reprefix as _reprefix
+from .marketplace_name import marketplace_name_for
 
 
 def main():
@@ -842,10 +843,11 @@ def _main_pass():
     # Dev layout: ~/Dev/<marketplace>/plugins/bootstrap → one up
     # Cache layout: ~/.claude/plugins/cache/<marketplace>/bootstrap/<ver> → walk up to ~/.claude/plugins/
     plugins_dir = _find_plugins_dir(plugin_root)
-    # Marketplace name: go 2 levels up from plugin_root and take basename.
-    # Dev: plugins-kit/plugins/bootstrap → up 2 → plugins-kit
-    # Cache: cache/plugins-kit/bootstrap/0.5.0 → up 2 → plugins-kit
-    marketplace_name = os.path.basename(os.path.normpath(os.path.join(plugin_root, "..", "..")))
+    # Marketplace name: `name` in <checkout>/.claude-plugin/marketplace.json for a
+    # dev layout, else the basename two levels up (the cache layout:
+    # cache/plugins-kit/bootstrap/0.5.0 -> plugins-kit). A manifest that exists
+    # but yields no name raises here and surfaces through the crash path.
+    marketplace_name = marketplace_name_for(plugin_root)
     plugin_json_path = os.path.join(plugin_root, ".claude-plugin", "plugin.json")
     boot_plugin_name = "bootstrap"
     version = ""

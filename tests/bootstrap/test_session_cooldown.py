@@ -20,10 +20,15 @@ from pathlib import Path
 
 import pytest
 
+from bootstrap_lib.marketplace_name import marketplace_name_for
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SESSION_BOOTSTRAP = REPO_ROOT / "plugins" / "bootstrap" / "hooks" / "sessionstart" / "session-bootstrap.sh"
 RESET_SCRIPT = REPO_ROOT / "plugins" / "bootstrap" / "scripts" / "bootstrap-reset-cooldown.sh"
 ENV_RESET_SCRIPT = REPO_ROOT / "plugins" / "bootstrap" / "scripts" / "env-reset-cooldown.sh"
+# The marketplace name the hooks derive from this checkout: marketplace.json's `name`,
+# not the checkout directory name (a clone may be named plugins-kit2 or plugins-master).
+MARKETPLACE = marketplace_name_for(str(REPO_ROOT / "plugins" / "bootstrap"))
 
 
 def _find_bash() -> str | None:
@@ -434,10 +439,9 @@ class TestCooldownGateBehavior:
     def _seed_fresh_cooldown(self, fake_home: Path, bash_pwd: str) -> Path:
         key = _hash_project_dir(bash_pwd)
         assert key, "hashing failed (neither sha1sum nor shasum available)"
-        # The hook derives MARKETPLACE_NAME from the repo dir basename (PLUGIN_ROOT/../..),
-        # so seed under REPO_ROOT.name -- not a hardcoded "plugins-kit" -- to stay correct
-        # when run from a differently-named checkout (e.g. the publish mirror plugins-master).
-        cd = fake_home / ".claude" / "plugins" / "data" / REPO_ROOT.name / "bootstrap" / "cooldowns"
+        # The hook derives MARKETPLACE_NAME from the checkout's marketplace.json, so seed
+        # under MARKETPLACE -- not a hardcoded "plugins-kit" or the checkout directory name.
+        cd = fake_home / ".claude" / "plugins" / "data" / MARKETPLACE / "bootstrap" / "cooldowns"
         cd.mkdir(parents=True, exist_ok=True)
         f = cd / f"last_run_epoch.{key}"
         f.write_text(str(int(time.time())))
@@ -509,7 +513,7 @@ class TestCooldownGateBehavior:
             "throttled session rewrote the cooldown stamp; the always lane must "
             "leave it alone so the registry -nt bypass stays armed"
         )
-        pending = (fake_home / ".claude" / "plugins" / "data" / REPO_ROOT.name
+        pending = (fake_home / ".claude" / "plugins" / "data" / MARKETPLACE
                    / "bootstrap" / "bootstrap_display.pending")
         assert not pending.exists(), (
             f"throttled session wrote a display payload: {pending.read_text()!r}"
@@ -557,7 +561,7 @@ class TestCooldownGateBehavior:
         fake_home.mkdir()
         proj = tmp_path / "proj"
         proj.mkdir()
-        cd = (fake_home / ".claude" / "plugins" / "data" / REPO_ROOT.name
+        cd = (fake_home / ".claude" / "plugins" / "data" / MARKETPLACE
               / "bootstrap" / "cooldowns")
         cd.mkdir(parents=True, exist_ok=True)
         key = _hash_project_dir(self._bash_pwd(proj))
@@ -590,9 +594,9 @@ class TestCooldownGateBehavior:
         fake_home.mkdir()
         proj = tmp_path / "proj"
         proj.mkdir()
-        # Seed last_session_id under the hook's data dir (keyed by REPO_ROOT.name,
-        # matching how the hook derives MARKETPLACE_NAME from PLUGIN_ROOT/../..).
-        data = fake_home / ".claude" / "plugins" / "data" / REPO_ROOT.name / "bootstrap"
+        # Seed last_session_id under the hook's data dir (keyed by MARKETPLACE,
+        # matching how the hook derives MARKETPLACE_NAME from the checkout's manifest).
+        data = fake_home / ".claude" / "plugins" / "data" / MARKETPLACE / "bootstrap"
         data.mkdir(parents=True, exist_ok=True)
         (data / "last_session_id").write_text("sid-abc")
         # No installed_plugins.json / known_marketplaces.json under fake HOME ->
