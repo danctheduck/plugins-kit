@@ -8,6 +8,7 @@ state_ops.update so the normal YAML and log discipline is preserved.
 from __future__ import annotations
 
 import datetime
+import importlib
 import json
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -25,6 +26,11 @@ SUMMARY_MAX_CHARS = 240
 SUMMARY_SECTION_MAX_CHARS = 80
 ELIGIBLE_STATUSES = frozenset(("active", "blocked", "closed", "deferred"))
 SUMMARY_WORKERS = 4
+LLM_KIT_MIN_VERSION = "0.1.9"
+
+
+class SummaryBackendUnavailable(RuntimeError):
+    """Summary repair cannot run because the optional llm-kit is unavailable."""
 
 
 @dataclass(frozen=True)
@@ -68,9 +74,32 @@ def _normalize_summary(text: str) -> str:
 
 
 def _default_backend():
-    from llm_scripting_kit.completion import CodexCliBackend
-
-    return CodexCliBackend()
+    try:
+        importlib.import_module("llm_kit")
+    except ModuleNotFoundError as exc:
+        raise SummaryBackendUnavailable(
+            "llm-kit is absent; install it with "
+            "claude plugin install llm-kit@plugins-kit"
+        ) from exc
+    try:
+        backend_module = importlib.import_module("llm_kit.adapters.codex_backend")
+        types_module = importlib.import_module("llm_kit.completion.types")
+    except ModuleNotFoundError as exc:
+        raise SummaryBackendUnavailable(
+            "llm-kit is too old or stale; update it with "
+            "claude plugin update llm-kit@plugins-kit "
+            f"(minimum version {LLM_KIT_MIN_VERSION})"
+        ) from exc
+    try:
+        backend_type = backend_module.CodexCliBackend
+        types_module.BackendOptions
+    except AttributeError as exc:
+        raise SummaryBackendUnavailable(
+            "llm-kit is too old or stale; update it with "
+            "claude plugin update llm-kit@plugins-kit "
+            f"(minimum version {LLM_KIT_MIN_VERSION})"
+        ) from exc
+    return backend_type()
 
 
 def _task_context(view: TaskView, root: Path) -> str:
@@ -90,7 +119,7 @@ def _task_context(view: TaskView, root: Path) -> str:
 
 
 def _complete(backend: Any, view: TaskView, root: Path) -> str:
-    from llm_scripting_kit.completion import BackendOptions
+    from llm_kit.completion.types import BackendOptions
 
     system = (
         "Write task.summary for a task review dashboard as ONE line with "
@@ -180,7 +209,15 @@ def generate_missing_summaries(
     if not candidate_views:
         return SummaryGenerationReport()
 
-    active_backend = backend if backend is not None else _default_backend()
+    backend_error: Exception | None = None
+    if backend is None:
+        try:
+            active_backend = _default_backend()
+        except SummaryBackendUnavailable as exc:
+            active_backend = None
+            backend_error = exc
+    else:
+        active_backend = backend
     stamp = datetime.date.today().isoformat()
     # Refill each worker slot as soon as a completion finishes. Persistence
     # stays in the caller thread so updates cannot race, and is applied in
@@ -191,7 +228,7 @@ def generate_missing_summaries(
         label = _view_label(listing, view)
         try:
             expected_folder = _existing_folder(view, root)
-            prepared.append((view, root, label, expected_folder, None))
+            prepared.append((view, root, label, expected_folder, backend_error))
         except Exception as exc:
             prepared.append((view, root, label, None, exc))
 
