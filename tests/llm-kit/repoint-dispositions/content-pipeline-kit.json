@@ -4,7 +4,7 @@
     {
       "path": "tests/content-pipeline-kit/test_adaptive_gate.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -16,7 +16,7 @@
     {
       "path": "tests/content-pipeline-kit/test_audit_auditor.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -26,7 +26,7 @@
     {
       "path": "tests/content-pipeline-kit/test_audit_reasoning_chain.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -38,7 +38,7 @@
     {
       "path": "tests/content-pipeline-kit/test_audit_report.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -48,7 +48,7 @@
     {
       "path": "tests/content-pipeline-kit/test_backpressure_classifier_seam.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
       "rewrite_classes": [
         "import",
         "module-string"
@@ -59,7 +59,7 @@
     {
       "path": "tests/content-pipeline-kit/test_call_routing.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -69,7 +69,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cl5_convergence_parity.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -79,7 +79,7 @@
     {
       "path": "tests/content-pipeline-kit/test_claude_bg_claudx.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -89,7 +89,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_budget.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -99,7 +99,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -111,7 +111,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_scaffold.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -121,7 +121,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_unsupported.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -139,7 +139,7 @@
     {
       "path": "tests/content-pipeline-kit/test_deadlines.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -149,7 +149,7 @@
     {
       "path": "tests/content-pipeline-kit/test_deliver_inplace.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -159,7 +159,7 @@
     {
       "path": "tests/content-pipeline-kit/test_deliver_projection.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -169,7 +169,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_adapter.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -179,7 +179,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_b1_exit_criterion.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -189,7 +189,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_controller.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 12 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -201,7 +201,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -213,7 +213,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg_banner.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -223,7 +223,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg_fixes.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -233,7 +233,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_driver_inline.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -245,7 +245,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_events.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -265,7 +265,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_events.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -277,7 +277,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_inline.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 12 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -289,7 +289,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_store.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -301,7 +301,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; a message string naming the module; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes; prose mentions left unchanged.",
       "rewrite_classes": [
         "declared-skip",
         "import",
@@ -322,7 +322,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_unchanged.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -332,7 +332,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_protocol.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 23 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -344,7 +344,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_status.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -354,7 +354,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_store.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 16 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -366,7 +366,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_wave.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -376,7 +376,7 @@
     {
       "path": "tests/content-pipeline-kit/test_failure_cache.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -386,7 +386,7 @@
     {
       "path": "tests/content-pipeline-kit/test_freshness_classify.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -396,7 +396,7 @@
     {
       "path": "tests/content-pipeline-kit/test_freshness_ensure.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -406,7 +406,7 @@
     {
       "path": "tests/content-pipeline-kit/test_freshness_hashing.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -418,7 +418,7 @@
     {
       "path": "tests/content-pipeline-kit/test_freshness_seed.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -428,7 +428,7 @@
     {
       "path": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
       "rewrite_classes": [
         "path-package-dir",
         "path-plugin-dir"
@@ -439,7 +439,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_attempt_observer.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -449,7 +449,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_backends.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -474,7 +474,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_convergence.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -484,7 +484,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_convergence_ext.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -494,7 +494,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -506,7 +506,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_platform.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
       "rewrite_classes": [
         "import",
         "module-string"
@@ -517,7 +517,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_platform_spend.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -527,7 +527,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes.",
       "rewrite_classes": [
         "declared-skip",
         "import",
@@ -546,7 +546,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger_concurrency.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -558,7 +558,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger_halt.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -570,7 +570,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger_orphans.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -582,7 +582,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_structured_generation.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -594,7 +594,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_yaml_extract.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -604,7 +604,7 @@
     {
       "path": "tests/content-pipeline-kit/test_loop_stage_result_and_measure_detail.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -614,7 +614,7 @@
     {
       "path": "tests/content-pipeline-kit/test_package_imports.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>; prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -628,7 +628,7 @@
     {
       "path": "tests/content-pipeline-kit/test_parallel_graph.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 9 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -641,7 +641,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_cell_policy.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -651,7 +651,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_convergence_loop.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -661,7 +661,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_convergence_loop_ext.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -671,7 +671,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_gate_aliases.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -681,7 +681,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_single_pass.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -691,7 +691,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_workunit.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -701,7 +701,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pr1_provenance_record.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -711,7 +711,7 @@
     {
       "path": "tests/content-pipeline-kit/test_provenance_call_audit.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -721,7 +721,7 @@
     {
       "path": "tests/content-pipeline-kit/test_provenance_replay.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -731,7 +731,7 @@
     {
       "path": "tests/content-pipeline-kit/test_provenance_snapshot.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -741,7 +741,7 @@
     {
       "path": "tests/content-pipeline-kit/test_providers_assembly.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -751,7 +751,7 @@
     {
       "path": "tests/content-pipeline-kit/test_providers_registry.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -769,7 +769,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_a_run_plane.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -779,7 +779,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_b_apply_status.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -789,7 +789,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_b_worker_verbs.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -799,7 +799,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_c_skill_script_paths.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites \"plugins\"/<kit> path -> plugins/llm-kit; plugins/<kit>/lib path string -> plugins/llm-kit/lib; injects skip on declared-difference nodes; prose mentions left unchanged.",
       "rewrite_classes": [
         "declared-skip",
         "path-plugin-dir",
@@ -818,7 +818,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_d_cache_key.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -830,7 +830,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_d_routing.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -840,7 +840,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_h_bg_failure_code.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -850,7 +850,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_h_bg_followups.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -860,7 +860,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_h_inline_reclaim.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -870,7 +870,7 @@
     {
       "path": "tests/content-pipeline-kit/test_roundtrip_questions.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -880,7 +880,7 @@
     {
       "path": "tests/content-pipeline-kit/test_roundtrip_returns.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -890,7 +890,7 @@
     {
       "path": "tests/content-pipeline-kit/test_run_cli.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
       "rewrite_classes": [
         "import",
         "module-string"
@@ -901,7 +901,7 @@
     {
       "path": "tests/content-pipeline-kit/test_run_cli_protocol.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -911,7 +911,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_attributed.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -921,7 +921,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_candidate.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -931,7 +931,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_candidate_state.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -941,7 +941,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_intermediary.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -951,7 +951,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_projection.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -961,7 +961,7 @@
     {
       "path": "tests/content-pipeline-kit/test_validate_contract.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -971,7 +971,7 @@
     {
       "path": "tests/content-pipeline-kit/test_validate_floor_guard.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -981,7 +981,7 @@
     {
       "path": "tests/content-pipeline-kit/test_validate_riders.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -991,7 +991,7 @@
     {
       "path": "tests/content-pipeline-kit/test_vcs_git.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -1019,7 +1019,7 @@
     {
       "path": "tests/content-pipeline-kit/test_worker_generation_fencing.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -1029,7 +1029,7 @@
     {
       "path": "tests/content-pipeline-kit/test_worker_invocation_contract.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -1039,7 +1039,7 @@
     {
       "path": "tests/content-pipeline-kit/test_worker_invocation_roundtrip.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
       "rewrite_classes": [
         "import"
       ],
@@ -1049,7 +1049,7 @@
     {
       "path": "tests/content-pipeline-kit/test_workerpack_aliases.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings.",
       "rewrite_classes": [
         "code-string",
         "import"

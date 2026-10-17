@@ -4,7 +4,7 @@
     {
       "path": "tests/job-kit/test_backpressure_retry.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit.",
       "rewrite_classes": [
         "import"
       ],
@@ -22,7 +22,7 @@
     {
       "path": "tests/job-kit/test_cli.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes; prose mentions left unchanged.",
       "rewrite_classes": [
         "code-string",
         "declared-skip",
@@ -62,7 +62,7 @@
     {
       "path": "tests/job-kit/test_cli_redirect_jobkit.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.job_kit; module-name strings; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -75,7 +75,7 @@
     {
       "path": "tests/job-kit/test_events.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -88,7 +88,7 @@
     {
       "path": "tests/job-kit/test_interrupts_cli.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit.",
       "rewrite_classes": [
         "import"
       ],
@@ -98,7 +98,7 @@
     {
       "path": "tests/job-kit/test_interrupts_contract_parity.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
       "rewrite_classes": [
         "import",
         "module-string"
@@ -109,7 +109,7 @@
     {
       "path": "tests/job-kit/test_interrupts_contract_probe.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -122,7 +122,7 @@
     {
       "path": "tests/job-kit/test_interrupts_e2e.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit.",
       "rewrite_classes": [
         "import"
       ],
@@ -132,7 +132,7 @@
     {
       "path": "tests/job-kit/test_interrupts_envelope.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
       "rewrite_classes": [
         "import",
         "module-string"
@@ -143,7 +143,7 @@
     {
       "path": "tests/job-kit/test_interrupts_runner.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
       "rewrite_classes": [
         "import",
         "module-string"
@@ -154,7 +154,7 @@
     {
       "path": "tests/job-kit/test_interrupts_store.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
       "rewrite_classes": [
         "import",
         "module-string"
@@ -173,7 +173,7 @@
     {
       "path": "tests/job-kit/test_ledger_reader.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.job_kit.",
       "rewrite_classes": [
         "import"
       ],
@@ -183,7 +183,7 @@
     {
       "path": "tests/job-kit/test_model.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit.",
       "rewrite_classes": [
         "import"
       ],
@@ -193,7 +193,7 @@
     {
       "path": "tests/job-kit/test_reservations.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 13 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -206,7 +206,7 @@
     {
       "path": "tests/job-kit/test_run_claudx.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.job_kit.",
       "rewrite_classes": [
         "import"
       ],
@@ -216,7 +216,7 @@
     {
       "path": "tests/job-kit/test_runner.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 13 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit.",
       "rewrite_classes": [
         "import"
       ],
@@ -226,7 +226,7 @@
     {
       "path": "tests/job-kit/test_select.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes.",
       "rewrite_classes": [
         "declared-skip",
         "import",
@@ -249,7 +249,7 @@
     {
       "path": "tests/job-kit/test_store.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit.",
       "rewrite_classes": [
         "import"
       ],
@@ -259,7 +259,7 @@
     {
       "path": "tests/job-kit/test_workspace.py",
       "disposition": "rewrite",
-      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit.",
       "rewrite_classes": [
         "import"
       ],
