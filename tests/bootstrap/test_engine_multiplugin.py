@@ -890,6 +890,44 @@ class TestDevLayoutFilter:
         assert "plugin-y" in system_msg
         assert "plugin-z" not in system_msg
 
+    def test_claudx_session_lists_plugin_absent_from_every_enablement_source(self, tmp_path):
+        """CLAUDE_PLUGIN_TEST + dev layout: the synthetic registry is authoritative.
+
+        dev-only plugins are enabled in no settings file, yet a claudx session
+        must still provision them.
+        """
+        fake_root, plugins_dir, data_dir = _make_dev_layout(tmp_path, [
+            ("enabled-plugin", True),
+            ("dev-only-plugin", True),
+        ])
+        env = _settings_home(tmp_path, ["enabled-plugin@testkit"])
+        env["CLAUDE_PLUGIN_TEST"] = "1"
+        env["USERPROFILE"] = env["HOME"]
+
+        result = run_engine(data_dir, plugin_root=fake_root, env=env)
+
+        assert result.returncode == 0
+        system_msg = json.loads(result.stdout)["systemMessage"]
+        assert "enabled-plugin" in system_msg
+        assert "dev-only-plugin" in system_msg
+
+    def test_non_claudx_session_still_filters_plugin_absent_from_enablement(self, tmp_path):
+        """Same layout with CLAUDE_PLUGIN_TEST unset: the unenabled plugin is filtered."""
+        fake_root, plugins_dir, data_dir = _make_dev_layout(tmp_path, [
+            ("enabled-plugin", True),
+            ("dev-only-plugin", True),
+        ])
+        env = _settings_home(tmp_path, ["enabled-plugin@testkit"])
+        env.pop("CLAUDE_PLUGIN_TEST", None)
+        env["USERPROFILE"] = env["HOME"]
+
+        result = run_engine(data_dir, plugin_root=fake_root, env=env)
+
+        assert result.returncode == 0
+        system_msg = json.loads(result.stdout)["systemMessage"]
+        assert "enabled-plugin" in system_msg
+        assert "dev-only-plugin" not in system_msg
+
     def test_production_layout_unaffected(self, tmp_path):
         """In production layout (registry == prod registry), no filter is applied."""
         # Simulate production layout: place installed_plugins.json where the engine
