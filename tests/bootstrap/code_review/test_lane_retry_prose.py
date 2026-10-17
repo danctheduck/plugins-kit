@@ -79,7 +79,7 @@ def test_the_old_fallback_chain_walk_is_gone(skill_dir: Path) -> None:
 
 
 def test_the_skill_prints_the_rule_instead_of_restating_it(skill_dir: Path) -> None:
-    """The trigger set is describe's text (llm-scripting-kit RULE_TRIGGER_SESSION)."""
+    """The trigger set is describe's text (llm-kit RULE_TRIGGER_SESSION)."""
     body = _normalized(skill_dir / "SKILL.md")
     assert "print its stdout verbatim" in body
     assert "a launch that produced no output -- moves to another usable entry" not in body

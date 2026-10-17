@@ -1,6 +1,6 @@
 """claudx containment in the launcher shims (CLAUDE_BOOTSTRAP_DATA_ROOT, CLAUDE_PLUGIN_TEST).
 
-job-kit, llm-scripting-kit and llm-kit launch their CLI under the plugin venv at the
+job-kit, llm-scripting-kit, llm-kit and task-kit launch their CLI under the plugin venv at the
 production path ``~/.claude/plugins/data/plugins-kit/<plugin>/.venv``. A
 claude-plugin-test session sets ``CLAUDE_BOOTSTRAP_DATA_ROOT`` to a separate
 tree that holds its own venvs, so a shim that named the production venv ran the
@@ -11,12 +11,16 @@ launcher shims"):
 * With the variable set, the redirected venv is the ONLY candidate. A missing
   one exits 2 with a message, never a fallback to the production venv. With the
   variable unset the existing chain is unchanged.
-* All five shims (job-kit, llm-scripting-kit, llm-kit, hue-kit, secrets-kit) refuse to
+* All six shims (job-kit, llm-scripting-kit, llm-kit, task-kit, hue-kit, secrets-kit) refuse to
   run as the CACHED copy, a path under ``plugins/cache/<marketplace>/``, when
   ``CLAUDE_PLUGIN_TEST`` is set. The marketplace is
   ``CLAUDE_PLUGIN_TEST_MARKETPLACE``; with it unset every cache path is refused,
   and a cache path under another marketplace is kept. Outside claudx nothing is
   refused.
+* task-kit's shim is also the launcher copy bootstrap syncs into the plugin's
+  production DATA directory (``plugins/data/<marketplace>/task-kit/bin``) and puts
+  on PATH. That copy is a thin locator that runs the newest INSTALLED version, so
+  under claudx it is refused like a cached copy.
 
 The tests run each real shim, copied into a throwaway plugin tree whose
 entrypoint prints ``sys.prefix``, against real venvs, so the printed prefix
@@ -63,6 +67,7 @@ _VENV_SHIMS = [
     ("job-kit", "job-kit", "lib/job_kit_entrypoint.py"),
     ("llm-scripting-kit", "llm-scripting-kit", "scripts/llm_scripting_kit_cli.py"),
     ("llm-kit", "llm-kit", "bin/llm_kit_entrypoint.py"),
+    ("task-kit", "task-kit", "bin/task_kit_entrypoint.py"),
 ]
 # hue-kit and secrets-kit choose no plugin venv (the CLI re-execs itself), so only
 # the cached-copy refusal applies to them.
@@ -118,13 +123,18 @@ class _Launch:
     """
 
     def __init__(self, tmp_path: Path, template: Path, plugin: str, stem: str,
-                 entrypoint: str, kind: str, cache_marketplace: str | None = None) -> None:
+                 entrypoint: str, kind: str, cache_marketplace: str | None = None,
+                 data_bundle_marketplace: str | None = None) -> None:
         self.template = template
         self.plugin = plugin
         self.kind = kind
         self.home = tmp_path / "home"
         self.home.mkdir()
-        if cache_marketplace is None:
+        if data_bundle_marketplace is not None:
+            # The launcher copy bootstrap syncs to <plugins>/data/<marketplace>/<plugin>/bin.
+            plugin_root = (self.home / ".claude" / "plugins" / "data" / data_bundle_marketplace
+                           / plugin)
+        elif cache_marketplace is None:
             plugin_root = tmp_path / "plugin"
         else:
             plugin_root = (self.home / ".claude" / "plugins" / "cache" / cache_marketplace
@@ -296,3 +306,52 @@ def test_working_copy_is_not_refused_under_claudx(launch):
     launch.production_venv()
     redirected = launch.redirected_venv()
     assert launch.chosen_prefix(redirect=True, claudx=True) == redirected.resolve()
+
+
+_BUNDLE_SHIMS = [spec for spec in _VENV_SHIMS if spec[0] == "task-kit"]
+
+
+@pytest.fixture(params=_BUNDLE_SHIMS, ids=[s[0] for s in _BUNDLE_SHIMS])
+def bundle_spec(request):
+    return request.param
+
+
+@pytest.mark.parametrize("marketplace_env", ["plugins-kit", None], ids=["owned", "marketplace-unset"])
+def test_data_dir_launcher_copy_is_refused_under_claudx(tmp_path, venv_template, bundle_spec, kind,
+                                                        marketplace_env):
+    """The launcher copy in the PRODUCTION data directory (the one on PATH) exits 2 under claudx.
+
+    It is a thin locator that runs the installed release from the plugin cache,
+    which a claudx session must never do in place of the working copy.
+
+    Shown to fail: drop the ``*"/plugins/data/"*`` alternative from the POSIX shim's case
+    (and the ``_DATA_NEEDLE`` line from the .cmd twin); the shim then runs.
+    """
+    plugin, stem, entrypoint = bundle_spec
+    launch = _Launch(tmp_path, venv_template, plugin, stem, entrypoint, kind,
+                     data_bundle_marketplace="plugins-kit")
+    result = launch.run(redirect=False, claudx=True, marketplace=marketplace_env)
+    assert result.returncode == 2, (result.returncode, result.stdout, result.stderr)
+    assert "refusing to run the cached copy" in result.stderr
+
+
+def test_data_dir_launcher_copy_runs_outside_claudx(tmp_path, venv_template, bundle_spec, kind):
+    """Typed in an ordinary terminal, the PATH copy is the user's launcher: no refusal."""
+    plugin, stem, entrypoint = bundle_spec
+    launch = _Launch(tmp_path, venv_template, plugin, stem, entrypoint, kind,
+                     data_bundle_marketplace="plugins-kit")
+    production = launch.production_venv()
+    assert launch.chosen_prefix(redirect=False) == production.resolve()
+
+
+def test_data_dir_launcher_copy_never_reads_the_production_venv_in_a_redirected_session(
+        tmp_path, venv_template, bundle_spec, kind):
+    """Redirected data root, no redirected venv: exit 2 even from the data-dir copy."""
+    plugin, stem, entrypoint = bundle_spec
+    launch = _Launch(tmp_path, venv_template, plugin, stem, entrypoint, kind,
+                     data_bundle_marketplace="plugins-kit")
+    launch.production_venv()
+    launch.redirect_root.mkdir()
+    result = launch.run(redirect=True)
+    assert result.returncode == 2
+    assert "refusing to fall back to the production venv" in result.stderr

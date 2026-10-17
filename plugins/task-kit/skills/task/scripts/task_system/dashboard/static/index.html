@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task dashboard</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <h1>Tasks</h1>
+    <span class="chip" id="serverChip" role="status">connecting</span>
+    <span class="grow"></span>
+    <button class="btn" id="refreshBtn" type="button" data-action="refresh" title="Re-read every task folder and re-run validation (picks up git commits)">Refresh</button>
+    <button class="btn" id="pauseBtn" type="button" disabled aria-disabled="true" data-later="pause" title="Pause worker arrives in a later increment">Pause worker</button>
+  </div>
+  <div class="top-row">
+    <label class="sr-only" for="projectSelect">Project</label>
+    <select class="proj-select" id="projectSelect" aria-label="Project filter"><option value="">All projects</option></select>
+    <button class="fchip needs" id="needsBtn" type="button" data-action="needsfilter" aria-pressed="false">Needs you<span class="n" id="needsCount">0</span></button>
+    <input class="search" id="search" type="search" placeholder="Filter tasks and items" aria-label="Filter tasks and items" autocomplete="off">
+    <span class="grow"></span>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+    <button class="btn primary" id="newTaskBtn" type="button" disabled aria-disabled="true" data-later="newtask" title="New task arrives in a later increment">New task</button>
+  </div>
+  <div class="banners" id="banners"></div>
+</header>
+
+<div class="layout">
+  <main id="main" aria-label="Task pipelines"></main>
+  <aside class="panel" id="panel" aria-label="Selection details"></aside>
+</div>
+<div class="scrim" id="scrim" data-action="closepanel"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
