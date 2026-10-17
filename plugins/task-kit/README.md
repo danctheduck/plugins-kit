@@ -17,6 +17,38 @@ The skill's entry point, verb contracts, and design documents are in
 [skills/task/SKILL.md](skills/task/SKILL.md) and
 [skills/task/design/task-system-design.md](skills/task/design/task-system-design.md).
 
+## The dashboard
+
+Type `task-kit` in any terminal (or `/task dashboard` in Claude Code) to open a
+live, read-only browser view over every project's task folders: each task's
+items as a pipeline, what needs you (blocked tasks and items), what is in
+flight, and the newest log entries. A project dropdown and a search box filter
+it. `Resolve in Claude Code` shows the commands that open a task in Claude Code;
+it does not run them. Queue, Cancel, Retry, New task and Add item are drawn but
+disabled in this version.
+
+The dashboard runs beside the task system and changes nothing in it: the `task`
+verbs and the Claude Code workflow behave the same whether or not it is running.
+It reads task folders and never edits one.
+
+```
+task-kit               start (or reuse) the dashboard and open it in your browser
+task-kit status        report the running server
+task-kit stop          stop it
+task-kit restart       stop it and start it again
+task-kit --no-open     do not open the browser (also TASK_KIT_NO_OPEN=1)
+```
+
+One server runs per machine on `127.0.0.1`, on a port the operating system
+chooses; the page is served with a per-run token and a restrictive CSP. If the
+installed code changed since the server started, the next `task-kit` restarts
+it. Projects are the directories under `project_directories` in
+`~/.claude/task.local.yaml` (or `DEVROOT`), as for `task list --scope all`.
+
+bootstrap puts the launcher on your PATH (`~/.claude/plugins/data/plugins-kit/task-kit/bin`;
+on Windows the User PATH), so a new terminal finds `task-kit` after the first
+bootstrap pass that provisions this version.
+
 ## Install
 
 ```

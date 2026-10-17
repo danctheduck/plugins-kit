@@ -484,9 +484,9 @@ syncs a venv the caller never meant; see "Python interpreter variables"
 below for what those call sites use instead.
 
 **Scoped exception: Python CLI launcher shims.** `uv run python` resolves the
-venv from the CWD, so a launcher a user invokes from any directory -- the five
+venv from the CWD, so a launcher a user invokes from any directory -- the six
 Python-invoking `plugins/<name>/bin/` shims (hue-kit, job-kit, llm-kit,
-llm-scripting-kit, secrets-kit) and their `.cmd` twins -- would pick up the
+llm-scripting-kit, secrets-kit, task-kit) and their `.cmd` twins -- would pick up the
 wrong environment, or none. Those shims resolve an absolute interpreter
 instead, and the order depends on whether the CLI needs a plugin venv:
 
@@ -496,9 +496,9 @@ instead, and the order depends on whether the CLI needs a plugin venv:
   absent and the variable's own realpath resolves inside the standalone
   directory (a stranger's `BOOTSTRAP_PYTHON` must never substitute for the file
   the shim was written to find); then PATH.
-- job-kit, llm-kit and llm-scripting-kit name a plugin venv and take it FIRST, from its
+- job-kit, llm-kit, llm-scripting-kit and task-kit name a plugin venv and take it FIRST, from its
   version-independent `~/.claude/plugins/data/<marketplace>/<plugin>/.venv/`
-  path. job-kit and llm-kit then try the validated `BOOTSTRAP_PYTHON`, then
+  path. job-kit, llm-kit and task-kit then try the validated `BOOTSTRAP_PYTHON`, then
   PATH.
   llm-scripting-kit then tries the standalone path (no third-party
   packages, so the CLI warns and uses the shipped model baseline), the
@@ -509,14 +509,18 @@ POSIX shims fall back to `python3`, then `python`; `.cmd` shims fall back to
 the preferred interpreter exists, but the PATH fallback can still resolve it.
 
 Two refusals sit in front of that order. When `CLAUDE_BOOTSTRAP_DATA_ROOT` is
-set (a claude-plugin-test session), job-kit, llm-kit and llm-scripting-kit take
+set (a claude-plugin-test session), job-kit, llm-kit, llm-scripting-kit and task-kit take
 `$CLAUDE_BOOTSTRAP_DATA_ROOT/plugins-kit/<plugin>/.venv/` as the only venv
 candidate and exit 2 when that interpreter is missing: they never fall back to
 the production venv, which holds the installed release, or to anything later in
 the chain. With the variable unset the order above is unchanged. Separately,
-all five shims exit 2 when `CLAUDE_PLUGIN_TEST` is set and the shim itself runs
+all six shims exit 2 when `CLAUDE_PLUGIN_TEST` is set and the shim itself runs
 from the plugin cache, because that copy is the installed release and the
-session tests the working copy. Only the cache of the marketplace named in
+session tests the working copy. task-kit's shim is also the launcher copy that
+bootstrap syncs into the plugin's data directory `bin/` and puts on PATH (so
+`task-kit` works in any terminal); that copy is a thin locator that runs the
+newest installed version from the cache, so under `CLAUDE_PLUGIN_TEST` a shim
+whose path is under `plugins/data/` is refused as well. Only the cache of the marketplace named in
 `CLAUDE_PLUGIN_TEST_MARKETPLACE` is refused, and every cache path when it is
 unset, the same scope as `bootstrap_lib.env_var_check.cache_root_refusal`.
 Guard: `tests/repo-scripts/test_launcher_shim_data_root_redirect.py`. The

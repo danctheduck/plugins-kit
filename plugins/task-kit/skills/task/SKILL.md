@@ -69,6 +69,7 @@ capability_skill:
       - "Creating, listing, showing, validating, reviewing, and summarizing file-backed task folders (tmp/<stub>, dev/tasks/<stub>)"
       - "Enumerating a task's open items (plan.md's task_items unit) with their states -- the item-level menu below the task level"
       - "Lifecycle transitions: close, reopen, archive, delete, and move (with task_list reference rewriting)"
+      - "Launching the task dashboard: /task dashboard runs the task-kit launcher (a live, read-only browser view over every configured project)"
       - "Filling in scaffolded task folders per the hand-off template (references/handoff-template.md)"
     excludes:
       - "Native Claude Code task tracking (TaskCreate / TaskUpdate / TodoWrite) -- different system entirely"
@@ -201,7 +202,7 @@ capability_skill:
         - "Present and resolve one task at a time, even when the audits were prepared in parallel."
         - "An empty scaffold is a direct never-started classification with an archive recommendation; it needs no audit."
     - id: review
-      keywords: [review tasks, task dashboard, task overview, task summaries, open tasks, closed tasks, missing summaries]
+      keywords: [review tasks, task overview, task summaries, open tasks, closed tasks, missing summaries]
       user_objective: "Generate and open an HTML review of non-archived tasks in configured projects, or in the current project when no project directories are configured."
       operation: task.py review [--scope all|user|project|skill|file] [--target X] [--output PATH|-] [--no-open] [--generate-missing-summaries | --no-generate-missing-summaries] [--root PATH]
       steps:
@@ -214,6 +215,18 @@ capability_skill:
       gotchas:
         - "Missing or stale summaries have a distinct warning treatment in HTML and remain visible in the structured diagnostics. Unavailable, remote, invalid, or orphaned tasks are shown as unavailable and are never sent to the model."
         - "Summary-maintenance log entries do not advance last_update. Later substantive task changes invalidate the stored summary fingerprint and cause the next default review to regenerate it."
+    - id: dashboard
+      keywords: [task dashboard, dashboard, /task dashboard, open the dashboard, task-kit, browser view of tasks]
+      user_objective: "Open the live, read-only browser dashboard over every configured project's task folders."
+      operation: "/task dashboard -- agent-side routing; no task.py verb. Runs the task-kit launcher: bash \"${CLAUDE_PLUGIN_ROOT}/bin/task-kit\" [status|stop|restart] [--no-open]"
+      steps:
+        - n: 1
+          action: "Run `bash \"${CLAUDE_PLUGIN_ROOT}/bin/task-kit\"` (what typing `task-kit` in a terminal does once bootstrap has put it on PATH). It starts the dashboard server, or reuses the running one, restarts it when its code changed, and opens the user's browser. Report the command's exit status and its printed URL, or its stderr when it fails."
+      gotchas:
+        - "The dashboard reads task folders and never edits one; the task.py verbs and the harness workflow are unchanged whether or not a dashboard is running. In this version Queue, Cancel, Retry, New task and Add item are shown disabled; the dashboard's Resolve in Claude Code only prints commands to copy."
+        - "The launcher exits 0 ok, 1 error, 3 `status`: not running, 4 server up but the browser could not be opened (the URL is still printed), 5 refused because jobs are running. `--no-open` (or TASK_KIT_NO_OPEN=1) skips the browser."
+        - "A corrupt server record, or something else answering on the recorded port, stops the launcher with a message naming the file: relay that message; do not delete the record or kill a process to get past it."
+        - "`review` still writes its one-off HTML snapshot; the dashboard is a separate, live view and does not replace it."
     - id: show
       keywords: [show task, task details, read fields, inspect]
       user_objective: "Render one task's selected task.yaml fields, cheaply."
