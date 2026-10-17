@@ -796,7 +796,7 @@ _PYTHON_ALLOWLIST: dict[str, AllowlistEntry] = {
         "refresh_unreal_stub.py\\\" --project-root <project-root>",
         "same agent-facing P8 pattern; refresh_unreal_stub.py self-reexecs"),
     "plugins/workflow-kit/scripts/openrouter_run.py": AllowlistEntry(
-        "with workflow-kit's venv python (bootstrap links llm_scripting_kit onto it via",
+        "with workflow-kit's venv python (bootstrap links llm_kit onto it via",
         "informational error message naming the plugin-venv interpreter, "
         "not an invocation"),
 }

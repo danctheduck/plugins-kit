@@ -238,20 +238,6 @@ class SnippetExemption(NamedTuple):
 
 
 _SNIPPET_EXEMPTIONS: dict[str, tuple[SnippetExemption, ...]] = {
-    "plugins/git-kit/skills/git-code-review/SKILL.md": (
-        SnippetExemption(
-            "routed through `llm-scripting-kit describe` (stdout printed verbatim",
-            "expected-output checklist prose, not a run-this instruction; narrow "
-            "on purpose -- this file's real call sites must stay covered",
-        ),
-    ),
-    "plugins/p4-kit/skills/p4-code-review/SKILL.md": (
-        SnippetExemption(
-            "routed through `llm-scripting-kit describe` (stdout printed verbatim",
-            "expected-output checklist prose, not a run-this instruction; narrow "
-            "on purpose -- this file's real call sites must stay covered",
-        ),
-    ),
     "plugins/content-pipeline-kit/skills/content-pipeline-domain/references/"
     "building-a-pipeline.md": (
         SnippetExemption(

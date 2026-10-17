@@ -1855,14 +1855,14 @@ def test_compile_workflow_is_guarded_before_its_foreign_imports():
     """VERDICT: guarded.
 
     compile_workflow.py is launched under ``<plugin-venv-python>``. Its closure imports ``yaml`` at import
-    time and, lazily, ``bootstrap_lib`` and ``llm_scripting_kit`` (model declarations and output contracts),
+    time and, lazily, ``bootstrap_lib`` and ``llm_kit`` (model declarations and output contracts),
     so it carries the same vendored guard as its siblings, ahead of the ``workflow_kit_lib`` import.
     """
     tree = real_tree()
     verdict = guard_verdict(tree, _COMPILE)
     assert verdict.state == "guarded", verdict
     reached = foreign_imports(tree, _COMPILE, scope="all", include_optional=True)
-    assert {"yaml", "bootstrap_lib", "llm_scripting_kit"} <= set(reached), sorted(reached)
+    assert {"yaml", "bootstrap_lib", "llm_kit"} <= set(reached), sorted(reached)
     launchers = [l for l in _ALL_LAUNCHES if l.res_path == _COMPILE]
     assert launchers, "no launch of compile_workflow.py is left, so the verdict is moot"
     assert not [p for p in _REAL.problems if _COMPILE in p.message]

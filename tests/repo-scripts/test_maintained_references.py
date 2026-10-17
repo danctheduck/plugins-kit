@@ -104,15 +104,7 @@ def _e(owner: str, *tokens: str, reason: str) -> Entry:
 
 _LSK_INSTALL = "llm-scripting-" + "kit@plugins-kit"
 _LSK_REF = "plugins-kit:llm-scripting-" + "kit"
-_JOB_INSTALL = "job-" + "kit@plugins-kit"
-_JOB_REF = "plugins-kit:job-" + "kit"
-_CP_REF = "plugins-kit:content-pipeline-" + "kit"
-_LSK_SKILL = "llm-scripting-" + "kit:openrouter-account"
 
-_M4 = "workflow-kit migration (M4) points its diagnostics, tests and manifest at llm-kit"
-_M5 = "yaml-data-editor-kit migration (M5) points its provider and tests at llm-kit"
-_M6 = "skills-kit migration (M6) points the job emitter at llm-kit"
-_M7 = "git-kit and p4-kit migration (M7) points both runners' diagnostics at llm-kit"
 _M9 = "awesome-kit migration (M9) points orchestration diagnostics at llm-kit"
 _M10 = (
     "bootstrap standing documentation and a compatibility fixture; not a consumer "
@@ -122,27 +114,6 @@ _M10 = (
 
 #: Files that may still carry an old qualified reference. Shrinks to empty.
 ALLOWLIST: Dict[str, Entry] = {
-    # M4: workflow-kit
-    "plugins/workflow-kit/bootstrap.json": _e("M4", _LSK_REF, reason=_M4),
-    "plugins/workflow-kit/scripts/check_artifact.py": _e("M4", _LSK_INSTALL, reason=_M4),
-    "plugins/workflow-kit/scripts/openrouter_run.py": _e("M4", _LSK_INSTALL, reason=_M4),
-    "plugins/workflow-kit/workflow_kit_lib/contracts.py": _e("M4", _LSK_INSTALL, reason=_M4),
-    "tests/workflow-kit/test_check_artifact.py": _e("M4", _LSK_INSTALL, reason=_M4),
-    "tests/workflow-kit/test_contracts.py": _e("M4", _LSK_INSTALL, reason=_M4),
-    "tests/workflow-kit/test_openrouter_run.py": _e("M4", _LSK_INSTALL, reason=_M4),
-    # M5: yaml-data-editor-kit
-    "plugins/yaml-data-editor-kit/bootstrap.json": _e("M5", _CP_REF, reason=_M5),
-    "tests/yaml-data-editor-kit/test_dispatch_planner_live.py": _e(
-        "M5", _LSK_SKILL, reason=_M5
-    ),
-    # M6: skills-kit
-    "plugins/skills-kit/skills/md-domain/scripts/emit_audit_jobs.py": _e(
-        "M6", _JOB_REF, _JOB_INSTALL, reason=_M6
-    ),
-    # M7: git-kit and p4-kit
-    "plugins/git-kit/scripts/run_review_lane.py": _e("M7", _LSK_INSTALL, reason=_M7),
-    "plugins/p4-kit/scripts/run_review_lane.py": _e("M7", _LSK_INSTALL, reason=_M7),
-    "tests/git-kit/test_run_review_lane.py": _e("M7", _LSK_INSTALL, reason=_M7),
     # M9: awesome-kit
     "plugins/awesome-kit/skills/orchestrate/scripts/dispatch.py": _e(
         "M9", _LSK_REF, _LSK_INSTALL, reason=_M9
