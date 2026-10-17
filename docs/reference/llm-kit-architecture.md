@@ -197,6 +197,8 @@ Option B: llm-kit also publishes llm_scripting_kit, content_pipeline, and job_ki
 
 Legacy names remain owned and implemented by their old plugins. Once llm-kit is stable, each old plugin receives only a version bump plus README and plugin-description pointers to llm-kit. The frozen release does not import or delegate to llm_kit, and old CLIs remain unchanged. Each old plugin stays published and installable for at least two llm-kit minor versions; during that window it takes no feature changes, only fixes needed to keep it working. llm-kit never publishes the old top-level packages.
 
+*Amendment 2026-10-17 (user ruling):* stability is not a gate. The user ruled: "whether or not llm-kit is stable is absolutely irrelevant as i am the only user". The user is the only user and controls every machine, so "Once llm-kit is stable" above means "now": the pointer-only freezes and consumer migration proceed without a stability decision. Only deleting the old plugins remains the user's call.
+
 | Old surface | New surface |
 |---|---|
 | Neutral llm_scripting_kit.completion exports | llm_kit.completion |
@@ -244,6 +246,8 @@ Option A, recommended:
 8. Retire and delete old plugins only after the migration and persisted-record gates pass.
 
 An llm-kit version may ship before customer migration, but it exposes no temporary public namespace and triggers no migration before the stability gate. A generic migration runner is considered only after differential parity demonstrates reusable behavior.
+
+*Amendment 2026-10-17 (user ruling):* "stabilize" and "the stability gate" in this section are not gates. The user ruled: "whether or not llm-kit is stable is absolutely irrelevant as i am the only user". Steps 5-7 proceed without a stability decision; only step 8's deletion is the user's call.
 
 Option B restructures the private llm_kit tree to the final package boundaries before establishing differential parity; option A establishes parity before restructuring those boundaries. Both options keep the same final public namespace, freeze, consumer migration, rollback checks, and retirement gates. Option B can reduce temporary internal adapters, but parity failures span consolidation and restructuring and are therefore harder to localize. Option B is not recommended.
 

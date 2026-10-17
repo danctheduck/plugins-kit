@@ -4,13 +4,13 @@ Status: approved migration plan. llm-kit 0.1.9 was published on 2026-10-17. The
 user controls every user and machine of these plugins; there are no unknown
 external consumers. `docs/reference/llm-kit-architecture.md` controls conflicts.
 
-The user decisions that gate migration increments are:
+The one user decision in this plan is:
 
-- `[USER: stability]`: declare a published llm-kit version stable.
 - `[USER: delete]`: choose when to delete the three legacy plugins.
 
-llm-kit may be published at any time without another decision. After stability,
-each consumer migration ships as soon as its increment passes. Each consumer
+llm-kit may be published at any time without another decision, and M2-M9 are
+proceeding with no further decision. Each consumer migration ships as soon as
+its increment passes. Each consumer
 increment is self-contained and includes its own version bump.
 
 ## 1. Migration rules
@@ -155,7 +155,7 @@ do not add a shim at a legacy executable path.
 
 ## 5. Freeze releases
 
-After `[USER: stability]`, release pointer-only freezes for llm-scripting-kit,
+Release pointer-only freezes for llm-scripting-kit,
 content-pipeline-kit, and job-kit. For each provider:
 
 - bump `.claude-plugin/plugin.json` and `pyproject.toml`;
@@ -220,8 +220,8 @@ explicit allowlist reason.
 ## 8. Implementation increments
 
 1. **M1 - llm-kit publication (DONE).** llm-kit 0.1.9 was published on 2026-10-17.
-   Any llm-kit release needs no user decision; stability remains separate.
-2. **M2 - Pointer-only freeze releases.** After `[USER: stability]`, apply
+   Any llm-kit release needs no user decision.
+2. **M2 - Pointer-only freeze releases (proceeding).** Apply
    section 5, bump and test each provider, then publish all three.
 3. **M3 - Activation checks (DONE).** The maintained-reference scan is
    `tests/repo-scripts/test_maintained_references.py`; its `ALLOWLIST` names the
@@ -232,22 +232,22 @@ explicit allowlist reason.
    tripwire and rollback guard in `tests/llm-kit/test_activation_checks.py`
    (finding and evidence in its docstring). Each guard was shown red and green.
    Consumer increments extend these fixtures before their own release.
-4. **M4 - workflow-kit migration and release.** Migrate runtime, manifest,
+4. **M4 - workflow-kit migration and release (proceeding).** Migrate runtime, manifest,
    generated material, docs, tests, dependencies, Python floor, and version;
    run its suite and dependency completeness, then publish.
-5. **M5 - yaml-data-editor-kit migration.** Migrate dispatch, manifest, docs,
+5. **M5 - yaml-data-editor-kit migration (proceeding).** Migrate dispatch, manifest, docs,
    generated HTML, tests, dependencies, Python floor, and version; test it and
    keep it dev-only while `published: false`.
-6. **M6 - skills-kit migration and release.** Migrate the emitter, defaults,
+6. **M6 - skills-kit migration and release (proceeding).** Migrate the emitter, defaults,
    manifest, docs, tests, dependencies, Python floor, and version; test and publish.
-7. **M7 - git-kit and p4-kit migration and release.** Migrate the shared
+7. **M7 - git-kit and p4-kit migration and release (proceeding).** Migrate the shared
    generator, both runners, manifests, generated skills/references, tests,
    dependencies, Python floor, and both versions; run targeted suites and
    dependency completeness, then publish both together.
-8. **M8 - task-kit migration and release.** Migrate summary repair, manifest,
+8. **M8 - task-kit migration and release (proceeding).** Migrate summary repair, manifest,
    diagnostics, tests, dependencies, Python floor, and version; run task-review
    tests and dependency completeness, then publish.
-9. **M9 - awesome-kit migration and release.** Migrate orchestration runtime,
+9. **M9 - awesome-kit migration and release (proceeding).** Migrate orchestration runtime,
    defaults, manifest, references, tests, dependencies, Python floor, and version;
    run its suite and dependency completeness, then publish.
 10. **M10 - Legacy deletion.** After `[USER: delete]` and the section 7 repo
