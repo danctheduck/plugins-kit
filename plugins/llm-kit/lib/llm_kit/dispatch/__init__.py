@@ -11,6 +11,7 @@ the pacing policy that reads them is here.
 
 No root re-exports; import from the owning module (``llm_kit.dispatch.declaration``,
 ``llm_kit.dispatch.factory``, ``llm_kit.dispatch.pipeline_backends``,
+``llm_kit.dispatch.endpoint_resolver``,
 ``llm_kit.dispatch.reachability``, ``llm_kit.dispatch.seats``,
 ``llm_kit.dispatch.usage_budget``, ``llm_kit.dispatch.observer``,
 ``llm_kit.dispatch.review_lane``, ``llm_kit.dispatch.endpoint_profile``).

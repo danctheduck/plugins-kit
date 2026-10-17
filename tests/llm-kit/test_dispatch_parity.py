@@ -1466,6 +1466,84 @@ def test_create_backend_and_transport_backend(par):
     assert got["transport_bad_model"][3] is not None  # the seam's ModelResolveError is chained
 
 
+def test_endpoint_resolver_over_the_configured_factory_equals_create_backend(par):
+    """``EndpointResolver(ConfiguredBackendFactory())`` selects exactly what legacy ``create_backend`` does.
+
+    The resolver is jobs' seam over an injected ``BackendFactory``: same registry
+    resolution, model, effort and capability choices, same constructed backends,
+    same errors, but built through ``factory.create(BackendSpec)``.
+    """
+
+    def scenario(ctx):
+        s = ctx.side
+        config = {"endpoints": {
+            "h-claude": {"harness": "claude", "model": "m-c", "effort": "high"},
+            "h-codex": {"harness": "codex", "model": "m-x"},
+            "h-oc": {"harness": "OpenCode", "model": "m-o", "effort": "low"},
+            "h-bad": {"harness": "zed", "model": "m-z"},
+            "h-nomodel": {"harness": "claude"},
+            "h-badeffort": {"harness": "claude", "model": "m", "effort": " "},
+        }}
+        resolved = {
+            "t-entry": {"name": "t-entry", "base_url": "http://x.invalid/v1",
+                        "request_defaults": {"reasoning_effort": "high"}, "effort_style": "top-level",
+                        "effort_style_source": "endpoint"},
+            "t-plain": {"name": "t-plain", "base_url": "http://x.invalid/v1", "request_defaults": {}},
+        }
+
+        def resolve_endpoint(name, **kw):
+            if name not in resolved:
+                raise s.models.EndpointResolveError(f"no endpoint {name!r}")
+            return dict(resolved[name])
+
+        def resolve_model(model, *, cheap, config, endpoint, project_root):
+            if model == "bogus":
+                raise s.models.ModelResolveError("no such model")
+            return f"resolved:{model}:{cheap}:{endpoint}"
+
+        modules = [s.factory]
+        if s.name == "final":
+            modules.append(importlib.import_module("llm_kit.dispatch.endpoint_resolver"))
+        for module in modules:
+            for attr, value in (
+                ("load_model_config", lambda project_root=None: config),
+                ("default_endpoint_name", lambda cfg: "h-claude"),
+                ("discover_model_entries", lambda **kw: {"t-entry": T(s, "t-entry"), "t-plain": T(s, "t-plain")}),
+                ("resolve_endpoint", resolve_endpoint),
+                ("resolve_model", resolve_model),
+            ):
+                if hasattr(module, attr):
+                    ctx.patch(module, attr, value)
+        if s.name == "legacy":
+            build = s.factory.create_backend
+        else:
+            from llm_kit.dispatch.endpoint_resolver import EndpointResolver  # noqa: PLC0415
+            from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory  # noqa: PLC0415
+
+            build = EndpointResolver(ConfiguredBackendFactory())
+        out = {}
+        for label, call in (
+            ("default", lambda: build()),
+            ("claude", lambda: build("h-claude", model="override")),
+            ("codex", lambda: build("h-codex", project_root="/p")),
+            ("opencode", lambda: build("h-oc")),
+            ("bad_harness", lambda: build("h-bad")),
+            ("no_model", lambda: build("h-nomodel")),
+            ("bad_effort", lambda: build("h-badeffort")),
+            ("transport", lambda: build("t-entry", cheap=True, project_root="/q")),
+            ("transport_plain", lambda: build("t-plain")),
+            ("unknown", lambda: build("nope")),
+            ("bad_model", lambda: build("t-entry", model="bogus")),
+        ):
+            out[label] = outcome(call)
+        return out
+
+    got = view(ok(par(scenario)))
+    assert got["codex"][1]["backend"]["__type__"] == "CodexCliBackend"
+    assert got["transport"][1]["backend"]["__type__"] == "OpenRouterBackend"
+    assert got["bad_harness"][0] == got["no_model"][0] == got["unknown"][0] == got["bad_model"][0] == "raise"
+
+
 # --------------------------------------------------------------------------
 # review_lane
 # --------------------------------------------------------------------------

@@ -325,7 +325,12 @@ scope decision from the I4 join is recorded here:
   up front and cancels the remainder on the first failure, while the pipeline
   `execution/scheduler.py` `run_graph` admits a unit only into a slot that has
   freed. Both stay unmoved in `_copy`, and `llm_kit.execution` holds only the
-  probes, adapters and values the two products demonstrably share. The
-  question is revisited at I7, when both runners are built and the two
-  admission semantics can be compared on a real runner rather than inferred.
+  probes, adapters and values the two products demonstrably share.
+- The pool and `run_graph` question is closed at I7, with the decision
+  do-not-unify. Both runners were built and the two admission semantics were
+  compared on the real runners. Evidence: a shared kernel exists, but after
+  an unexpected failure the jobs pool started another job in 59 of 60 trials,
+  against 5 of 60 for `run_graph`. Unifying would need a scheduler protocol
+  in `llm_kit.execution` and would tighten the jobs failure stop. `llm_kit.jobs`
+  keeps its own pool and the pipeline keeps `run_graph`.
 

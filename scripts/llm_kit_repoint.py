@@ -32,8 +32,10 @@ other code; a slice that delegates to several final modules lists them all in
 ``final``). A shim of a plain module replaces itself in ``sys.modules`` with
 its final module, so the copy name and the final name are one module object:
 a test that patches, fakes or probes the copy name acts on the final code and
-a loader that names the copy still finds what a test installed. A shim of a
-package ``__init__`` imports the final package (the two shimmed packages bind no
+a loader that names the copy still finds what a test installed. A package
+shim row may list ``dropped_names``: legacy names the final package
+deliberately no longer binds, left out of the shim's imports and ``__all__``.
+A shim of a package ``__init__`` imports the final package (the two shimmed packages bind no
 names of their own). A test string that must read the final file instead of
 the shim is edited by a ``test_text_edits`` row.
 
@@ -857,7 +859,8 @@ def _toplevel_names(tree: ast.Module) -> list[str]:
                 visit(node.finalbody)
 
     visit(tree.body)
-    return sorted(n for n in names if not (n.startswith("__") and n.endswith("__")))
+    return sorted(n for n in names
+                  if n == "__version__" or not (n.startswith("__") and n.endswith("__")))
 
 
 def _literal_all(tree: ast.Module) -> Optional[list]:
@@ -910,6 +913,16 @@ def render_shim(legacy_path: str, row: Mapping, legacy_form: bytes,
         ]
         return ("\n".join(lines) + "\n").encode("ascii")
     names, all_list = shim_names(legacy_form, own_submodules)
+    # Names the final package deliberately no longer binds (a declared
+    # difference named by the row): the shim neither imports nor exports them.
+    dropped = set(row.get("dropped_names", ()))
+    names = [n for n in names if n not in dropped]
+    if all_list is not None:
+        all_list = [n for n in all_list if n not in dropped]
+    lazy_getattr = any(
+        isinstance(node, ast.FunctionDef) and node.name == "__getattr__"
+        for node in ast.parse(legacy_form.decode("utf-8")).body
+    )
     lines += ["from __future__ import annotations", ""]
     if names:
         lines.append(f"from {final} import (")
@@ -917,6 +930,10 @@ def render_shim(legacy_path: str, row: Mapping, legacy_form: bytes,
         lines.append(")")
     else:
         lines.append(f"import {final}  # noqa: F401 -- the legacy module bound no names")
+    if lazy_getattr:
+        # The legacy package resolves a lazy re-export through a module-level
+        # ``__getattr__``; the shim forwards to the final package's.
+        lines += ["", f"from {final} import __getattr__  # noqa: E402,F401"]
     if all_list is not None:
         lines += ["", "__all__ = ["] + [f"    {n!r}," for n in all_list] + ["]"]
     return ("\n".join(lines) + "\n").encode("ascii")
@@ -1009,6 +1026,8 @@ def module_table(mapping: Mapping, files: Mapping[str, bytes]) -> dict[str, dict
         }
         if "final" in prior:
             table[row["legacy"]]["final"] = prior["final"]
+        if "dropped_names" in prior:
+            table[row["legacy"]]["dropped_names"] = prior["dropped_names"]
     return table
 
 

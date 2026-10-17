@@ -1,0 +1,70 @@
+{
+  "sqlite_master": [
+    {
+      "name": "schema_version",
+      "sql": "CREATE TABLE schema_version (version INTEGER NOT NULL)",
+      "tbl_name": "schema_version",
+      "type": "table"
+    },
+    {
+      "name": "policy",
+      "sql": "CREATE TABLE policy (\n           id           INTEGER PRIMARY KEY CHECK (id = 1),\n           run_id       TEXT    NOT NULL,\n           cap_nano     INTEGER NOT NULL,\n           nano_per_usd INTEGER NOT NULL,\n           created_at   TEXT    NOT NULL,\n           meta         TEXT    NOT NULL\n       )",
+      "tbl_name": "policy",
+      "type": "table"
+    },
+    {
+      "name": "halt",
+      "sql": "CREATE TABLE halt (\n           id      INTEGER PRIMARY KEY CHECK (id = 1),\n           halted  INTEGER NOT NULL,\n           reason  TEXT,\n           detail  TEXT,\n           since   TEXT\n       )",
+      "tbl_name": "halt",
+      "type": "table"
+    },
+    {
+      "name": "halt_history",
+      "sql": "CREATE TABLE halt_history (\n           seq    INTEGER PRIMARY KEY AUTOINCREMENT,\n           action TEXT    NOT NULL,\n           reason TEXT,\n           detail TEXT,\n           forced INTEGER NOT NULL DEFAULT 0,\n           at     TEXT    NOT NULL\n       )",
+      "tbl_name": "halt_history",
+      "type": "table"
+    },
+    {
+      "name": "sqlite_sequence",
+      "sql": "CREATE TABLE sqlite_sequence(name,seq)",
+      "tbl_name": "sqlite_sequence",
+      "type": "table"
+    },
+    {
+      "name": "ledger",
+      "sql": "CREATE TABLE ledger (\n           id               TEXT    PRIMARY KEY,\n           generation       INTEGER NOT NULL,\n           state            TEXT    NOT NULL,\n           reserved         INTEGER NOT NULL,\n           settled          INTEGER,\n           scope            TEXT    NOT NULL DEFAULT '',\n           identifier       TEXT    NOT NULL DEFAULT '',\n           model            TEXT    NOT NULL DEFAULT '',\n           created_at       TEXT    NOT NULL,\n           lease_expires_at REAL,\n           resolved_at      TEXT\n       )",
+      "tbl_name": "ledger",
+      "type": "table"
+    },
+    {
+      "name": "sqlite_autoindex_ledger_1",
+      "sql": null,
+      "tbl_name": "ledger",
+      "type": "index"
+    },
+    {
+      "name": "ledger_state",
+      "sql": "CREATE INDEX ledger_state ON ledger (state)",
+      "tbl_name": "ledger",
+      "type": "index"
+    },
+    {
+      "name": "ledger_lease",
+      "sql": "CREATE INDEX ledger_lease ON ledger (lease_expires_at)",
+      "tbl_name": "ledger",
+      "type": "index"
+    },
+    {
+      "name": "leaks",
+      "sql": "CREATE TABLE leaks (\n           seq           INTEGER PRIMARY KEY AUTOINCREMENT,\n           ledger_id     TEXT    NOT NULL,\n           reported_cost INTEGER NOT NULL,\n           presented_at  TEXT    NOT NULL,\n           generation    INTEGER NOT NULL\n       )",
+      "tbl_name": "leaks",
+      "type": "table"
+    },
+    {
+      "name": "leaks_ledger_id",
+      "sql": "CREATE INDEX leaks_ledger_id ON leaks (ledger_id)",
+      "tbl_name": "leaks",
+      "type": "index"
+    }
+  ]
+}

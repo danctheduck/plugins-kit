@@ -265,3 +265,53 @@ def test_text_edit_fails_when_old_absent(gen):
 def test_text_edit_ignores_other_files(gen):
     text, changed = gen.apply_text_edits("nothing\n", "tests/other.py", _edit_map(None))
     assert (text, changed) == ("nothing\n", False)
+
+
+# --------------------------------------------------------------------------
+# package shims: dropped names, __version__, lazy __getattr__
+# --------------------------------------------------------------------------
+
+_PKG_SRC = (
+    b'__version__ = "1.0"\n'
+    b"__all__ = ['kept', 'gone']\n"
+    b"def kept(): return 1\n"
+    b"def gone(): return 2\n"
+    b"def __getattr__(name):\n    raise AttributeError(name)\n"
+)
+_PKG_PATH = "plugins/fake-kit/lib/fakepkg/__init__.py"
+
+
+def _pkg_shim(gen, **row_extra) -> str:
+    row = {"final": "llm_kit.final", **row_extra}
+    return gen.render_shim(_PKG_PATH, row, _PKG_SRC, [], True).decode("ascii")
+
+
+def test_package_shim_reexports_version_and_forwards_a_lazy_getattr(gen):
+    text = _pkg_shim(gen)
+    assert "    __version__,\n" in text
+    assert "from llm_kit.final import __getattr__" in text
+
+
+def test_package_shim_without_getattr_forwards_none(gen):
+    src = b"def kept(): return 1\n"
+    text = gen.render_shim(_PKG_PATH, {"final": "llm_kit.final"}, src, [], True).decode("ascii")
+    assert "__getattr__" not in text
+
+
+def test_package_shim_leaves_dropped_names_out_of_imports_and_all(gen):
+    text = _pkg_shim(gen, dropped_names=["gone"])
+    assert "    kept,\n" in text and "    gone,\n" not in text
+    assert "'kept'," in text and "'gone'," not in text
+
+
+def test_package_shim_keeps_a_name_the_row_does_not_drop(gen):
+    text = _pkg_shim(gen, dropped_names=[])
+    assert "    gone,\n" in text and "'gone'," in text
+
+
+def test_module_table_preserves_dropped_names(gen, repo):
+    mapping = _mapping()
+    mapping["modules"][LEGACY_MOD]["legacy_sha256"] = gen._sha(THING_SRC)
+    mapping["modules"][LEGACY_MOD]["dropped_names"] = ["gone"]
+    table = gen.module_table(mapping, {COPY_MOD: THING_SRC})
+    assert table[LEGACY_MOD]["dropped_names"] == ["gone"]

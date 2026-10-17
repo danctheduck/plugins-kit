@@ -75,7 +75,7 @@
     {
       "path": "tests/job-kit/test_events.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): events.py now delegates its probe and make_event call to llm_kit.execution; that is the one llm_kit edge it may hold besides bootstrap_lib.",
+      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): events.py now delegates its probe and make_event call to llm_kit.execution; that is the one llm_kit edge it may hold besides bootstrap_lib. Text edits (repoint-map test_text_edits): the import-surface scans read the final llm_kit.jobs files, not the shims at the copy path.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -111,7 +111,7 @@
     {
       "path": "tests/job-kit/test_interrupts_contract_probe.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for. job-kit now reaches the contract through the shared adapter (_adapter().<call>); the probe table must still name every call job-kit makes.",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for. job-kit now reaches the contract through the shared adapter (_adapter().<call>); the probe table must still name every call job-kit makes. Text edits (repoint-map test_text_edits): the probe-table source scan reads the final llm_kit.jobs.interrupts, not the shim at the copy path.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -189,12 +189,20 @@
     {
       "path": "tests/job-kit/test_model.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit. Text edits (repoint-map test_text_edits): the SharedLibTooOldError import is dropped with the removed skew probes; the test that asserts the class is a declared difference.",
       "rewrite_classes": [
-        "import"
+        "declared-skip",
+        "import",
+        "text-edit"
       ],
       "collection_count": 66,
-      "baseline_failures": []
+      "baseline_failures": [],
+      "declared_differences": {
+        "job-kit/test_model.py::test_workspace_statuses_have_one_definition_and_shared_error_is_public": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        }
+      }
     },
     {
       "path": "tests/job-kit/test_reservations.py",
@@ -232,7 +240,7 @@
     {
       "path": "tests/job-kit/test_select.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes.",
+      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes. Declared differences: the shared-lib skew-probe tests, removed with the probes (I7).",
       "rewrite_classes": [
         "declared-skip",
         "import",
@@ -249,6 +257,26 @@
         "job-kit/test_select.py::test_readme_version_floor_matches_the_declared_frontier": {
           "mirror_status": "skipped",
           "reason": "Reads plugins/job-kit/README.md, which is not copied; re-pointed against llm-kit's README in I9."
+        },
+        "job-kit/test_select.py::test_absent_package_message_differs_from_too_old": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "job-kit/test_select.py::test_import_raises_shared_lib_too_old_when_arm_call_is_missing": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "job-kit/test_select.py::test_import_raises_shared_lib_too_old_when_describe_is_missing": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "job-kit/test_select.py::test_import_raises_shared_lib_too_old_when_frontier_symbol_missing": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "job-kit/test_select.py::test_import_raises_shared_lib_too_old_when_haltError_lacks_retry_after": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
         }
       }
     },

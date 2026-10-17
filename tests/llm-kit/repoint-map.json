@@ -608,9 +608,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/budget.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/budget.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "1f2100340466ca53e0ecb74b9cb854663c8e5603e7ec028ef21a77cf80790e8c",
-      "copy_sha256": "703be294540a6d4ab510c038dc196de812a4cef3e068659f3a887679889e6a1d"
+      "copy_sha256": "af63e52f48a2ec44fdfee7738c0ba0060cec2f786ee854e733a894a78bbe9748",
+      "final": "llm_kit.pipeline.runtime.budget"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/run.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/run.py",
@@ -822,15 +823,17 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/__init__.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "b87c4e11712aaee2049610c79dec4304e929e44be1fcd6111f5cfa4c1df885df",
-      "copy_sha256": "eb532888bc420ec64e7888fbb6562ae5bc093c7d6d8a5041992c0cb581b0df1d"
+      "copy_sha256": "bdb48ecf920848f7c6cc486b58656a2a1d9be76936f6d21bfb894749af5d1ebf",
+      "final": "llm_kit.pipeline.runtime"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/backends.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/backends.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "4634758c4a479f57c6abaefd0cfe91073211c12acf151a4b4aafdfe289b7f265",
-      "copy_sha256": "f8a0a4cf1968f1cd6d1f887d26c802970d3f0d93580414e8fd57a0bc8a4edb18"
+      "copy_sha256": "072363090925187f14aa1f98d24b5463eee46a597dafc77175f171af78cb4df7",
+      "final": "llm_kit.pipeline.runtime.backends"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/convergence.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/convergence.py",
@@ -841,28 +844,31 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/gate.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/gate.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "e2d74163248edefeeb127c84335a444f1eaccd8eba4aefe5f1c98906b7232628",
-      "copy_sha256": "d4fdda2ae87d500fef05bb87d9e62cfec253645b4b7fa4132f9039bfc21263b4"
+      "copy_sha256": "2ca24d86be794ccbaeeaa917168a1b700ebd9bf4246af1c0cde4902c9aca9590",
+      "final": "llm_kit.pipeline.runtime.gate"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/platform.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "ca0ce0f762d3303373836b6bb2a9d085f8dbd2892ec8ceac1d4494951d9cc184",
-      "copy_sha256": "330f870700ffc2f7ffa01c0a5da0f568dddacb4a192121fbed293771b3fcfc0d"
+      "copy_sha256": "5046b0aa0f77a5640ab110dd8f88ff1ebf8800ca2a21d47db0b6a6a9eb220ac3",
+      "final": "llm_kit.pipeline.runtime.platform"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/spend_ledger.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/spend_ledger.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "05e3570a84a001528f13308718791ca2fe432139a60ccfa478b2aa3b899dca9b",
-      "copy_sha256": "dfef25d304ac5a27a19de40cbdbfde31a7d391b6060ded18c286c43c31ca05b1",
-      "final": "llm_kit.storage"
+      "copy_sha256": "117e2327214d2cd504ca3ede2cf73ac9ecd548000107c7d0dfd512a6706474b2",
+      "final": "llm_kit.pipeline.runtime.spend_ledger"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/yaml_extract.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/yaml_extract.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "7dcf97fb9e02642676b109c7615e80fdda1b3a4324a0ae33563a8655bcf8160a",
-      "copy_sha256": "7dcf97fb9e02642676b109c7615e80fdda1b3a4324a0ae33563a8655bcf8160a"
+      "copy_sha256": "bf96d74881007e3a3e0620e6b7aef2760475eb40bb73deacc4bb6a8567e09b87",
+      "final": "llm_kit.pipeline.runtime.yaml_extract"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/__init__.py",
@@ -1083,9 +1089,19 @@
     },
     "plugins/job-kit/lib/job_kit/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/__init__.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "d50e7df642480a3ff62cdf03bbd15bfbde7b03b0ec8c5d63f20307ab52654b1d",
-      "copy_sha256": "aa773488d27fd1bbb0aeb986be2e85294301183f5d39dca04beac4d6e48ca9df"
+      "copy_sha256": "67c6e2985a511d99ef981dd3995c918d7d60416afd5bffdf9120593570bb5dc4",
+      "final": "llm_kit.jobs",
+      "dropped_names": [
+        "EXIT_BOOTSTRAP_MISSING",
+        "SharedLibTooOldError",
+        "_TOP_LEVEL_SHARED_LIBS",
+        "_sys",
+        "is_provisioned",
+        "llm_scripting_kit",
+        "require_bootstrap"
+      ]
     },
     "plugins/job-kit/lib/job_kit/cli.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/cli.py",
@@ -1095,49 +1111,52 @@
     },
     "plugins/job-kit/lib/job_kit/events.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/events.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "8dc175a8eba9558e35238a201f1d93317e275cea82744065022133ab2d443ae0",
-      "copy_sha256": "792d19f2c61508b9ad0fa974bd6935edeecae153d18e94740bd2e74ab97087b3",
-      "final": "llm_kit.execution"
+      "copy_sha256": "fe1410c8f1990e0c5b7f0a63eb115791ffd78a6fd8caa8f49631121cbaeb556c",
+      "final": "llm_kit.jobs.events"
     },
     "plugins/job-kit/lib/job_kit/interrupts.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/interrupts.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "21e9d117c2e1c6a3b69d0e167f5992c7101f5352c10e4e77ab19871b91ba4d74",
-      "copy_sha256": "0abae3d801e57e8b1a67e7f3c9d6f93e04288d80de173e576bd258e0a4c8d34f",
-      "final": "llm_kit.execution"
+      "copy_sha256": "08daf9385fd999ef08d0cfe372e893362b1dbed7e95b3f730f3332536342607f",
+      "final": "llm_kit.jobs.interrupts"
     },
     "plugins/job-kit/lib/job_kit/model.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/model.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "6dd4268d7a781966bfc0752f1416cee138628ea06a6a543003345242f947a483",
-      "copy_sha256": "0e444574d6b4a32ec45608c868c21833b78c80255d231b7dedfc676ce9e52aeb",
-      "final": "llm_kit.execution"
+      "copy_sha256": "92c487db15c0f67313b3b65f9433bc9e67168b09118397dcfe6bf3259dc846de",
+      "final": "llm_kit.jobs.model"
     },
     "plugins/job-kit/lib/job_kit/run.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/run.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "6c9bffe3809f5bc0792031a8edfe0b3725f6d6b8dd5ec362e0fb10b4dcda03ff",
-      "copy_sha256": "faefbed538767133f723c59830131acd8f47d99e0a1de43c89e965ce7fdbd64b"
+      "copy_sha256": "d4cda7b6a858392b2c89d086ca7cf49a8867e6f2085b175058fc4de7bf7da483",
+      "final": "llm_kit.jobs.run"
     },
     "plugins/job-kit/lib/job_kit/select.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/select.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "7f2bb0a839ce7acc284e53ea1ba2b51cfb1cb967768825f5171d56020806b008",
-      "copy_sha256": "548312447d17c85a0ebffa09da879f782491b1ff13722e1bf30978d36867dc68"
+      "copy_sha256": "86cf8a90a05b10bf4dd529375840c9f843725dc84605edf6ee10f2bdf422ab73",
+      "final": "llm_kit.jobs.select"
     },
     "plugins/job-kit/lib/job_kit/store.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/store.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "9e5b04c8057f007c178f4bee98a7c22da2c3f6a70de4ff66ace3961849770795",
-      "copy_sha256": "3c71cd363fac40ffe5501ec19365c78ed21840aecb14880da016ae2fe86492fc",
-      "final": "llm_kit.storage"
+      "copy_sha256": "fca14c751b92fc0b8553a8908b9974382aadd8488fd883de8ebdf4bd52462a69",
+      "final": "llm_kit.jobs.store"
     },
     "plugins/job-kit/lib/job_kit/workspace.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/workspace.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "ec89f6ab102b8c374bdecb32bef1e0dfdac452b32a975a8b37f2e8a80b9bedb1",
-      "copy_sha256": "ec89f6ab102b8c374bdecb32bef1e0dfdac452b32a975a8b37f2e8a80b9bedb1"
+      "copy_sha256": "055d28116ffd0d980d436ebd01a49db1b736becd7bb8694ce9f9d2796b7c09d3",
+      "final": "llm_kit.jobs.workspace"
     }
   },
   "test_text_edits": [
@@ -1295,6 +1314,112 @@
       "old": "/ \"plugins\" / \"llm-kit\" / \"lib\" / \"llm_kit\" / \"_copy\" / \"llm_scripting_kit\" / \"review_lane.py\"",
       "new": "/ \"plugins\" / \"llm-kit\" / \"lib\" / \"llm_kit\" / \"dispatch\" / \"review_lane.py\"",
       "reason": "review_lane moved to llm_kit.dispatch.review_lane; the no-silent-fallback source scan reads the final file, not the shim at the copy path."
+    },
+    {
+      "file": "tests/job-kit/test_model.py",
+      "old": "from llm_kit._copy.job_kit import SharedLibTooOldError\n",
+      "new": "",
+      "reason": "SharedLibTooOldError is removed with the shared-lib skew probes (neutral types are internal to llm-kit); the import is dropped and the one test that asserts the class is declared skipped."
+    },
+    {
+      "file": "tests/job-kit/test_events.py",
+      "old": "/ \"llm_kit\" / \"_copy\" / \"job_kit\"",
+      "new": "/ \"llm_kit\" / \"jobs\"",
+      "reason": "The job-kit modules moved to llm_kit.jobs; the import-surface scans read the final events.py and store.py, not the one-line shims at the copy path."
+    },
+    {
+      "file": "tests/job-kit/test_interrupts_contract_probe.py",
+      "old": "    / \"_copy\"\n    / \"job_kit\"\n    / \"interrupts.py\"",
+      "new": "    / \"jobs\"\n    / \"interrupts.py\"",
+      "reason": "interrupts moved to llm_kit.jobs.interrupts; the probe-table source scan reads the final file, not the shim at the copy path."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
+      "old": "elif module == \"llm_kit._copy.content_pipeline.llm\" or module.startswith(\n                \"llm_kit._copy.content_pipeline.llm.\"\n            ):",
+      "new": "elif module == \"llm_kit.pipeline.runtime\" or module.startswith(\n                \"llm_kit.pipeline.runtime.\"\n            ):",
+      "reason": "The llm package moved to llm_kit.pipeline.runtime; the import-scope scan reads the final budget.py, so the allowed sibling prefix is the final package."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
+      "old": "assert \"may import ``llm``\" in doc",
+      "new": "assert \"may import ``platform``\" in doc\n        assert \"``spend_ledger``\" in doc",
+      "reason": "The final budget.py states the same one-way rule in terms of the modules it imports (platform and spend_ledger), because the llm package is now llm_kit.pipeline.runtime."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_platform.py",
+      "old": "    pkg = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    completion = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion\")\n    halt_mod = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion.halt\")\n    halt_mod.classify_openai_exception = classify_openai_exception\n    completion.halt = halt_mod\n    pkg.completion = completion\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", pkg)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion\", completion)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion.halt\", halt_mod)\n",
+      "new": "    halt_mod = types.ModuleType(\"llm_kit.completion.halt\")\n    halt_mod.classify_openai_exception = classify_openai_exception\n    monkeypatch.setitem(sys.modules, \"llm_kit.completion.halt\", halt_mod)\n",
+      "reason": "The pipeline classifier delegates to llm_kit.completion.halt; the fake classifier is installed under that module name, not under a shared-lib package that no longer sits between them."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    class _CompletionOptions:\n        def __init__(self, **kwargs):\n            self.__dict__.update(kwargs)\n\n    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    completion = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion\")\n    completion.BackendOptions = _CompletionOptions\n    completion.OpenRouterBackend = _Delegate\n    package.completion = completion\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion\", completion)\n\n    response = OpenRouterBackend().complete(\"s\", \"u\", model=\"m\")\n",
+      "new": "    from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory\n\n    factory = ConfiguredBackendFactory(classes={\"openrouter\": _Delegate})\n\n    response = OpenRouterBackend(factory=factory).complete(\"s\", \"u\", model=\"m\")\n",
+      "reason": "The wrapper builds its delegate through an injected BackendFactory; the test injects the delegate class there instead of faking a shared-lib completion package in sys.modules."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    pkg = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    completion = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion\")\n    completion.OpenRouterBackend = _Counting\n    completion.ClaudeCliBackend = _Counting\n    pkg.completion = completion\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", pkg)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion\", completion)\n",
+      "new": "    from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory\n\n    factory = ConfiguredBackendFactory(\n        classes={\"openrouter\": _Counting, \"claude-cli\": _Counting}\n    )\n    # A wrapper given no factory (route() builds such wrappers) takes the\n    # default one; point its class lookup at the counting classes so the\n    # routing test still observes a build.\n    monkeypatch.setattr(\"llm_kit.dispatch.pipeline_backends._default_class\", factory._class_for)\n    return factory\n",
+      "reason": "Delegate classes are injected through ConfiguredBackendFactory(classes=...) and returned to the tests that pass it to a wrapper; the default class lookup is pointed at the same table for the routing test, which builds wrappers without a factory."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    _install_counting_completion(monkeypatch, built, built_lock)\n\n    n_threads = 24\n    backend = backend_cls()\n",
+      "new": "    factory = _install_counting_completion(monkeypatch, built, built_lock)\n\n    n_threads = 24\n    backend = backend_cls(factory=factory)\n",
+      "reason": "The wrapper under test receives the counting factory."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    _install_counting_completion(monkeypatch, built, threading.Lock())\n    backend = OpenRouterBackend()\n",
+      "new": "    factory = _install_counting_completion(monkeypatch, built, threading.Lock())\n    backend = OpenRouterBackend(factory=factory)\n",
+      "reason": "The wrapper under test receives the counting factory."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    completion = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion\")\n    completion.OpencodeCliBackend = _Delegate\n    package.completion = completion\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion\", completion)\n\n    runner = object()\n    backend = OpencodeCliBackend(\n        default_timeout_s=17.0, argv_prefix=(\"opencode\",), runner=runner\n    )\n",
+      "new": "    from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory\n\n    runner = object()\n    backend = OpencodeCliBackend(\n        default_timeout_s=17.0, argv_prefix=(\"opencode\",), runner=runner,\n        factory=ConfiguredBackendFactory(classes={\"opencode-cli\": _Delegate}),\n    )\n",
+      "reason": "The delegate class is injected through the wrapper's factory; the constructor arguments it receives are asserted unchanged."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    package.declaration = declaration\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.declaration\", declaration)\n    return declaration\n",
+      "new": "    monkeypatch.setattr(\"llm_kit.pipeline.runtime.backends._declaration_module\", lambda: declaration)\n    return declaration\n",
+      "reason": "The runtime reaches the declaration module only through the named seam backends._declaration_module (as the contract-aware fake in this file already does); the fake is installed there."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    import sys\n    import types as _types\n\n    declaration = _types.ModuleType(\"llm_kit._copy.llm_scripting_kit.declaration\")\n    declaration.describe = _describe\n    declaration.run = lambda *a, **kw: None\n    declaration.RunRequest = object\n    declaration.NoUsableRoutingTarget = RuntimeError\n    declaration.CALLER_PROCESS = \"process\"\n    package = _types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    package.declaration = declaration\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.declaration\", declaration)\n",
+      "new": "    import types as _types\n\n    declaration = _types.ModuleType(\"llm_kit.dispatch.declaration\")\n    declaration.describe = _describe\n    declaration.run = lambda *a, **kw: None\n    declaration.RunRequest = object\n    declaration.NoUsableRoutingTarget = RuntimeError\n    declaration.CALLER_PROCESS = \"process\"\n    monkeypatch.setattr(\"llm_kit.pipeline.runtime.backends._declaration_module\", lambda: declaration)\n",
+      "reason": "The runtime reaches the declaration module only through the named seam backends._declaration_module (as the contract-aware fake in this file already does); the fake is installed there."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
+      "old": "    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    package.declaration = declaration\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.declaration\", declaration)\n",
+      "new": "    monkeypatch.setattr(\"llm_kit.pipeline.runtime.backends._declaration_module\", lambda: declaration)\n",
+      "reason": "The runtime reaches the declaration module only through the named seam backends._declaration_module (as the contract-aware fake in this file already does); the fake is installed there.",
+      "count": 2
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
+      "old": "types.ModuleType(\"llm_kit._copy.llm_scripting_kit.model_endpoints\")",
+      "new": "types.ModuleType(\"llm_kit.registry.model_endpoints\")",
+      "reason": "The runtime resolves the registry entry from llm_kit.registry.model_endpoints; the fake registry module carries that name.",
+      "count": 2
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
+      "old": "monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.model_endpoints\", fake)",
+      "new": "monkeypatch.setitem(sys.modules, \"llm_kit.registry.model_endpoints\", fake)",
+      "reason": "The fake registry module is installed under llm_kit.registry.model_endpoints.",
+      "count": 2
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_run_cli.py",
+      "old": "    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    package.declaration = declaration\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.declaration\", declaration)\n",
+      "new": "    monkeypatch.setattr(\"llm_kit.pipeline.runtime.backends._declaration_module\", lambda: declaration)\n",
+      "reason": "The runtime reaches the declaration module only through the named seam backends._declaration_module (as the contract-aware fake in this file already does); the fake is installed there.",
+      "count": 2
     }
   ]
 }

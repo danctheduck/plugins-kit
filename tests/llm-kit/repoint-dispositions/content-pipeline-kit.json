@@ -48,13 +48,28 @@
     {
       "path": "tests/content-pipeline-kit/test_backpressure_classifier_seam.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
+      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Declared differences: the absent-lib and stale-lib classifier tests, removed with the probes (I7).",
       "rewrite_classes": [
+        "declared-skip",
         "import",
         "module-string"
       ],
       "collection_count": 3,
-      "baseline_failures": []
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_backpressure_classifier_seam.py::test_absent_lib_warns_with_install_command": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_backpressure_classifier_seam.py::test_too_old_lib_warns_with_update_command_and_floor": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_backpressure_classifier_seam.py::test_warns_once_per_state": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        }
+      }
     },
     {
       "path": "tests/content-pipeline-kit/test_call_routing.py",
@@ -99,11 +114,12 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; prose mentions left unchanged.",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; prose mentions left unchanged. Text edits (repoint-map test_text_edits): the import-scope scan and the docstring rule name the final package llm_kit.pipeline.runtime.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "prose-kept"
+        "prose-kept",
+        "text-edit"
       ],
       "collection_count": 24,
       "baseline_failures": []
@@ -453,12 +469,14 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_backends.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; prose mentions left unchanged.",
+      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; prose mentions left unchanged. Text edits (repoint-map test_text_edits): delegate classes are injected through ConfiguredBackendFactory(classes=...) and the declaration fake is installed at the named seam backends._declaration_module; the stale-lib tests are declared differences (I7).",
       "rewrite_classes": [
+        "declared-skip",
         "import",
         "module-string",
         "path-plugin-dir",
-        "prose-kept"
+        "prose-kept",
+        "text-edit"
       ],
       "collection_count": 82,
       "baseline_failures": [],
@@ -472,6 +490,30 @@
           "mirror_status": "skipped",
           "injected": false,
           "reason": "Needs llm_scripting_kit to be unimportable; the quarantine ships it beside content_pipeline, so the test skips itself until the final layout (I9)."
+        },
+        "content-pipeline-kit/test_llm_backends.py::test_resolve_declaration_stale_lib_names_the_floor": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_backends.py::test_stale_declaration_lib_message_names_the_update_command": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_backends.py::test_old_lsk_options_refuse_contract": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_backends.py::test_old_lsk_contract_call_refuses_before_building_a_delegate": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_backends.py::test_no_contract_call_works_against_an_lsk_without_the_field": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_backends.py::test_route_contract_refuses_a_stale_shared_lib": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
         }
       }
     },
@@ -498,22 +540,35 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit. Text edits (repoint-map test_text_edits): the declaration fake is installed at the named seam and the fake registry module is installed as llm_kit.registry.model_endpoints; the effort-seam skew tests are declared differences (I7).",
       "rewrite_classes": [
+        "declared-skip",
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 96,
-      "baseline_failures": []
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_llm_model_endpoint.py::test_effort_seam_is_absent_against_an_older_shared_lib": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_model_endpoint.py::test_effort_seam_is_absent_without_the_shared_lib": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        }
+      }
     },
     {
       "path": "tests/content-pipeline-kit/test_llm_platform.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): the fake halt classifier is installed under llm_kit.completion.halt, the module the pipeline classifier delegates to.",
       "rewrite_classes": [
         "import",
-        "module-string"
+        "module-string",
+        "text-edit"
       ],
       "collection_count": 79,
       "baseline_failures": []
@@ -588,14 +643,45 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_structured_generation.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit. Declared differences: the contract-probe skew tests, removed with the probes (I7).",
       "rewrite_classes": [
+        "declared-skip",
         "import",
         "module-string",
         "path-plugin-dir"
       ],
       "collection_count": 48,
-      "baseline_failures": []
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_llm_structured_generation.py::test_contract_probe_accepts_a_complete_fake": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_structured_generation.py::test_contract_probe_absent_message_says_install": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_structured_generation.py::test_contract_probe_stale_when_symbol_missing": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_structured_generation.py::test_contract_probe_stale_when_options_field_missing": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_structured_generation.py::test_contract_probe_stale_message_says_update": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_structured_generation.py::test_contract_call_refuses_before_dispatch_without_the_shared_lib": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_structured_generation.py::test_output_contract_reexport_diagnoses_an_absent_shared_lib": {
+          "mirror_status": "skipped",
+          "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        }
+      }
     },
     {
       "path": "tests/content-pipeline-kit/test_llm_yaml_extract.py",
@@ -897,10 +983,11 @@
     {
       "path": "tests/content-pipeline-kit/test_run_cli.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): the declaration fake is installed at the named seam backends._declaration_module.",
       "rewrite_classes": [
         "import",
-        "module-string"
+        "module-string",
+        "text-edit"
       ],
       "collection_count": 12,
       "baseline_failures": []
