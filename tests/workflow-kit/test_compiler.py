@@ -420,13 +420,13 @@ import re  # noqa: E402
 
 from wk_testlib import PLUGIN_ROOT  # noqa: E402
 
-_LSK_LIB = PLUGIN_ROOT.parent / "llm-scripting-kit" / "lib"
+_KIT_LIB = PLUGIN_ROOT.parent / "llm-kit" / "lib"
 
 
 @pytest.fixture
-def lsk_path(monkeypatch):
-    # Stands in for the shared-libs .pth linking llm_scripting_kit onto the venv.
-    monkeypatch.syspath_prepend(str(_LSK_LIB))
+def kit_path(monkeypatch):
+    # Stands in for the shared-libs .pth linking llm_kit onto the venv.
+    monkeypatch.syspath_prepend(str(_KIT_LIB))
 
 
 # sha256 of the compiled output bytes (UTF-8) of each artifact-free source
@@ -437,7 +437,9 @@ def lsk_path(monkeypatch):
 # so it was re-captured at workflow-kit 0.11.0, whose only change to that
 # output is the executor's `effort: 'low'` option and its comment. It was
 # re-captured again when preamble.js's placeholder definitions became
-# redirect-aware (comment text only: no emitted statement changed).
+# redirect-aware (comment text only: no emitted statement changed), and again
+# when its openrouter comments named llm-kit (five comment lines; reverting
+# exactly those lines in the compiled output restores the previous digest).
 _GOLDEN_DIGESTS = {
     # plugins/workflow-kit/examples/review-changes.workflow.yaml @ 2082c7fa
     "review-changes": (
@@ -447,7 +449,7 @@ _GOLDEN_DIGESTS = {
     # plugins/workflow-kit/examples/node-strategies.workflow.yaml @ 2082c7fa
     "node-strategies": (
         EXAMPLES / "node-strategies.workflow.yaml",
-        "dcff4af64ffc0db911219e082065081d50a41466c3bc422056a0bffc1c8a40b7",
+        "0efe6924d2694599dc77f7a04ff6ad484d1d38779c5a00a9931970b4893be92e",
     ),
     # tests/workflow-kit/fixtures/good/flat.workflow.yaml @ 2082c7fa
     "flat": (
@@ -664,7 +666,7 @@ def test_provider_step_is_followed_by_guard(write_workflow):
     assert js.count("\nwkProvided(") == 3
 
 
-def test_shipped_typed_contracts_example_compiles(lsk_path):
+def test_shipped_typed_contracts_example_compiles(kit_path):
     js = _compile(EXAMPLES / "typed-contracts.workflow.yaml")
     assert "const step_count = await wkScriptProvided(" in js
     assert 'artifact: "doc_stats", kind: "schema", schema: "{' in js
@@ -676,7 +678,7 @@ def test_shipped_typed_contracts_example_compiles(lsk_path):
     assert "${step_classify.path} (external" in js
 
 
-def test_schema_text_is_the_canonical_json(write_workflow, lsk_path):
+def test_schema_text_is_the_canonical_json(write_workflow, kit_path):
     js = _compile_text(
         "name: t\ndescription: x\nschemas:\n  s:\n    type: object\n"
         "    properties: { b: { type: number, minimum: 1.0 }, a: { type: integer } }\n"

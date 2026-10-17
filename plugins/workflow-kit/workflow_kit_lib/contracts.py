@@ -14,7 +14,7 @@ This module owns:
   1. spec cross-references (the schema name exists) and the ``artifacts``
      name reservation in contract documents;
   2. provider schema admissibility: every provider schema must construct
-     llm-scripting-kit's ``OutputContract`` with policy ``validated-result``
+     llm-kit's ``OutputContract`` with policy ``validated-result``
      (inside its closed subset, JSON-native, non-null root) and its canonical
      JSON must fit :data:`NODE_SCHEMA_MAX_BYTES`, because it travels on the
      node's command line;
@@ -25,9 +25,9 @@ This module owns:
      ``OutputContract.schema_digest`` equals its own; cardinality must match
      (``each: true`` iff the provider fans out with ``for_each``).
 
-llm-scripting-kit is imported lazily, and only for a document that names at
+llm-kit is imported lazily, and only for a document that names at
 least one schema artifact. An absent and a too-old library are diagnosed
-apart. The one check that needs expression compilation -- a
+apart, and each is a refusal (a ``WorkflowError``) at that boundary. The one check that needs expression compilation -- a
 ``{{ artifacts.X }}`` use without a matching ``requires`` -- runs in the
 compiler only, like the unknown ``steps.ID`` check.
 """
@@ -40,7 +40,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from .declarations import OUTPUT_CONTRACT_LSK
+from .declarations import OUTPUT_CONTRACT_LLM_KIT
 from .errors import WorkflowError
 
 KIND_SCHEMA = "schema"
@@ -148,27 +148,27 @@ def has_provides(doc) -> bool:
 
 
 # --------------------------------------------------------------------------- #
-# llm-scripting-kit (lazy)
+# llm-kit (lazy)
 # --------------------------------------------------------------------------- #
 def _output_contract():
     """``(OutputContract, POLICY_VALIDATED_RESULT)``, probed; WorkflowError when unusable."""
     try:
-        import llm_scripting_kit  # noqa: F401, PLC0415
+        import llm_kit  # noqa: F401, PLC0415
     except ImportError as exc:
         raise WorkflowError(
-            "a schema-typed artifact is checked at compile time with llm-scripting-kit's "
-            "OutputContract, but llm_scripting_kit is not importable. Enable the "
-            "llm-scripting-kit plugin and run the compiler with workflow-kit's venv interpreter "
-            "(bootstrap links llm_scripting_kit onto it via the shared-libs .pth)."
+            "a schema-typed artifact is checked at compile time with llm-kit's "
+            "OutputContract, but llm_kit is not importable. Enable the "
+            "llm-kit plugin and run the compiler with workflow-kit's venv interpreter "
+            "(bootstrap links llm_kit onto it via the shared-libs .pth)."
         ) from exc
     reason = None
     try:
-        from llm_scripting_kit.completion import (  # noqa: PLC0415
+        from llm_kit.completion.contract import (  # noqa: PLC0415
             POLICY_VALIDATED_RESULT,
             OutputContract,
         )
     except ImportError:
-        reason = "no completion.OutputContract / POLICY_VALIDATED_RESULT"
+        reason = "no completion.contract.OutputContract / POLICY_VALIDATED_RESULT"
     if reason is None and not callable(OutputContract):
         reason = "OutputContract is not callable"
     if reason is None:
@@ -187,9 +187,9 @@ def _output_contract():
             reason = "OutputContract has no schema_digest"
     if reason is not None:
         raise WorkflowError(
-            f"the linked llm_scripting_kit predates the output contract a schema-typed "
-            f"artifact is checked with ({reason}); this needs llm-scripting-kit >= "
-            f"{OUTPUT_CONTRACT_LSK}. Run `claude plugin update llm-scripting-kit@plugins-kit` "
+            f"the linked llm_kit predates the output contract a schema-typed "
+            f"artifact is checked with ({reason}); this needs llm-kit >= "
+            f"{OUTPUT_CONTRACT_LLM_KIT}. Run `claude plugin update llm-kit@plugins-kit` "
             "and start a new session so bootstrap re-links the newer shared lib onto "
             "workflow-kit's venv."
         )
@@ -286,13 +286,13 @@ def analyze(doc) -> ContractPlan:
     _check_schema_names(doc)
     _check_reserved_head(doc)
 
-    needs_lsk = any(
+    needs_llm_kit = any(
         spec.kind == KIND_SCHEMA
         for step in doc.steps
         for block in (step.provides, step.requires)
         for spec in block.values()
     )
-    schemas = _Schemas(doc) if needs_lsk else None
+    schemas = _Schemas(doc) if needs_llm_kit else None
 
     # 2. provider schema admissibility (and every provider's resolved type)
     provisions = []
@@ -305,7 +305,7 @@ def analyze(doc) -> ContractPlan:
                 if reason is not None:
                     raise WorkflowError(
                         f"{where}: schema {spec.schema!r} cannot type a node artifact: {reason}. "
-                        "A provider schema must be inside llm-scripting-kit's validated-result "
+                        "A provider schema must be inside llm-kit's validated-result "
                         "subset (for example no `pattern`, `format` or `oneOf`) and its root "
                         "must refuse null"
                     )

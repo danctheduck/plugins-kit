@@ -17,10 +17,10 @@ harness drives, so only the Claude core ids (``fable``, ``opus``, ``sonnet``,
 compiled; every other id is skipped silently -- no notice, and nothing about
 it in the emitted script. A declaration with no core id at all is the floor:
 a compile error that itemises every declared id. workflow-kit imports no
-llm-scripting-kit here, because Claude routing belongs to the harness.
+llm-kit here, because Claude routing belongs to the harness.
 
 An openrouter node passes its declaration to the node runner unchanged, as
-the comma carrier; llm-scripting-kit decides there (``scripts/openrouter_run.py``).
+the comma carrier; llm-kit decides there (``scripts/openrouter_run.py``).
 The comma carrier holds ids only, so an openrouter declaration is parsed with
 ``parse`` and refuses an ``{id, effort}`` mapping rather than drop its effort.
 
@@ -54,12 +54,12 @@ EXECUTION_EVENT_BOOTSTRAP = "0.135.0"
 #: --provides --events``, ``scripts/check_artifact.py --events``).
 CONTRACT_EVENT_BOOTSTRAP = "0.137.0"
 
-#: The llm-scripting-kit release that shipped ``OutputContract`` (with
-#: ``schema_digest``), ``BackendOptions(output_contract=...)`` and
-#: ``completion.json_schema``: the calls a node that provides a schema-typed
-#: artifact makes (``scripts/check_artifact.py``, ``scripts/openrouter_run.py
-#: --provides``).
-OUTPUT_CONTRACT_LSK = "0.56.0"
+#: The llm-kit release that first shipped ``completion.contract.OutputContract``
+#: (with ``schema_digest``) and ``completion.types.BackendOptions(output_contract=...)``
+#: (``schema.json_schema`` shipped one release earlier): the calls a node that
+#: provides a schema-typed artifact makes (``scripts/check_artifact.py``,
+#: ``scripts/openrouter_run.py --provides``).
+OUTPUT_CONTRACT_LLM_KIT = "0.1.3"
 
 #: The node executor's model (W3, W4): a one-entry declaration. The agent
 #: definition's frontmatter and the preamble's ``agent()`` options can carry
@@ -177,7 +177,7 @@ __all__ = [
     "EXECUTOR_MODELS",
     "MODEL_DECLARATION_BOOTSTRAP",
     "MODEL_ENTRIES_BOOTSTRAP",
-    "OUTPUT_CONTRACT_LSK",
+    "OUTPUT_CONTRACT_LLM_KIT",
     "agent_model",
     "parse_agent_declaration",
     "parse_declaration",

@@ -67,7 +67,7 @@ payload in `$OUT` is valid. A node that PROVIDES a named artifact (see
 `workflow-kit.artifact-verdict/v1`, conventionally at
 `./.workflow-kit/<runId>/<step>[.<i>].contract.json`. workflow-kit's own
 code writes it after checking `$OUT` against the artifact's declared type:
-a JSON Schema (validated with llm-scripting-kit's output-contract subset) or
+a JSON Schema (validated with llm-kit's output-contract subset) or
 an opaque file. It records `satisfied`, `violated` or `missing`, the size and
 `sha256` of exactly the bytes judged, and the failing JSON pointers (never
 payload values). A provider node exits non-zero unless the verdict is

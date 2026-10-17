@@ -29,7 +29,7 @@ _PREAMBLE = _REFS / "preamble.js"
 _CONTRACTS = _REFS / "preamble-contracts.js"
 _CHECKER = PLUGIN_ROOT / "scripts" / "check_artifact.py"
 _RUNNER = PLUGIN_ROOT / "scripts" / "openrouter_run.py"
-_LSK_LIB = PLUGIN_ROOT.parent / "llm-scripting-kit" / "lib"
+_KIT_LIB = PLUGIN_ROOT.parent / "llm-kit" / "lib"
 
 
 def _find_bash():
@@ -58,8 +58,8 @@ runner = _load("workflow_kit_openrouter_run_tc2", _RUNNER)
 
 
 @pytest.fixture
-def lsk_path(monkeypatch):
-    monkeypatch.syspath_prepend(str(_LSK_LIB))
+def kit_path(monkeypatch):
+    monkeypatch.syspath_prepend(str(_KIT_LIB))
 
 
 # --------------------------------------------------------------------------- #
@@ -244,7 +244,7 @@ def test_guard_stops_the_compiled_script_before_the_consumer(tmp_path):
 # the compiled commands parse (rev3 R3)
 # --------------------------------------------------------------------------- #
 @needs_node
-def test_checker_compiled_command_parses(tmp_path, lsk_path):
+def test_checker_compiled_command_parses(tmp_path, kit_path):
     commands = _run_compiled(tmp_path, _SCHEMA_WF)
     script = next(c for c in commands if "check_artifact.py" in c)
     last = script.splitlines()[-1]
@@ -260,7 +260,7 @@ def test_checker_compiled_command_parses(tmp_path, lsk_path):
 
 
 @needs_node
-def test_openrouter_provider_command_parses(tmp_path, lsk_path, monkeypatch, capsys):
+def test_openrouter_provider_command_parses(tmp_path, kit_path, monkeypatch, capsys):
     commands = _run_compiled(tmp_path, _SCHEMA_WF)
     line = next(c for c in commands if "openrouter_run.py" in c)
     argv = _argv_after_runner(line)
@@ -273,12 +273,12 @@ def test_openrouter_provider_command_parses(tmp_path, lsk_path, monkeypatch, cap
         return ns
 
     monkeypatch.setattr(argparse.ArgumentParser, "parse_args", capture)
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", None)
+    monkeypatch.setitem(sys.modules, "llm_kit", None)
     monkeypatch.chdir(tmp_path)
     # Parsing and the flag-pairing checks pass (a usage error is SystemExit(2));
-    # the run then stops at the blocked llm_scripting_kit probe.
+    # the run then stops at the blocked llm_kit probe.
     assert runner.main(argv) == 2
-    assert "llm_scripting_kit not importable" in capsys.readouterr().err
+    assert "llm_kit not importable" in capsys.readouterr().err
     ns = seen["ns"]
     assert (ns.provides, ns.kind) == ("label", "schema")
     assert ns.verdict == "./.workflow-kit/r1/classify.contract.json"
@@ -289,8 +289,8 @@ def test_openrouter_provider_command_parses(tmp_path, lsk_path, monkeypatch, cap
 
 
 @needs_node
-def test_schema_literal_digest_round_trips(tmp_path, lsk_path):
-    from llm_scripting_kit.completion import POLICY_VALIDATED_RESULT, OutputContract
+def test_schema_literal_digest_round_trips(tmp_path, kit_path):
+    from llm_kit.completion.contract import POLICY_VALIDATED_RESULT, OutputContract
 
     commands = _run_compiled(tmp_path, _SCHEMA_WF)
     checked = 0

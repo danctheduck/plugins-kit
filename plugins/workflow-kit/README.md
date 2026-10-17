@@ -14,5 +14,5 @@ executor, run via a generic `workflow-kit-agent`) that fulfil a file-passing
 contract: node outputs travel on disk via `$OUT`/`$STATUS` with shell
 redirection, so payloads bypass the model context instead of flowing through
 it. The OpenRouter node dispatches its model declaration (transport entry ids)
-through llm-scripting-kit's declaration API and model registry;
+through llm-kit's declaration API and model registry;
 workflow-kit's own declared Python dependencies are pyyaml and openai.

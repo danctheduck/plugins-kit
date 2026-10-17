@@ -33,7 +33,7 @@ from wk_testlib import EXAMPLES, PLUGIN_ROOT
 from bootstrap_lib import execution_event as ee
 from workflow_kit_lib import compile_doc, load_workflow
 
-_LSK_LIB = PLUGIN_ROOT.parent / "llm-scripting-kit" / "lib"
+_KIT_LIB = PLUGIN_ROOT.parent / "llm-kit" / "lib"
 _BOOTSTRAP = PLUGIN_ROOT.parent / "bootstrap"
 _TYPED = EXAMPLES / "typed-contracts.workflow.yaml"
 
@@ -53,9 +53,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 @pytest.fixture(autouse=True)
-def lsk_path(monkeypatch):
-    """llm_scripting_kit for the in-process compile (schema digests)."""
-    monkeypatch.syspath_prepend(str(_LSK_LIB))
+def kit_path(monkeypatch):
+    """llm_kit for the in-process compile (schema digests)."""
+    monkeypatch.syspath_prepend(str(_KIT_LIB))
 
 
 # --------------------------------------------------------------------------- #
@@ -108,8 +108,9 @@ home = Path(os.environ["WK_FAKE_HOME"])
 home.mkdir(exist_ok=True)
 os.environ["HOME"] = os.environ["USERPROFILE"] = str(home)
 os.environ.pop("MODEL_ENDPOINTS_REGISTRY", None)
-from llm_scripting_kit import completion, declaration
-from llm_scripting_kit.reachability import STATUS_REACHABLE, Reachability
+from llm_kit.adapters import backends
+from llm_kit.dispatch import declaration
+from llm_kit.dispatch.reachability import STATUS_REACHABLE, Reachability
 declaration.check_many = lambda entries, **_kw: {{
     n: Reachability(STATUS_REACHABLE, "models-probe", "x") for n in entries
 }}
@@ -126,7 +127,7 @@ class _Completions:
 
 
 _client = SimpleNamespace(chat=SimpleNamespace(completions=_Completions()))
-completion.OpenRouterBackend._ensure_client = lambda self: _client
+backends.OpenRouterBackend._ensure_client = lambda self: _client
 runpy.run_path({real!r}, run_name="__main__")
 """
 
@@ -137,7 +138,7 @@ runpy.run_path({real!r}, run_name="__main__")
 
 def _make_plugin_root(tmp_path):
     root = tmp_path / "plugin"
-    paths = [str(_LSK_LIB), str(_BOOTSTRAP), str(PLUGIN_ROOT)]
+    paths = [str(_KIT_LIB), str(_BOOTSTRAP), str(PLUGIN_ROOT)]
     real = PLUGIN_ROOT
     shims = {
         "scripts/openrouter_run.py": (_SHIM_OPENROUTER, real / "scripts" / "openrouter_run.py"),
