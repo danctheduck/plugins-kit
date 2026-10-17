@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 # Run under workflow-kit's bootstrap-provisioned venv: workflow_kit_lib imports yaml
-# at import time and reaches bootstrap_lib and llm_scripting_kit lazily, and the
+# at import time and reaches bootstrap_lib and llm_kit lazily, and the
 # interpreter that launched this script is caller-supplied (<plugin-venv-python>).
 # Under a claudx session (CLAUDE_BOOTSTRAP_DATA_ROOT set) the guard re-execs into
 # the REDIRECTED venv and exits 2 when that venv is missing, instead of compiling

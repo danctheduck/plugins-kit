@@ -179,10 +179,10 @@ How the effort reaches the model depends on the entry's harness:
   as `model` at the CALL SITE, where it overrides whatever model the effort agent's own
   frontmatter would imply. Validators are dispatched the same way.
 - Any other entry runs through `"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" "${GIT_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}/scripts/run_review_lane.py"` with `--effort <effort>`, which hands the level to
-  llm-scripting-kit. The runner refuses the lane with exit 2 when a codex entry's effort menu
+  llm-kit. The runner refuses the lane with exit 2 when a codex entry's effort menu
   does not include the level, or when a transport entry cannot deliver an effort at all; the
   review reports that refusal as a configuration error. The runner's JSON envelope records the
-  effort it sent in its `effort` field. `--effort` needs llm-scripting-kit 0.60.0 or later; the
+  effort it sent in its `effort` field. `--effort` needs llm-kit 0.1.9 or later; the
   runner refuses an older release.
 
 `model` and `effort` are therefore independent: any model may pair with any effort the model's
@@ -220,7 +220,7 @@ entries. The lane tool has no validator route, so step 7 dispatches the first Ag
 drops each non-Agent entry ahead of it with a `route: validator` line; the resolved table
 refuses a reason that has no Agent entry at all.
 
-Each entry is an id in the llm-scripting-kit model registry, and which harness serves it decides
+Each entry is an id in the llm-kit model registry, and which harness serves it decides
 how that lane is dispatched:
 
 | Entry | Dispatch |
@@ -228,8 +228,8 @@ how that lane is dispatched:
 | a `claude` harness entry: `sonnet`, `opus`, `haiku`, `fable` | an Agent subagent of type `git-kit:review-lane-<effort>` with `model: <id>` |
 | any other entry (a codex or opencode harness entry, or a transport endpoint) | a Bash call to `"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" "${GIT_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}/scripts/run_review_lane.py"` with `--model <id> --effort <effort>` |
 
-`sonnet`, `opus`, `haiku` and `fable` are routable without llm-scripting-kit, because the Agent
-tool itself defines them. Every other id is resolved by llm-scripting-kit, so it may name a CLI
+`sonnet`, `opus`, `haiku` and `fable` are routable without llm-kit, because the Agent
+tool itself defines them. Every other id is resolved by llm-kit, so it may name a CLI
 harness or an OpenAI-compatible transport -- whatever that plugin's configuration and your
 `~/.claude/config/model-endpoints.yaml` declare. Endpoint ids are private to your fleet; the
 example below uses a placeholder. Naming such an id is the whole override mechanism -- there is
@@ -239,15 +239,15 @@ no separate field to set.
 
 For each declaration with two or more entries, the skill runs
 
-    "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit describe <id>... --caller session [--project-root <root>] [--dispatchable transport] [--self <id>]
+    "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-kit/.venv/bin/llm-kit models describe <id>... --caller session [--project-root <root>] [--dispatchable transport] [--self <id>]
 
-(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe).
+(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-kit/.venv/Scripts/llm-kit.exe).
 The `${CLAUDE_BOOTSTRAP_DATA_ROOT:-...}` base is bash/zsh syntax: run the command from a Claude Code
 Bash session. PowerShell and cmd do not expand it, so there expand the base first -- the variable's
 value when it is set, else `$HOME/.claude/plugins/data`. The skill prints the command's output verbatim: the entries this machine can use or will be able to use, in pace
 order, the one marked `[default]`, and the rule text that says how to choose, how to announce
 the choice, and when to re-select. The skill follows that printed rule rather than restating
-it, so the rule you read in a review is the rule llm-scripting-kit applied. `--self` names the
+it, so the rule you read in a review is the rule llm-kit applied. `--self` names the
 model the reviewing session runs on; describe marks that entry `[author]`, and its rule
 prefers a non-author entry.
 
@@ -267,8 +267,8 @@ reports that lane as failed.
 A one-entry declaration has no menu and no announcement: its entry is dispatched by the table
 above.
 
-When `llm-scripting-kit` is not installed, or is a release older than 0.46.0 that has no
-`describe`, the skill routes on the declaration's `sonnet`, `opus`, `haiku` and `fable`
+When `llm-kit` is not installed, or is a release older than 0.1.9, the first published
+release, that has no `models describe`, the skill routes on the declaration's `sonnet`, `opus`, `haiku` and `fable`
 entries in declared order and skips every other entry without comment. A declaration with none
 of those four does not run, and the review reports that lane as failed with each declared
 entry named.
@@ -316,7 +316,7 @@ and announces the choice with the prior entry and its failure kind as the reason
 entry runs at its own stated effort. Each entry is tried at most once per lane, and a lane only
 ever runs on an entry its own declaration named. A runner refusal (exit 2) that the
 launch-correction rule does not explain -- an unsupported lane, an effort the entry cannot take,
-or an llm-scripting-kit too old for `--effort` -- is a configuration error: the lane is reported
+or an llm-kit too old for `--effort` -- is a configuration error: the lane is reported
 under `## Lane failures` and is not re-selected.
 Every choice from a multi-entry declaration, first choice and re-selections alike, is
 announced as a `route:` line, and the rendered review carries a `## Lane routes` section with
@@ -345,7 +345,7 @@ profiles:
     - {id: opus, effort: <level>}
 ```
 
-`my-local-endpoint` is a placeholder: use an id your llm-scripting-kit configuration or
+`my-local-endpoint` is a placeholder: use an id your llm-kit configuration or
 `~/.claude/config/model-endpoints.yaml` actually declares. Replace each `<level>` with the
 effort you want that entry to run at; the two entries need not match. A transport endpoint
 must be able to deliver an effort, or the runner refuses the lane. Everything else about the

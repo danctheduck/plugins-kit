@@ -18,7 +18,7 @@ from workflow_kit_lib import compile_doc, load_workflow
 from workflow_kit_lib.contracts import NODE_SCHEMA_MAX_BYTES
 from workflow_kit_lib.errors import WorkflowError
 
-_LSK_LIB = PLUGIN_ROOT.parent / "llm-scripting-kit" / "lib"
+_KIT_LIB = PLUGIN_ROOT.parent / "llm-kit" / "lib"
 _COMPILE = PLUGIN_ROOT / "scripts" / "compile_workflow.py"
 
 
@@ -33,10 +33,10 @@ cli = _load_cli()
 
 
 @pytest.fixture(autouse=True)
-def _lsk_on_path(monkeypatch):
-    # Stands in for the bootstrap shared-libs .pth that links llm_scripting_kit
+def _kit_on_path(monkeypatch):
+    # Stands in for the bootstrap shared-libs .pth that links llm_kit
     # onto workflow-kit's venv.
-    monkeypatch.syspath_prepend(str(_LSK_LIB))
+    monkeypatch.syspath_prepend(str(_KIT_LIB))
 
 
 _STATS = """
@@ -279,7 +279,7 @@ def test_cardinality_mismatch_is_incompatible(write_workflow, capsys, case):
 
 
 # --------------------------------------------------------------------------- #
-# 2. provider schema admissibility (llm-scripting-kit's OutputContract)
+# 2. provider schema admissibility (llm-kit's OutputContract)
 # --------------------------------------------------------------------------- #
 def _provider_with_schema(schema_yaml):
     return _wf(_PROVIDER, "schemas:\n  stats:\n" + schema_yaml)
@@ -320,31 +320,36 @@ def test_node_artifact_schema_at_cap_is_accepted(write_workflow):
 
 
 # --------------------------------------------------------------------------- #
-# the lazy llm-scripting-kit probe
+# the lazy llm-kit probe
 # --------------------------------------------------------------------------- #
 def test_contract_probe_absent_message(write_workflow, capsys, monkeypatch):
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", None)
-    err = _rejected(write_workflow, capsys, _wf(_PROVIDER), r"llm_scripting_kit is not importable")
+    monkeypatch.setitem(sys.modules, "llm_kit", None)
+    err = _rejected(write_workflow, capsys, _wf(_PROVIDER), r"llm_kit is not importable")
     assert "shared-libs .pth" in err
-    assert ">= 0.56.0" not in err
+    assert ">= 0.1.3" not in err
 
 
 def test_contract_probe_too_old_message(write_workflow, capsys, monkeypatch):
-    fake_pkg = types.ModuleType("llm_scripting_kit")
-    fake_completion = types.ModuleType("llm_scripting_kit.completion")
-    fake_completion.POLICY_VALIDATED_RESULT = "validated-result"  # OutputContract absent
+    fake_pkg = types.ModuleType("llm_kit")
+    fake_completion = types.ModuleType("llm_kit.completion")
+    fake_completion.__path__ = []
+    fake_contract = types.ModuleType("llm_kit.completion.contract")
+    fake_contract.POLICY_VALIDATED_RESULT = "validated-result"  # OutputContract absent
     fake_pkg.completion = fake_completion
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", fake_pkg)
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.completion", fake_completion)
+    fake_completion.contract = fake_contract
+    monkeypatch.setitem(sys.modules, "llm_kit", fake_pkg)
+    monkeypatch.setitem(sys.modules, "llm_kit.completion", fake_completion)
+    monkeypatch.setitem(sys.modules, "llm_kit.completion.contract", fake_contract)
     err = _rejected(write_workflow, capsys, _wf(_PROVIDER),
-                    r"llm-scripting-kit >= 0\.56\.0")
+                    r"llm-kit >= 0\.1\.3")
     assert "not importable" not in err
-    assert "claude plugin update llm-scripting-kit@plugins-kit" in err
+    assert "claude plugin update llm-kit@plugins-kit" in err
 
 
-def test_documents_without_schema_artifacts_need_no_lsk(write_workflow, monkeypatch):
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", None)
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.completion", None)
+def test_documents_without_schema_artifacts_need_no_kit(write_workflow, monkeypatch):
+    monkeypatch.setitem(sys.modules, "llm_kit", None)
+    monkeypatch.setitem(sys.modules, "llm_kit.completion", None)
+    monkeypatch.setitem(sys.modules, "llm_kit.completion.contract", None)
     opaque = _wf(
         _PROVIDER.replace("{ schema: stats }", "{ type: opaque-file }")
         + _CONSUMER.replace("{ schema: stats }", "{ type: opaque-file }")

@@ -72,16 +72,56 @@ def _non_dashboard_sources() -> list[tuple[Path, tuple[str, ...]]]:
     return sources
 
 
-def test_task_py_and_task_system_import_nothing_from_the_dashboard_or_llm_kit():
-    """RED CHECK 1."""
+# The ONE llm_kit import that exists in task_system independent of the dashboard:
+# review's lazy summary-repair backend. Named exactly (file and import), never
+# a blanket allowance for llm_kit.
+PRE_EXISTING_LLM_KIT_SITE = ("task_system/summary_ops.py", "from llm_kit.completion.types import ...")
+
+
+def _offenders(sources) -> dict[str, list[str]]:
+    found = {}
+    for path, package in sources:
+        rel = path.relative_to(SCRIPTS_DIR).as_posix()
+        hits = [
+            h for h in forbidden_imports(path.read_text(encoding="utf-8"), package=package)
+            if (rel, h) != PRE_EXISTING_LLM_KIT_SITE
+        ]
+        if hits:
+            found[rel] = hits
+    return found
+
+
+def test_task_py_and_task_system_import_nothing_from_the_dashboard_and_only_the_named_llm_kit_site():
+    """RED CHECK 1: no dashboard import anywhere outside the dashboard package, and
+    llm_kit only at the single pre-existing summary-repair site."""
     sources = _non_dashboard_sources()
     assert len(sources) > 15  # the scan really covers task.py and the whole package
-    offenders = {
-        str(path.relative_to(SCRIPTS_DIR)): hits
-        for path, package in sources
-        if (hits := forbidden_imports(path.read_text(encoding="utf-8"), package=package))
-    }
-    assert not offenders, offenders
+    assert not _offenders(sources)
+
+
+def test_the_named_llm_kit_site_still_exists_so_the_exception_is_not_stale():
+    rel, hit = PRE_EXISTING_LLM_KIT_SITE
+    path = SCRIPTS_DIR / rel
+    assert hit in forbidden_imports(path.read_text(encoding="utf-8"), package=("task_system",))
+
+
+def test_the_dashboard_package_and_bin_import_nothing_from_llm_kit():
+    """Increment 1 needs no llm-kit: not an import, and not a string-built one."""
+    files = sorted((SYSTEM / "dashboard").rglob("*.py")) + sorted((SCRIPTS_DIR.parents[2] / "bin").glob("*.py"))
+    assert len(files) > 8
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        assert not any(h.startswith(("import llm_kit", "from llm_kit")) for h in
+                       forbidden_imports(text, package=("task_system", "dashboard"))), path
+        assert "llm_kit" not in text and "llm-kit" not in text, path
+
+
+def test_the_one_site_exception_does_not_excuse_any_other_llm_kit_import():
+    """The narrowed guard is shown to still see an llm_kit import anywhere else."""
+    other = "def f():" + chr(10) + "    from llm_kit.jobs import run" + chr(10)
+    assert forbidden_imports(other, package=("task_system",))
+    assert _offenders([(SYSTEM / "init.py", ("task_system",))]) == {}
+    assert (SYSTEM / "summary_ops.py").relative_to(SCRIPTS_DIR).as_posix() == PRE_EXISTING_LLM_KIT_SITE[0]
 
 
 @pytest.mark.parametrize("source,package", [

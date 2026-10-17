@@ -1,10 +1,10 @@
 """The Perforce VcsBackend implementation -- p4-kit's contribution to the seam.
 
-Implements the ``VcsBackend`` protocol (defined in content-pipeline-kit as
-``content_pipeline.vcs.seam.VcsBackend``) against a Perforce client workspace,
-so ``content_pipeline.deliver.deliver_changeset`` can drive the changeset
-choreography under p4 exactly as it does under git. This module imports nothing
-from content_pipeline -- conformance is structural.
+Implements the ``VcsBackend`` protocol (defined in llm-kit as
+``llm_kit.pipeline.core.vcs_seam.VcsBackend``) against a Perforce client workspace,
+so ``llm_kit.pipeline.artifacts.deliver.inplace.deliver_changeset`` can drive the
+changeset choreography under p4 exactly as it does under git. This module imports
+nothing from llm_kit -- conformance is structural.
 
 The mapping (the protocol is shaped around Perforce's pending changelist)
 --------------------------------------------------------------------------
@@ -418,7 +418,7 @@ class P4Vcs:
 
     # -- P4-specific extensions (BEYOND the VcsBackend protocol) --------------
     #
-    # These two methods are NOT part of ``content_pipeline.vcs.seam.VcsBackend``
+    # These two methods are NOT part of ``llm_kit.pipeline.core.vcs_seam.VcsBackend``
     # -- they are Perforce capabilities the seam deliberately does not model, so
     # consumers can use these hardened implementations without widening the
     # shared seam; the protocol is unchanged.

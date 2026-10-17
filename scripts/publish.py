@@ -542,10 +542,17 @@ def _master_only_paths() -> list[str]:
         master_blob = blob_at(master, path)
         if master_blob == blob_at(base, path) and path not in master_touched:
             continue
-        # A path master no longer has holds no content to discard by this
-        # test, but master DELETING it since the base is a master-side change
-        # a publish would undo, and there is no blob to look for. Report it and
-        # let the operator judge, which is what the guard did before.
+        # A path master does not have holds no content to discard by this
+        # test. Master DELETING it since the release is a master-side change a
+        # publish would undo, and there is no blob to look for: report it and
+        # let the operator judge. But master that never held the path since the
+        # release (absent at the release commit, untouched since) deleted
+        # nothing -- the release held the file back, as it does a dev-only
+        # plugin's, and dev lifting that hold makes the path an addition. Dev
+        # holding it at `base` does not make master's absence a deletion.
+        if (master_blob is None and path not in master_touched
+                and blob_at(master_base, path) is None):
+            continue
         if master_blob is None or _master_holds_discardable_state(
                 path, master_base, master, master_blob):
             stray.append(path)

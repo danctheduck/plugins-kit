@@ -5,11 +5,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from content_pipeline.execution.model import AttemptKind, UnitState
-from content_pipeline.execution.protocol import ProtocolHandler
-from content_pipeline.execution.store import ExecutionStore
-from content_pipeline.freshness.hashing import content_hash
-from content_pipeline.pipeline.workunit import WorkUnit
+from llm_kit.pipeline.execution.model import AttemptKind, UnitState
+from llm_kit.pipeline.execution.protocol import ProtocolHandler
+from llm_kit.pipeline.execution.store import ExecutionStore
+from llm_kit.pipeline.artifacts.freshness.hashing import content_hash
+from llm_kit.pipeline.core.workunit import WorkUnit
 
 from yaml_data_editor_kit.comments import CommentStore, slice_hash
 from yaml_data_editor_kit.dispatch.protocol import (

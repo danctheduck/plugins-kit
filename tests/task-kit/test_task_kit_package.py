@@ -32,8 +32,17 @@ def skill_capabilities() -> dict[str, dict]:
     raise AssertionError("no capability_skill block in SKILL.md")
 
 
-def test_versions_agree_and_moved_past_the_extraction_release():
-    assert PLUGIN_JSON["version"] == PYPROJECT["project"]["version"] == "0.2.0"
+# The last version published before the dashboard (the extraction release).
+LAST_PUBLISHED = (0, 1, 0)
+
+
+def _version(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
+
+
+def test_versions_agree_and_are_past_the_last_published_version():
+    assert PLUGIN_JSON["version"] == PYPROJECT["project"]["version"]
+    assert _version(PLUGIN_JSON["version"]) > LAST_PUBLISHED
 
 
 def test_psutil_is_declared_for_install_and_for_verification():
@@ -74,7 +83,8 @@ def test_dashboard_is_not_a_task_py_verb():
     assert "dashboard" not in cli.lower()
 
 
-def test_the_dashboard_adds_no_llm_kit_edge_in_this_increment():
-    assert "llm_kit" not in BOOTSTRAP["shared_lib_imports"]
+def test_the_dashboard_adds_no_llm_kit_install_edge():
+    """No plugin dependency and no auto/manual install entry for llm-kit. (llm_kit may
+    appear in shared_lib_imports for the pre-existing summary-repair import.)"""
     assert not any("llm-kit" in p["ref"] for p in BOOTSTRAP["plugins"])
     assert "llm-kit" not in PLUGIN_JSON["dependencies"]

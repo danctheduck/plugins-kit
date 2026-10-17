@@ -1,8 +1,8 @@
 [project]
 name = "task-kit"
-version = "0.2.0"
+version = "0.3.0"
 description = "Runtime dependencies for the task-kit task skill and dashboard, including YAML support."
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "pyyaml>=6.0",
     "openai>=1.0.0",

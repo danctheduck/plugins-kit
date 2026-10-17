@@ -7,8 +7,8 @@ from typing import Any
 
 import yaml
 
-from content_pipeline.execution.adapter import RunAdapter
-from content_pipeline.pipeline.workunit import WorkUnit
+from llm_kit.pipeline.execution.adapter import RunAdapter
+from llm_kit.pipeline.core.workunit import WorkUnit
 
 from .state import DispatchPlan
 from .units import (

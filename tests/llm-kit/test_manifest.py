@@ -89,7 +89,7 @@ def test_manifest_adds_no_edge():
     assert MANIFEST["shared_lib_imports"] == ["bootstrap_lib"]
     assert "plugins" not in MANIFEST, "llm-kit depends on no other plugin for the validator or the completion code"
     assert PLUGIN_JSON["dependencies"] == ["bootstrap"]
-    assert PLUGIN_JSON["published"] is False
+    assert PLUGIN_JSON.get("published", True) is True
 
 
 def test_no_config_block_and_only_the_credential_check_script():

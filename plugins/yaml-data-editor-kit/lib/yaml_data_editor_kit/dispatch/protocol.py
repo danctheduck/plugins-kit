@@ -8,10 +8,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from content_pipeline.execution.model import AttemptKind
-from content_pipeline.execution.protocol import ProtocolHandler, build_handlers
-from content_pipeline.execution.store import ExecutionStore
-from content_pipeline.freshness.hashing import content_hash
+from llm_kit.pipeline.execution.model import AttemptKind
+from llm_kit.pipeline.execution.protocol import ProtocolHandler, build_handlers
+from llm_kit.pipeline.execution.store import ExecutionStore
+from llm_kit.pipeline.artifacts.freshness.hashing import content_hash
 
 from yaml_data_editor_kit.comments import parse_anchor, resolve_anchor, slice_hash
 from yaml_data_editor_kit.comments.store import Comment, CommentStore, QUESTION

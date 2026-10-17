@@ -7,13 +7,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from content_pipeline.cli.run import build_commands
-from content_pipeline.cli.scaffold import dispatch
-from content_pipeline.execution.adapter import RunAdapter
-from content_pipeline.execution.store import ExecutionStore
-from content_pipeline.execution.protocol import ProtocolHandler, build_handlers
-from content_pipeline.execution.workerpack import WorkerCommand
-from content_pipeline.freshness.hashing import content_hash
+from llm_kit.cli.run import build_commands
+from llm_kit.scaffold import dispatch
+from llm_kit.pipeline.execution.adapter import RunAdapter
+from llm_kit.pipeline.execution.store import ExecutionStore
+from llm_kit.pipeline.execution.protocol import ProtocolHandler, build_handlers
+from llm_kit.pipeline.execution.workerpack import WorkerCommand
+from llm_kit.pipeline.artifacts.freshness.hashing import content_hash
 
 from yaml_data_editor_kit.comments import EvaluationError, SelectorError, parse_anchor, resolve_anchor, slice_hash
 from yaml_data_editor_kit.comments.store import CommentStore

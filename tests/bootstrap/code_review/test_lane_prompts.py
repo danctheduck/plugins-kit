@@ -47,7 +47,7 @@ class TestShippedDefaultsPreserveAgentDispatch:
 
         Every shipped reviewer's resolved `model` is a list of `{id, effort}`
         entries stating an Agent alias, so a machine without
-        llm-scripting-kit, or whose endpoints are all unusable, still routes
+        llm-kit, or whose endpoints are all unusable, still routes
         every lane through the Agent tool. The one shipped endpoint entry is
         `luna` ahead of `sonnet` on reviewer_a (both profiles) and data_only reviewer_b,
         `sol` behind `opus` on code reviewer_b, and `sol` ahead of `opus` on reviewer_c. Validators are never

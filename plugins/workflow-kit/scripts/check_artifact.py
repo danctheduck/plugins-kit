@@ -26,13 +26,13 @@ Judgment:
   read. Otherwise the bytes are decoded as strict UTF-8 and parsed as JSON
   with ``NaN``/``Infinity``/``-Infinity`` refused; a decode or parse failure is
   ``violated`` with the single error ``["", "unparseable"]``. A parsed value is
-  validated with llm-scripting-kit's ``completion.json_schema.validate`` (the
+  validated with llm-kit's ``schema.json_schema.validate`` (the
   closed subset an ``OutputContract`` accepts): ``violated`` when it reports
   errors, else ``satisfied``.
 
 Exit codes: 0 ``satisfied``; 1 ``violated``, or ``missing`` after a command
 that exited 0; the command's own code when it failed; 2 a usage error, an
-absent or too-old llm-scripting-kit, a schema outside the subset, a
+absent or too-old llm-kit, a schema outside the subset, a
 ``--schema-digest`` that does not match the schema (the schema changed in
 transit), a previous verdict or events file that cannot be removed, or (with
 ``--events``) a bootstrap_lib without execution-event schema v3 or ids that
@@ -47,9 +47,9 @@ at most 100 ``[json_pointer, keyword]`` errors -- never a payload value -- with
 1. The previous verdict at ``--verdict`` is removed first, before any probe.
    An absent file is fine; any other error exits 2 having done nothing else.
    No directory is created.
-2. Probes (kind ``schema`` only): ``llm_scripting_kit.completion`` exports
+2. Probes (kind ``schema`` only): ``llm_kit.completion.contract`` exports
    ``OutputContract`` (with ``schema_digest``) and ``POLICY_VALIDATED_RESULT``,
-   and ``json_schema.validate`` binds ``(schema, value)``. An absent and a
+   and ``llm_kit.schema.json_schema.validate`` binds ``(schema, value)``. An absent and a
    too-old library get different messages; both exit 2 and write nothing.
 3. The artifact is judged inside one ``try``/``finally`` whose cleanup writes
    the verdict (``missing`` when the body did not reach a judgment), so every
@@ -75,7 +75,7 @@ together with the previous verdict, before any probe, with the same error
 handling. The probe of ``bootstrap_lib.execution_event`` (schema v3 among
 ``SUPPORTED_SCHEMAS``, and the exact ``Emitter(..., schema=<v3>)``,
 ``make_event`` and ``JsonlSink(..., mode="truncate")`` calls) follows the
-llm-scripting-kit probe; absent, supports-v1-but-not-v3 and otherwise too old
+llm-kit probe; absent, supports-v1-but-not-v3 and otherwise too old
 get three different messages, and every refusal exits 2 having written
 nothing. The ``contract`` event is attempted exactly once, from the same
 cleanup as the verdict, as an independent layer after it: it is recorded
@@ -88,7 +88,7 @@ output-contract probe and the contract-event probe and payload that
 files the same way.
 
 Run it with workflow-kit's own venv interpreter, which bootstrap links
-``llm_scripting_kit`` onto.
+``llm_kit`` onto.
 """
 from __future__ import annotations
 
@@ -103,7 +103,7 @@ import sys
 from pathlib import Path
 
 # Run under workflow-kit's bootstrap-provisioned venv (the shared-libs .pth
-# links llm_scripting_kit and bootstrap_lib onto it). The interpreter that
+# links llm_kit and bootstrap_lib onto it). The interpreter that
 # launched this script is caller-supplied (the compiled workflow's
 # ${inputs.workflowKitVenvPython}), and the Workflow tool expands nothing in
 # args, so this guard is the only runtime check that the interpreter is the
@@ -150,9 +150,9 @@ EVENT_PLUGIN = "workflow-kit"
 #: The one error a payload that is not UTF-8 JSON records.
 UNPARSEABLE_ERRORS = (("", "unparseable"),)
 
-_LSK_ABSENT = (
-    "llm_scripting_kit not importable. Enable the llm-scripting-kit plugin and run this "
-    "with workflow-kit's venv interpreter (bootstrap links llm_scripting_kit onto it via "
+_LLM_KIT_ABSENT = (
+    "llm_kit not importable. Enable the llm-kit plugin and run this "
+    "with workflow-kit's venv interpreter (bootstrap links llm_kit onto it via "
     "the shared-libs .pth)."
 )
 
@@ -173,9 +173,9 @@ def _declarations():
     return declarations
 
 
-def output_contract_lsk() -> str:
-    """workflow-kit's own constant for the llm-scripting-kit release the contract calls need."""
-    return _declarations().OUTPUT_CONTRACT_LSK
+def output_contract_llm_kit() -> str:
+    """workflow-kit's own constant for the llm-kit release the contract calls need."""
+    return _declarations().OUTPUT_CONTRACT_LLM_KIT
 
 
 def contract_event_bootstrap() -> str:
@@ -291,7 +291,7 @@ def settle(rc: int, failures) -> int:
 # The output-contract probe and construction
 # --------------------------------------------------------------------------- #
 class ContractAPI:
-    """The llm-scripting-kit symbols a schema-typed artifact uses."""
+    """The llm-kit symbols a schema-typed artifact uses."""
 
     def __init__(self, output_contract, policy, validate=None):
         self.OutputContract = output_contract
@@ -306,18 +306,18 @@ def probe_output_contract(*, need_validate: bool):
     different messages. The version named is workflow-kit's own constant.
     """
     try:
-        import llm_scripting_kit  # noqa: F401, PLC0415
+        import llm_kit  # noqa: F401, PLC0415
     except ImportError:
-        return None, _LSK_ABSENT
+        return None, _LLM_KIT_ABSENT
     reason = None
     validate = None
     try:
-        from llm_scripting_kit.completion import (  # noqa: PLC0415
+        from llm_kit.completion.contract import (  # noqa: PLC0415
             POLICY_VALIDATED_RESULT,
             OutputContract,
         )
     except ImportError:
-        reason = "no completion.OutputContract / POLICY_VALIDATED_RESULT"
+        reason = "no completion.contract.OutputContract / POLICY_VALIDATED_RESULT"
     if reason is None:
         if not callable(OutputContract):
             reason = "OutputContract is not callable"
@@ -337,18 +337,18 @@ def probe_output_contract(*, need_validate: bool):
             reason = "OutputContract has no schema_digest"
     if reason is None and need_validate:
         try:
-            from llm_scripting_kit.completion import json_schema  # noqa: PLC0415
+            from llm_kit.schema import json_schema  # noqa: PLC0415
 
             validate = json_schema.validate
             inspect.signature(validate).bind({}, None)
         except (ImportError, AttributeError, TypeError, ValueError):
-            reason = "completion.json_schema.validate(schema, value) is missing or does not bind"
+            reason = "schema.json_schema.validate(schema, value) is missing or does not bind"
     if reason is None:
         return ContractAPI(OutputContract, POLICY_VALIDATED_RESULT, validate), None
     return None, (
-        f"the linked llm_scripting_kit predates the output-contract calls a schema-typed "
-        f"artifact needs ({reason}); this requires llm-scripting-kit >= {output_contract_lsk()}. "
-        "Run `claude plugin update llm-scripting-kit@plugins-kit` and restart so bootstrap "
+        f"the linked llm_kit predates the output-contract calls a schema-typed "
+        f"artifact needs ({reason}); this requires llm-kit >= {output_contract_llm_kit()}. "
+        "Run `claude plugin update llm-kit@plugins-kit` and restart so bootstrap "
         "re-links the newer shared lib onto workflow-kit's venv."
     )
 
@@ -369,7 +369,7 @@ def build_contract(api: ContractAPI, artifact: str, schema_text: str, expected_d
         )
     except (TypeError, ValueError) as exc:
         raise ContractRefusal(
-            f"--schema for artifact {artifact!r} is outside what llm-scripting-kit's "
+            f"--schema for artifact {artifact!r} is outside what llm-kit's "
             f"validated-result contract accepts: {exc}"
         ) from exc
     if contract.schema_digest != expected_digest:

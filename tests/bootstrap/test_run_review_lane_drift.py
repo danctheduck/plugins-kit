@@ -3,7 +3,7 @@
 git-kit and p4-kit run the same reviewer lanes with the same prompts against the
 same endpoints. Their scripts therefore stay byte-identical wrappers, the way
 bootstrap_guard.py is. The seam-calling implementation is shared in
-llm_scripting_kit.review_lane; the wrappers only set up bootstrap and host its
+llm_kit.dispatch.review_lane; the wrappers only set up bootstrap and host its
 REFUSE probe.
 
 The seam-calling implementation cannot live in bootstrap_lib with the rest of
@@ -22,6 +22,7 @@ import ast
 import json
 import runpy
 import sys
+import tomllib
 import types
 from pathlib import Path
 
@@ -52,21 +53,22 @@ class TestWrapperCopiesMatch:
             )
 
     def test_consumers_require_the_parser_owner_version(self) -> None:
-        # The parser owner shipped in 0.113.0 (git-kit, p4-kit) and 0.107.0
-        # (llm-scripting-kit); those stay the minimums below. git-kit and
+        # The parser owner shipped in 0.113.0 (git-kit, p4-kit); that stays the
+        # minimum below. git-kit and
         # p4-kit also launch skill scripts through the guarded BOOTSTRAP_PYTHON
         # form, which raises their floor to the interpreter contract's
         # MIN_VERSION (0.120.0), and to 0.133.0, the release whose bundle supplies
-        # the AGENTS.md ancestor chain those skills read. llm-scripting-kit's describe/run call
+        # the AGENTS.md ancestor chain those skills read. llm-kit's describe/run call
         # bootstrap_lib.model_declaration (parse, CORE_IDS), first shipped in
-        # bootstrap 0.129.0, which raises its floor to that release.
+        # bootstrap 0.129.0, and its manifest requires the release that first
+        # recognizes llm_kit as a first-party shared library (0.157.0).
         expected = {
             "git-kit": "0.144.0",
             "p4-kit": "0.144.0",
-            "llm-scripting-kit": "0.146.0",
+            "llm-kit": "0.157.0",
         }
         minimum = {"git-kit": "0.113.0", "p4-kit": "0.113.0",
-                   "llm-scripting-kit": "0.107.0"}
+                   "llm-kit": "0.129.0"}
 
         def version(text):
             return tuple(int(part) for part in text.split("."))
@@ -134,9 +136,9 @@ class TestCopiesStayIdentical:
     def test_bundle_probe_refuses_an_old_owner(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        package = types.ModuleType("llm_scripting_kit")
+        package = types.ModuleType("llm_kit")
         package.__path__ = []
-        review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+        review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
 
         def old_parse(argv):
             parser = argparse.ArgumentParser()
@@ -151,8 +153,8 @@ class TestCopiesStayIdentical:
         bootstrap_guard.reexec_under_plugin_venv = lambda _plugin: None
         bootstrap_guard.require_bootstrap = lambda *_args, **_kwargs: None
         monkeypatch.setitem(sys.modules, "bootstrap_guard", bootstrap_guard)
-        monkeypatch.setitem(sys.modules, "llm_scripting_kit", package)
-        monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+        monkeypatch.setitem(sys.modules, "llm_kit", package)
+        monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
         monkeypatch.setattr(
             sys,
             "argv",
@@ -166,14 +168,14 @@ class TestCopiesStayIdentical:
         assert excinfo.value.code != 0
         stderr = capsys.readouterr().err
         assert "prepared review bundle support" in stderr
-        assert "0.42.0" in stderr
+        assert "0.1.9" in stderr
 
     def test_phrase_map_probe_refuses_owner_that_only_parses_bundle(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        package = types.ModuleType("llm_scripting_kit")
+        package = types.ModuleType("llm_kit")
         package.__path__ = []
-        review_lane = types.ModuleType("llm_scripting_kit.review_lane")
+        review_lane = types.ModuleType("llm_kit.dispatch.review_lane")
 
         def old_run_lane(*, lane, model, diff_text, mechanical_findings=None):
             return {}
@@ -195,8 +197,8 @@ class TestCopiesStayIdentical:
         bootstrap_guard.reexec_under_plugin_venv = lambda _plugin: None
         bootstrap_guard.require_bootstrap = lambda *_args, **_kwargs: None
         monkeypatch.setitem(sys.modules, "bootstrap_guard", bootstrap_guard)
-        monkeypatch.setitem(sys.modules, "llm_scripting_kit", package)
-        monkeypatch.setitem(sys.modules, "llm_scripting_kit.review_lane", review_lane)
+        monkeypatch.setitem(sys.modules, "llm_kit", package)
+        monkeypatch.setitem(sys.modules, "llm_kit.dispatch.review_lane", review_lane)
         monkeypatch.setattr(
             sys,
             "argv",
@@ -214,7 +216,10 @@ class TestCopiesStayIdentical:
         assert excinfo.value.code != 0
         stderr = capsys.readouterr().err
         assert "bundle mechanical check phrase support" in stderr
-        assert "0.43.0" in stderr
+        assert "0.1.9" in stderr
+
+
+_SEAM_OWNERS = frozenset({"llm_kit", "llm_scripting_kit"})
 
 
 class TestNoSeamImportLeakedIntoBootstrapLib:
@@ -222,9 +227,10 @@ class TestNoSeamImportLeakedIntoBootstrapLib:
         """The reason the wrapper is identical in both kits.
 
         Checked as an IMPORT, not a substring: the engine and shared_lib name
-        llm_scripting_kit as a shared-library STRING (it is one of the libs
-        bootstrap publishes), and lane_prompts names it in prose explaining why
-        it does not import it. None of those is a dependency.
+        llm_kit (and the legacy llm_scripting_kit) as a shared-library STRING
+        (they are libs bootstrap links), and lane_prompts names the owner in
+        prose explaining why it does not import it. None of those is a
+        dependency.
 
         bootstrap_lib is linked into plugin venvs that never make an LLM call;
         an import here would make `openai` a bootstrap dependency. Asserted
@@ -244,10 +250,34 @@ class TestNoSeamImportLeakedIntoBootstrapLib:
                     names = [node.module or ""]
                 else:
                     continue
-                if any(name.split(".")[0] == "llm_scripting_kit" for name in names):
+                if any(name.split(".")[0] in _SEAM_OWNERS for name in names):
                     offenders.append(path.relative_to(REPO_ROOT))
                     break
         assert not offenders, (
-            "bootstrap_lib must not reference llm_scripting_kit -- it would make "
+            "bootstrap_lib must not import llm_kit or llm_scripting_kit -- it would make "
             f"openai a transitive bootstrap dependency: {offenders}"
         )
+
+
+class TestOwnerDependenciesAreDeclared:
+    """What the wrapper's llm_kit import reaches must be declared per kit.
+
+    The completeness scan cannot see it: the wrapper imports the owner by
+    string, so the scan never follows it. llm_kit.dispatch.review_lane imports
+    PyYAML at load time and the openai SDK when a transport entry dispatches.
+    Both are declared (PyYAML as a dependency, openai in the optional
+    endpoint-dispatch group), and the shared-library import names llm_kit.
+    """
+
+    @pytest.mark.parametrize("kit", ["git-kit", "p4-kit"])
+    def test_pyproject_and_manifest_declare_the_owner_reach(self, kit: str) -> None:
+        plugin = REPO_ROOT / "plugins" / kit
+        project = tomllib.loads(
+            (plugin / "pyproject.toml").read_text(encoding="utf-8")
+        )["project"]
+        assert project["requires-python"].startswith(">=3.12")
+        assert "pyyaml" in project["dependencies"]
+        assert project["optional-dependencies"]["endpoint-dispatch"] == ["openai"]
+        manifest = json.loads((plugin / "bootstrap.json").read_text(encoding="utf-8"))
+        assert manifest["shared_lib_imports"] == ["bootstrap_lib", "llm_kit"]
+        assert "install" not in json.dumps(manifest.get("plugins", []))

@@ -79,24 +79,27 @@ def make_task(
 
 
 def _install_fake_completion_module(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stand in for llm_scripting_kit.completion, which is not a test-venv dep.
+    """Stand in for llm_kit.completion.types, which is not a test-venv dep.
 
-    summary_ops._complete does `from llm_scripting_kit.completion import
+    summary_ops._complete does `from llm_kit.completion.types import
     BackendOptions` at call time; real backends are always monkeypatched over
     _complete in the other tests in this module, but the prompt-contract test
     below calls _complete itself, so the import needs somewhere to resolve.
     """
-    parent = ModuleType("llm_scripting_kit")
-    completion = ModuleType("llm_scripting_kit.completion")
+    parent = ModuleType("llm_kit")
+    completion = ModuleType("llm_kit.completion")
+    types = ModuleType("llm_kit.completion.types")
 
     class BackendOptions:
         def __init__(self, **kwargs: object) -> None:
             self.kwargs = kwargs
 
-    completion.BackendOptions = BackendOptions
+    types.BackendOptions = BackendOptions
     parent.completion = completion
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", parent)
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.completion", completion)
+    completion.types = types
+    monkeypatch.setitem(sys.modules, "llm_kit", parent)
+    monkeypatch.setitem(sys.modules, "llm_kit.completion", completion)
+    monkeypatch.setitem(sys.modules, "llm_kit.completion.types", types)
 
 
 def _link_directory(link: Path, target: Path) -> None:
@@ -126,6 +129,56 @@ def _configure_project_directories(
     monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setattr(discovery, "TASK_CONFIG_PATH", config)
     return config
+
+
+def test_summary_backend_absent_names_install_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def absent(name: str) -> ModuleType:
+        raise ModuleNotFoundError(name="llm_kit")
+
+    monkeypatch.setattr(summary_ops.importlib, "import_module", absent)
+    with pytest.raises(summary_ops.SummaryBackendUnavailable, match="plugin install"):
+        summary_ops._default_backend()
+
+
+def test_summary_backend_too_old_names_update_and_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    modules = {
+        "llm_kit": ModuleType("llm_kit"),
+        "llm_kit.adapters.codex_backend": ModuleType("backend"),
+        "llm_kit.completion.types": ModuleType("types"),
+    }
+
+    monkeypatch.setattr(summary_ops.importlib, "import_module", modules.__getitem__)
+    with pytest.raises(summary_ops.SummaryBackendUnavailable, match="plugin update") as exc:
+        summary_ops._default_backend()
+    assert summary_ops.LLM_KIT_MIN_VERSION in str(exc.value)
+
+
+def test_summary_backend_refusal_reports_every_affected_task(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    make_task(tmp_path, "tmp/one", title="One")
+    make_task(tmp_path, "tmp/two", title="Two")
+    monkeypatch.setattr(
+        summary_ops,
+        "_default_backend",
+        lambda: (_ for _ in ()).throw(
+            summary_ops.SummaryBackendUnavailable(
+                "llm-kit is absent; claude plugin install llm-kit@plugins-kit"
+            )
+        ),
+    )
+
+    report = summary_ops.generate_missing_summaries(
+        listing.collect_listing("project", tmp_path), tmp_path
+    )
+
+    assert report.generated == ()
+    assert {task_id for task_id, _reason in report.failed} == {"tmp/one", "tmp/two"}
+    assert all("plugin install" in reason for _task_id, reason in report.failed)
 
 
 class TestTaskListingAndReview:

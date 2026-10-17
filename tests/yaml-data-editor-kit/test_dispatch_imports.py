@@ -8,7 +8,7 @@ import textwrap
 
 
 PLUGIN_LIB = Path(__file__).resolve().parents[2] / "plugins" / "yaml-data-editor-kit" / "lib"
-CPK_LIB = Path(__file__).resolve().parents[2] / "plugins" / "content-pipeline-kit" / "lib"
+LLM_KIT_LIB = Path(__file__).resolve().parents[2] / "plugins" / "llm-kit" / "lib"
 
 
 def _python(code: str, *paths: Path) -> subprocess.CompletedProcess[str]:
@@ -54,32 +54,32 @@ def test_dispatch_exports_agentic_and_question_protocol_surfaces() -> None:
         assert finalize_background_dispatch
         """,
         PLUGIN_LIB,
-        CPK_LIB,
+        LLM_KIT_LIB,
     )
     assert result.returncode == 0, result.stderr
 
 
-def test_missing_content_pipeline_reports_the_bootstrap_action() -> None:
+def test_missing_llm_kit_reports_the_bootstrap_action() -> None:
     result = _python(
         """
         import builtins
 
         original_import = builtins.__import__
 
-        def missing_content_pipeline(name, *args, **kwargs):
-            if name == "content_pipeline":
+        def missing_llm_kit(name, *args, **kwargs):
+            if name == "llm_kit":
                 raise ModuleNotFoundError(
-                    "No module named 'content_pipeline'", name="content_pipeline"
+                    "No module named 'llm_kit'", name="llm_kit"
                 )
             return original_import(name, *args, **kwargs)
 
-        builtins.__import__ = missing_content_pipeline
+        builtins.__import__ = missing_llm_kit
         try:
             import yaml_data_editor_kit.dispatch
         except ModuleNotFoundError as exc:
             message = str(exc)
             assert "bootstrap" in message.lower()
-            assert "content_pipeline" in message
+            assert "llm_kit" in message
         else:
             raise AssertionError("dispatch import did not fail")
         """,
@@ -88,7 +88,7 @@ def test_missing_content_pipeline_reports_the_bootstrap_action() -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_nested_module_not_found_is_not_relabelled_as_missing_cpk() -> None:
+def test_nested_module_not_found_is_not_relabelled_as_missing_llm_kit() -> None:
     result = _python(
         """
         import builtins
@@ -96,12 +96,12 @@ def test_nested_module_not_found_is_not_relabelled_as_missing_cpk() -> None:
         original_import = builtins.__import__
 
         def nested_failure(name, *args, **kwargs):
-            if name == "content_pipeline":
+            if name == "llm_kit":
                 return original_import(name, *args, **kwargs)
-            if name == "content_pipeline.freshness.hashing":
+            if name == "llm_kit.pipeline.artifacts.freshness.hashing":
                 raise ModuleNotFoundError(
-                    "No module named 'content_pipeline.freshness.hashing'",
-                    name="content_pipeline.freshness.hashing",
+                    "No module named 'llm_kit.pipeline.artifacts.freshness.hashing'",
+                    name="llm_kit.pipeline.artifacts.freshness.hashing",
                 )
             return original_import(name, *args, **kwargs)
 
@@ -109,12 +109,12 @@ def test_nested_module_not_found_is_not_relabelled_as_missing_cpk() -> None:
         try:
             import yaml_data_editor_kit.dispatch
         except ModuleNotFoundError as exc:
-            assert exc.name == "content_pipeline.freshness.hashing"
+            assert exc.name == "llm_kit.pipeline.artifacts.freshness.hashing"
             assert "shared library" not in str(exc).lower()
         else:
             raise AssertionError("dispatch import did not fail")
         """,
         PLUGIN_LIB,
-        CPK_LIB,
+        LLM_KIT_LIB,
     )
     assert result.returncode == 0, result.stderr

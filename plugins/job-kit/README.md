@@ -1,5 +1,18 @@
 # job-kit
 
+> **Frozen legacy plugin:** use [llm-kit](../llm-kit/) for the maintained jobs
+> API and CLI. This plugin receives pointer-only releases.
+
+| Legacy surface | llm-kit equivalent |
+| --- | --- |
+| Python API (`job_kit`) | `llm_kit.jobs` |
+| `job-kit run` | `llm-kit jobs run` |
+| `job-kit status` | `llm-kit jobs status` |
+| `job-kit resume` | `llm-kit jobs resume` |
+| `job-kit resolve` | `llm-kit jobs resolve` |
+| `job-kit events` | `llm-kit jobs events` |
+| `job-kit gc` | `llm-kit jobs gc` |
+
 Durable execution for heterogeneous agent jobs through a bounded worker pool.
 
 A job file declares work; the runner executes each job once, selects a model

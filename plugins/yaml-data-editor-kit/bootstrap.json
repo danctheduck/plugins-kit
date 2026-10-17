@@ -4,22 +4,21 @@
   ],
   "plugins": [
     {
-      "ref": "plugins-kit:content-pipeline-kit",
+      "ref": "plugins-kit:llm-kit",
       "enabled": true,
       "scope": "user",
       "install": "auto"
     }
   ],
   "shared_lib_imports": [
-    "content_pipeline",
-    "llm_scripting_kit",
+    "llm_kit",
     "bootstrap_lib"
   ],
   "venv": {
     "check_imports": [
       "yaml",
       "yaml_data_editor_kit",
-      "content_pipeline",
+      "llm_kit",
       "openai"
     ]
   }

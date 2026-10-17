@@ -7,10 +7,10 @@ from typing import Callable
 
 import pytest
 
-from content_pipeline.freshness.hashing import content_hash
-from content_pipeline.llm import BackendOptions, CostBudget
-from content_pipeline.llm.backends import MockBackend
-from content_pipeline.pipeline.workunit import WorkUnit
+from llm_kit.pipeline.artifacts.freshness.hashing import content_hash
+from llm_kit.pipeline.runtime.platform import BackendOptions, CostBudget
+from llm_kit.pipeline.runtime.backends import MockBackend
+from llm_kit.pipeline.core.workunit import WorkUnit
 
 from yaml_data_editor_kit.comments import Comment, CommentStore
 from yaml_data_editor_kit.dispatch.planner import (

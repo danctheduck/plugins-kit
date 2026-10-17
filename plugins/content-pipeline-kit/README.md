@@ -1,5 +1,18 @@
 # content-pipeline-kit
 
+> **Frozen legacy plugin:** use [llm-kit](../llm-kit/) for the maintained API,
+> skills, agent, and workflow. This plugin receives pointer-only releases.
+
+| Legacy surface | llm-kit equivalent |
+| --- | --- |
+| Python API (`content_pipeline`) | `llm_kit.pipeline` and its `core`, `artifacts`, `runtime`, `execution`, and `analysis` packages |
+| `content-pipeline-kit:background-pipeline` | `llm-kit:background-pipeline` |
+| `content-pipeline-kit:content-pipeline-domain` | `llm-kit:content-pipeline-domain` |
+| `content-pipeline-kit:execute-work-unit` | `llm-kit:execute-work-unit` |
+| `content-pipeline-kit:workflow-pipeline` | `llm-kit:workflow-pipeline` |
+| `content-pipeline-kit:pipeline-worker` | `llm-kit:pipeline-worker` |
+| `content-pipeline-kit:run-ready-wave` | `llm-kit:run-ready-wave` |
+
 content-pipeline-kit answers the questions a run of many LLM calls raises: which
 units need doing or regenerating, whether a result is valid, what the run cost,
 and where the output goes. It works across a run and depends on

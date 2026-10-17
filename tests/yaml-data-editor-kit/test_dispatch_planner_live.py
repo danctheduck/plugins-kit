@@ -21,19 +21,19 @@ that gap in two ways:
    grouping prompt, and -- when the live model happens to merge two base
    units with distinct write anchors -- also drives the real worker
    ``AGENTIC_SYSTEM_PROMPT`` / ``prompt_for_payload`` prompt for that merged
-   unit, all through ``content_pipeline.llm.backends.route()`` exactly as
+   unit, all through ``llm_kit.pipeline.runtime.backends.route()`` exactly as
    ``AgenticCommentPlanner`` calls it.
 
    Two live transports are supported, tried in this order:
 
    - ``openrouter`` -- an OpenAI-compatible HTTP completion. Needs an
-     OpenRouter key (see ``llm-scripting-kit status`` / the
+     OpenRouter key (see ``llm-kit account status`` / the
      ``openrouter-account`` skill) and the ``openai`` SDK importable in the
      running interpreter (deliberately excluded from this repo's ``dev``
      extra, so a live run against this transport needs an ad hoc
      interpreter, e.g. ``uv run --with openai --extra dev pytest ...``).
    - ``claude-cli`` -- the local ``claude -p`` CLI, delegated to
-     ``llm_scripting_kit.completion.ClaudeCliBackend``. Needs no separate
+     ``llm_kit.adapters.backends.ClaudeCliBackend``. Needs no separate
      credential (billed at the CLI's own subscription) and no ``openai`` SDK
      import (the delegate module has no top-level ``openai`` import), so it
      runs under the plain ``uv run --extra dev pytest ...`` interpreter as
@@ -85,8 +85,9 @@ from typing import Any, Callable, Optional
 
 import pytest
 
-from content_pipeline.llm import submit_validated
-from content_pipeline.llm.backends import ClaudeCliBackend, OpenRouterBackend
+from llm_kit.pipeline.runtime.platform import submit_validated
+from llm_kit.pipeline.runtime.backends import route
+from llm_kit.adapters.backends import ClaudeCliBackend, OpenRouterBackend
 
 from yaml_data_editor_kit.comments import Comment
 from yaml_data_editor_kit.dispatch.adapter import SYSTEM_PROMPT
@@ -117,13 +118,13 @@ LIVE_MODELS = {
 transport this file calls -- the task budget is one or two live calls total
 per transport, not a model sweep."""
 
-# Make llm-scripting-kit's key-resolution helper importable for the
+# Make llm-kit's key-resolution helper importable for the
 # availability probe below. Stdlib-only module (see api_key.py's docstring),
 # so this import alone never requires the `openai` SDK.
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_LSK_LIB = str(_REPO_ROOT / "plugins" / "llm-scripting-kit" / "lib")
-if _LSK_LIB not in sys.path:
-    sys.path.insert(0, _LSK_LIB)
+_LLM_KIT_LIB = str(_REPO_ROOT / "plugins" / "llm-kit" / "lib")
+if _LLM_KIT_LIB not in sys.path:
+    sys.path.insert(0, _LLM_KIT_LIB)
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -131,14 +132,14 @@ _FIXTURES = Path(__file__).resolve().parent / "fixtures"
 def _openrouter_unavailable_reason() -> Optional[str]:
     """Why the OpenRouter transport cannot run in this interpreter, or None."""
     try:
-        from llm_scripting_kit.api_key import get_api_key  # noqa: PLC0415
+        from llm_kit.registry.api_key import get_api_key  # noqa: PLC0415
     except ImportError as exc:
-        return "llm-scripting-kit lib not importable: {}".format(exc)
+        return "llm-kit lib not importable: {}".format(exc)
     resolved = get_api_key()
     if not resolved.key:
         return (
             "no OpenRouter API key configured -- see the "
-            "llm-scripting-kit:openrouter-account skill (llm-scripting-kit status)"
+            "llm-kit:openrouter-account skill (llm-kit account status)"
         )
     try:
         import openai  # noqa: F401,PLC0415
@@ -164,9 +165,9 @@ is the durable artifact and is NOT gated -- it needs no network.
 def _claude_cli_unavailable_reason() -> Optional[str]:
     """Why the local claude-cli transport cannot run here, or None."""
     try:
-        from llm_scripting_kit.completion import ClaudeCliBackend as _  # noqa: F401,PLC0415
+        from llm_kit.adapters.backends import ClaudeCliBackend as _  # noqa: F401,PLC0415
     except ImportError as exc:
-        return "llm-scripting-kit completion lib not importable: {}".format(exc)
+        return "llm-kit adapter lib not importable: {}".format(exc)
     if shutil.which("claude") is None:
         return "no `claude` executable resolves on PATH"
     return None

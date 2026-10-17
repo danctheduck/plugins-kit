@@ -1,10 +1,10 @@
 """Tests for workflow-kit's artifact checker (scripts/check_artifact.py).
 
 The checker is loaded by path and run in-process through ``main``. Kind
-``schema`` uses the REAL llm_scripting_kit (its lib/ is put on sys.path,
+``schema`` uses the REAL llm_kit (its lib/ is put on sys.path,
 standing in for the bootstrap shared-lib .pth): ``OutputContract`` for the
-subset check and the digest, ``completion.json_schema.validate`` for the
-judgment. Kind ``opaque-file`` needs no llm_scripting_kit at all.
+subset check and the digest, ``schema.json_schema.validate`` for the
+judgment. Kind ``opaque-file`` needs no llm_kit at all.
 """
 
 import builtins
@@ -21,7 +21,7 @@ import pytest
 
 _REPO = Path(__file__).resolve().parents[2]
 _SCRIPT = _REPO / "plugins" / "workflow-kit" / "scripts" / "check_artifact.py"
-_LSK_LIB = _REPO / "plugins" / "llm-scripting-kit" / "lib"
+_KIT_LIB = _REPO / "plugins" / "llm-kit" / "lib"
 
 
 def _load():
@@ -45,16 +45,16 @@ SCHEMA = {
 
 
 @pytest.fixture
-def lsk(monkeypatch):
-    monkeypatch.syspath_prepend(str(_LSK_LIB))
+def kit(monkeypatch):
+    monkeypatch.syspath_prepend(str(_KIT_LIB))
 
 
 def _digest(schema):
-    sys.path.insert(0, str(_LSK_LIB))
+    sys.path.insert(0, str(_KIT_LIB))
     try:
-        from llm_scripting_kit.completion import OutputContract
+        from llm_kit.completion.contract import OutputContract
     finally:
-        sys.path.remove(str(_LSK_LIB))
+        sys.path.remove(str(_KIT_LIB))
     return OutputContract(id="x", policy="validated-result", schema=schema).schema_digest
 
 
@@ -88,14 +88,14 @@ def _seed(verdict):
                        encoding="ascii")
 
 
-def _block_lsk(monkeypatch):
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", None)
+def _block_kit(monkeypatch):
+    monkeypatch.setitem(sys.modules, "llm_kit", None)
 
 
 # --------------------------------------------------------------------------- #
 # judgments
 # --------------------------------------------------------------------------- #
-def test_checker_schema_satisfied_writes_the_verdict(lsk, tmp_path, capsys):
+def test_checker_schema_satisfied_writes_the_verdict(kit, tmp_path, capsys):
     payload = '{"lines": 3, "words": 5}\n'
     rc, record = _check(tmp_path, payload)
     assert rc == 0
@@ -114,7 +114,7 @@ def test_checker_schema_satisfied_writes_the_verdict(lsk, tmp_path, capsys):
     assert capsys.readouterr().err == ""
 
 
-def test_checker_schema_violation_exits_1_with_errors(lsk, tmp_path):
+def test_checker_schema_violation_exits_1_with_errors(kit, tmp_path):
     rc, record = _check(tmp_path, '{"lines": "three", "words": -1, "extra": 1}')
     assert rc == 1
     assert record["verdict"] == "violated"
@@ -123,7 +123,7 @@ def test_checker_schema_violation_exits_1_with_errors(lsk, tmp_path):
     assert record["errors_truncated"] is False
 
 
-def test_checker_unparseable_payload_is_violated(lsk, tmp_path):
+def test_checker_unparseable_payload_is_violated(kit, tmp_path):
     rc, record = _check(tmp_path, '{"lines": 3, "words": ')
     assert rc == 1
     assert record["verdict"] == "violated"
@@ -131,7 +131,7 @@ def test_checker_unparseable_payload_is_violated(lsk, tmp_path):
 
 
 @pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
-def test_checker_nan_payload_is_violated(lsk, tmp_path, constant):
+def test_checker_nan_payload_is_violated(kit, tmp_path, constant):
     schema = {"type": "object", "properties": {"x": {"type": "number"}}}
     rc, record = _check(tmp_path, '{"x": %s}' % constant, schema=schema)
     assert rc == 1
@@ -139,7 +139,7 @@ def test_checker_nan_payload_is_violated(lsk, tmp_path, constant):
     assert record["errors"] == [["", "unparseable"]]
 
 
-def test_checker_non_utf8_payload_is_violated(lsk, tmp_path):
+def test_checker_non_utf8_payload_is_violated(kit, tmp_path):
     # With a lenient decode this payload would become {"name": "U+FFFD"} and
     # satisfy the schema; strict UTF-8 makes it unparseable.
     schema = {"type": "object", "properties": {"name": {"type": "string"}}}
@@ -160,7 +160,7 @@ def test_checker_opaque_satisfied(tmp_path, capsys):
 
 
 @pytest.mark.parametrize("kind", ["opaque-file", "schema"])
-def test_checker_opaque_missing_file_is_missing(lsk, tmp_path, capsys, kind):
+def test_checker_opaque_missing_file_is_missing(kit, tmp_path, capsys, kind):
     rc, record = _check(tmp_path, None, kind=kind)
     assert rc == 1
     assert record["verdict"] == "missing"
@@ -183,7 +183,7 @@ def test_checker_directory_is_missing(tmp_path, capsys, which):
     assert "cannot read" not in capsys.readouterr().err
 
 
-def test_checker_command_failure_records_missing_and_keeps_exit_code(lsk, tmp_path):
+def test_checker_command_failure_records_missing_and_keeps_exit_code(kit, tmp_path):
     rc, record = _check(tmp_path, '{"lines": 3, "words": 5}', command_exit=7)
     assert rc == 7
     assert record["verdict"] == "missing"
@@ -197,7 +197,7 @@ def test_checker_command_exit_is_clamped(tmp_path, code, expected):
     assert record["verdict"] == "missing"
 
 
-def test_checker_rerun_after_failure_replaces_satisfied_verdict(lsk, tmp_path):
+def test_checker_rerun_after_failure_replaces_satisfied_verdict(kit, tmp_path):
     rc, record = _check(tmp_path, '{"lines": 3, "words": 5}')
     assert (rc, record["verdict"]) == (0, "satisfied")
     rc, record = _check(tmp_path, '{"lines": 3, "words": 5}', command_exit=3)
@@ -205,7 +205,7 @@ def test_checker_rerun_after_failure_replaces_satisfied_verdict(lsk, tmp_path):
     assert record is not None and record["verdict"] == "missing"
 
 
-def test_checker_read_oserror_records_missing(lsk, tmp_path, monkeypatch, capsys):
+def test_checker_read_oserror_records_missing(kit, tmp_path, monkeypatch, capsys):
     out, _verdict = _paths(tmp_path)
     real = Path.read_bytes
 
@@ -225,7 +225,7 @@ def test_checker_read_oserror_records_missing(lsk, tmp_path, monkeypatch, capsys
 # --------------------------------------------------------------------------- #
 # the verdict file's content
 # --------------------------------------------------------------------------- #
-def test_checker_errors_capped_at_100(lsk, tmp_path):
+def test_checker_errors_capped_at_100(kit, tmp_path):
     schema = {"type": "array", "items": {"type": "integer"}}
     rc, record = _check(tmp_path, json.dumps(["x"] * 150), schema=schema)
     assert rc == 1
@@ -233,7 +233,7 @@ def test_checker_errors_capped_at_100(lsk, tmp_path):
     assert record["errors_truncated"] is True
 
 
-def test_checker_verdict_carries_no_payload_values(lsk, tmp_path):
+def test_checker_verdict_carries_no_payload_values(kit, tmp_path):
     sentinel = "SENTINEL-payload-value-4f1c"
     rc, _record = _check(tmp_path, json.dumps({"lines": sentinel, "words": 1}))
     assert rc == 1
@@ -242,7 +242,7 @@ def test_checker_verdict_carries_no_payload_values(lsk, tmp_path):
     assert json.loads(text)["errors"] == [["/lines", "type"]]
 
 
-def test_checker_verdict_hash_matches_judged_file(lsk, tmp_path):
+def test_checker_verdict_hash_matches_judged_file(kit, tmp_path):
     payload = b'{"lines": 1,\r\n "words": 2}\r\n'
     rc, record = _check(tmp_path, payload)
     assert rc == 0
@@ -288,7 +288,7 @@ def test_checker_usage_error_leaves_files_untouched(tmp_path, capsys):
     assert verdict.read_bytes() == before
 
 
-def test_checker_schema_digest_mismatch_exits_2_writes_nothing(lsk, tmp_path, capsys):
+def test_checker_schema_digest_mismatch_exits_2_writes_nothing(kit, tmp_path, capsys):
     rc, record = _check(tmp_path, '{"lines": 3, "words": 5}', digest="0" * 64)
     assert rc == 2
     assert record is None
@@ -296,49 +296,52 @@ def test_checker_schema_digest_mismatch_exits_2_writes_nothing(lsk, tmp_path, ca
     assert "changed in transit" in capsys.readouterr().err
 
 
-def test_checker_schema_outside_subset_exits_2_writes_nothing(lsk, tmp_path, capsys):
+def test_checker_schema_outside_subset_exits_2_writes_nothing(kit, tmp_path, capsys):
     schema = {"type": "object", "properties": {"name": {"type": "string", "pattern": "^a"}}}
     rc, record = _check(tmp_path, '{"name": "b"}', schema=schema, digest="0" * 64)
     assert rc == 2
     assert record is None
     assert not _paths(tmp_path)[1].parent.exists()
-    assert "outside what llm-scripting-kit's validated-result contract accepts" in (
+    assert "outside what llm-kit's validated-result contract accepts" in (
         capsys.readouterr().err
     )
 
 
-def test_checker_lsk_absent_exits_2_writes_nothing(tmp_path, capsys, monkeypatch):
+def test_checker_kit_absent_exits_2_writes_nothing(tmp_path, capsys, monkeypatch):
     digest = _digest(SCHEMA)
-    _block_lsk(monkeypatch)
+    _block_kit(monkeypatch)
     rc, record = _check(tmp_path, '{"lines": 3, "words": 5}', digest=digest)
     assert rc == 2
     assert record is None
     err = capsys.readouterr().err
-    assert "llm_scripting_kit not importable" in err
+    assert "llm_kit not importable" in err
     assert "claude plugin update" not in err
 
 
-def test_checker_lsk_too_old_exits_2_distinct_message(tmp_path, capsys, monkeypatch):
+def test_checker_kit_too_old_exits_2_distinct_message(tmp_path, capsys, monkeypatch):
     digest = _digest(SCHEMA)
-    pkg = types.ModuleType("llm_scripting_kit")
+    pkg = types.ModuleType("llm_kit")
     pkg.__path__ = []
-    completion = types.ModuleType("llm_scripting_kit.completion")
-    completion.BackendOptions = object  # OutputContract deliberately absent
+    completion = types.ModuleType("llm_kit.completion")
+    completion.__path__ = []
+    contract = types.ModuleType("llm_kit.completion.contract")  # OutputContract deliberately absent
     pkg.completion = completion
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit", pkg)
-    monkeypatch.setitem(sys.modules, "llm_scripting_kit.completion", completion)
+    completion.contract = contract
+    monkeypatch.setitem(sys.modules, "llm_kit", pkg)
+    monkeypatch.setitem(sys.modules, "llm_kit.completion", completion)
+    monkeypatch.setitem(sys.modules, "llm_kit.completion.contract", contract)
     rc, record = _check(tmp_path, '{"lines": 3, "words": 5}', digest=digest)
     assert rc == 2
     assert record is None
     err = capsys.readouterr().err
-    assert "llm-scripting-kit >= 0.56.0" in err
-    assert "claude plugin update llm-scripting-kit@plugins-kit" in err
+    assert "llm-kit >= 0.1.3" in err
+    assert "claude plugin update llm-kit@plugins-kit" in err
     assert "not importable" not in err
 
 
 def test_checker_refused_probe_creates_no_directory(tmp_path, monkeypatch):
     digest = _digest(SCHEMA)
-    _block_lsk(monkeypatch)
+    _block_kit(monkeypatch)
     out, verdict = _paths(tmp_path)
     out.write_text('{"lines": 3, "words": 5}', encoding="utf-8")
     assert ca.main(_argv(out, verdict, digest=digest)) == 2
@@ -353,19 +356,19 @@ def test_checker_probe_failure_removes_seeded_verdict(tmp_path, monkeypatch):
     digest = _digest(SCHEMA)
     out, verdict = _paths(tmp_path)
     _seed(verdict)
-    _block_lsk(monkeypatch)
+    _block_kit(monkeypatch)
     assert ca.main(_argv(out, verdict, digest=digest)) == 2
     assert not verdict.exists()
 
 
-def test_checker_digest_mismatch_removes_seeded_verdict(lsk, tmp_path):
+def test_checker_digest_mismatch_removes_seeded_verdict(kit, tmp_path):
     out, verdict = _paths(tmp_path)
     _seed(verdict)
     assert ca.main(_argv(out, verdict, digest="0" * 64)) == 2
     assert not verdict.exists()
 
 
-def test_checker_invalidation_creates_no_directory(lsk, tmp_path):
+def test_checker_invalidation_creates_no_directory(kit, tmp_path):
     out, verdict = _paths(tmp_path)
     assert ca.main(_argv(out, verdict, digest="f" * 64)) == 2
     assert not verdict.parent.exists()
@@ -386,7 +389,7 @@ def test_checker_undeletable_verdict_exits_2_before_probes(tmp_path, capsys, mon
     real_import = builtins.__import__
 
     def spy(name, *args, **kwargs):
-        if name.startswith("llm_scripting_kit"):
+        if name.startswith("llm_kit"):
             imported.append(name)
         return real_import(name, *args, **kwargs)
 
@@ -403,7 +406,7 @@ def test_checker_undeletable_verdict_exits_2_before_probes(tmp_path, capsys, mon
 # the atomic write
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("failure", ["serializer", "replace"])
-def test_checker_verdict_write_leaves_no_partial_file(lsk, tmp_path, monkeypatch, capsys, failure):
+def test_checker_verdict_write_leaves_no_partial_file(kit, tmp_path, monkeypatch, capsys, failure):
     out, verdict = _paths(tmp_path)
     _seed(verdict)  # invalidation removes it first
     if failure == "serializer":
@@ -516,7 +519,7 @@ def _fake_execution_event(monkeypatch, **overrides):
 
 
 @pytest.mark.parametrize("case", ["satisfied", "violated"])
-def test_checker_writes_one_contract_event(lsk, tmp_path, capsys, case):
+def test_checker_writes_one_contract_event(kit, tmp_path, capsys, case):
     payload = '{"lines": 3, "words": 5}' if case == "satisfied" else '{"lines": -1, "words": "x"}'
     rc, record, stream = _check_events(tmp_path, payload)
     assert rc == (0 if case == "satisfied" else 1), capsys.readouterr().err
@@ -542,7 +545,7 @@ def test_checker_opaque_contract_event_has_no_digest(tmp_path):
     ]
 
 
-def test_checker_rerun_replaces_events_file(lsk, tmp_path):
+def test_checker_rerun_replaces_events_file(kit, tmp_path):
     assert _check_events(tmp_path, '{"lines": 3, "words": 5}')[0] == 0
     rc, _record, stream = _check_events(tmp_path, '{"lines": "x", "words": 5}')
     assert rc == 1
@@ -551,7 +554,7 @@ def test_checker_rerun_replaces_events_file(lsk, tmp_path):
     assert stream[0]["payload"]["verdict"] == "violated"
 
 
-def test_checker_command_failure_emits_missing(lsk, tmp_path):
+def test_checker_command_failure_emits_missing(kit, tmp_path):
     rc, record, stream = _check_events(tmp_path, '{"lines": 3, "words": 5}', command_exit=7)
     assert rc == 7
     assert record["verdict"] == "missing"
@@ -607,7 +610,7 @@ def test_checker_probe_failure_removes_seeded_events_file(tmp_path, monkeypatch)
     events = _events(tmp_path)
     events.parent.mkdir(parents=True)
     events.write_text("stale\n", encoding="ascii")
-    _block_lsk(monkeypatch)
+    _block_kit(monkeypatch)
     rc, record, stream = _check_events(tmp_path, '{"lines": 3, "words": 5}', digest=digest)
     assert rc == 2
     assert record is None and stream is None

@@ -138,7 +138,7 @@ def validation_spec_for_unit(unit: Any) -> Any:
     source: an agentic multi-target unit parses the ``results`` schema, and a
     mechanical single-target unit passes its text through.
     """
-    from content_pipeline.llm.platform import ValidationSpec
+    from llm_kit.pipeline.runtime.platform import ValidationSpec
 
     targets = unit_targets(unit)
     if "targets" in unit.payload:

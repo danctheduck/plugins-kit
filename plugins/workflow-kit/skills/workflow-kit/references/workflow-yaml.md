@@ -115,7 +115,7 @@ A **step** is exactly one of: an agent step, a pipeline step, a `script` node, o
 - **openrouter node** -- `openrouter: { prompt_file, model?, cheap?, system?, out?,
   status?, label? }`. One non-Claude model call whose reply lands in `$OUT`.
   `prompt_file` is a path (an input, or an upstream node's `{{ steps.ID.path }}`).
-  `model` is a model declaration of llm-scripting-kit transport entry ids
+  `model` is a model declaration of llm-kit transport entry ids
   (e.g. `or-qwen`, or `[or-qwen, or-gpt-mini]`); ids only -- an `{id, effort}`
   entry is refused, because the node runner's `--model` carrier has no effort. Omit it to use the configured
   default declaration (set `cheap: true` for that entry's `defaultCheap`). A
@@ -172,7 +172,7 @@ steps:
 - **`requires`** is allowed on every step kind; on a pipeline step it covers
   every stage, `over` and `fan_out`.
 - **Compile-time checks** (also run by `--validate-only`): every schema name
-  exists; a provider schema is inside llm-scripting-kit's `validated-result`
+  exists; a provider schema is inside llm-kit's `validated-result`
   subset (no `pattern`, `format` or `oneOf`; the root refuses `null`) and its
   canonical JSON is at most 8192 bytes, because it travels on the node's
   command line (split it, or use `type: opaque-file` and validate
@@ -199,7 +199,7 @@ steps:
   contracts are unchanged.
 - **At run time** a script provider runs its command, then always runs
   `scripts/check_artifact.py` on `$OUT`; an openrouter provider validates
-  the answer at the llm-scripting-kit seam. Each writes the verdict file
+  the answer at the llm-kit seam. Each writes the verdict file
   `./.workflow-kit/{{runId}}/<step-id>[.<i>].contract.json` (format and
   exit codes: `node-strategies.md`, "Typed artifacts").
 - **Contract events.** Every provider also records its judgment as one

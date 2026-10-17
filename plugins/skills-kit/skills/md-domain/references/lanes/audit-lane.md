@@ -79,7 +79,7 @@ came from, including a workflow-specific declaration. If `run` ends up empty,
 the lane fails loudly. The workflow lanes try `run` entries in order and move
 to the next when `agent()` throws or returns nothing; failover between declared
 entries is configured behaviour. The `audit_job` family does not go through
-`agent_route`, because its route runs through job-kit and llm-scripting-kit,
+`agent_route`, because its route runs through llm-kit,
 where `luna` runs.
 
 **Checking the slot.** `skills_kit_tool.py lane-models --check` exits 0 when
@@ -640,7 +640,7 @@ learned about.
 
 ### Batch-emitting unattended runs with emit_audit_jobs.py
 
-`scripts/emit_audit_jobs.py` turns the acceptance contract above into a job-kit
+`scripts/emit_audit_jobs.py` turns the acceptance contract above into an llm-kit
 job file, one job per doc:
 
 ```
@@ -651,12 +651,12 @@ emit_audit_jobs.py <subject-dir> [--repo-root PATH] [--standards PATH]
 There is no per-invocation model flag. Each job's models come from the
 `audit_job` family of the `lane_models` slot (shipped default luna high, then
 sonnet low; see "Lane models"). Every job carries `models: [ids]` in slot order
-and `model_efforts: {id: effort}`; job-kit >= 0.11.0 delivers each selected
+and `model_efforts: {id: effort}`; llm-kit >= 0.1.9 delivers each selected
 entry's effort. Exit codes: 0 emitted; 2 subject is not a directory; 3 the
 emitted document holds non-ASCII text; 4 a mixed admitted/non-admitted list, or
 an evidence-pack list whose slot effort differs from the measured effort; 5
 standards unavailable; 6 the `audit_job` slot cannot be resolved or imported; 7 a job carries
-`model_efforts` and the `job-kit` launcher on PATH (resolved to its plugin
+`model_efforts` and the `llm-kit` launcher on PATH (resolved to its plugin
 root's `.claude-plugin/plugin.json`) is missing, unreadable, or below 0.11.0,
 in which case nothing is written.
 
@@ -664,19 +664,19 @@ in which case nothing is written.
 `project_doc` under it (via `discover_project_doc.py`) and emits one job per
 doc, each wired to `check_project_doc_audit.py` as its acceptance command.
 
-Run the emitted file with job-kit exactly as the script's own stderr line
+Run the emitted file with llm-kit exactly as the script's own stderr line
 prints it, `JOB_KIT_REPORT_DIR` included:
 
 ```
-JOB_KIT_REPORT_DIR=<repo-root>/reports job-kit run <job-file>
+JOB_KIT_REPORT_DIR=<repo-root>/reports llm-kit jobs run <job-file>
 ```
 
 `JOB_KIT_REPORT_DIR` is not optional. The contract script writes each accepted
 report to `$JOB_KIT_REPORT_DIR/<job>.<run>.<attempt>.json`, defaulting to `.` --
 the process's own working directory -- when the variable is unset, which
-scatters report files wherever job-kit happened to be invoked from.
+scatters report files wherever llm-kit happened to be invoked from.
 
-Every emitted job sets `workspace.isolate: false`. job-kit passes the attempt
+Every emitted job sets `workspace.isolate: false`. llm-kit passes the attempt
 workspace as the contract's cwd, so a `contract.directory` is dead once a
 workspace resolves. Isolating into a worktree would also hand the audit a
 committed snapshot instead of the working tree it exists to check -- the wrong

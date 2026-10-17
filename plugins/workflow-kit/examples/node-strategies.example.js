@@ -2,7 +2,7 @@
 //
 // NOT run by the test suite and NOT a .workflow.yaml -- it shows the hand-written
 // pattern: inline the preamble, run a deterministic `script` node (wordcount.py)
-// and a non-Claude `openrouter` node (via llm-scripting-kit's openai runner), each
+// and a non-Claude `openrouter` node (via llm-kit's openai runner), each
 // writing to a file, then have ONE Claude reasoning node read the files. Payloads
 // travel by file ($OUT); only the final node pays the token cost of reading them.
 //
@@ -12,7 +12,7 @@
 //                           first (the Workflow tool expands nothing in args):
 //                           "${WORKFLOW_KIT_ROOT:?requires a bootstrap engine pass; run bootstrap run}"
 // - workflowKitVenvPython = "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/workflow-kit/.venv/
-//                           {Scripts/python.exe|bin/python} (has openai + llm_scripting_kit),
+//                           {Scripts/python.exe|bin/python} (has openai + llm_kit),
 //                           expanded in a shell first; under a claudx session
 //                           CLAUDE_BOOTSTRAP_DATA_ROOT selects the redirected venv
 // - source                = path to the input document
@@ -42,8 +42,8 @@ log(`wordcount exit=${stats.exit_code} bytes=${stats.bytes}`)
 
 phase('Classify')
 // openrouter strategy: a non-Claude model call (model diversity). Reply -> $OUT.
-// model omitted + cheap:true -> llm-scripting-kit's configured 'defaultCheap' model
-// (set it in llm-scripting-kit's config.yaml; or pass model: 'or-qwen', a transport entry id).
+// model omitted + cheap:true -> llm-kit's configured 'defaultCheap' model
+// (set it in llm-kit's config.yaml; or pass model: 'or-qwen', a transport entry id).
 const gpt = await wkOpenRouter(runner, {
   cheap: true,
   promptFile: args.source,

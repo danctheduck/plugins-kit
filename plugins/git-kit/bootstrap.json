@@ -54,7 +54,7 @@
   "venv": {
     "check_imports": ["yaml"]
   },
-  "shared_lib_imports": ["bootstrap_lib", "llm_scripting_kit"],
+  "shared_lib_imports": ["bootstrap_lib", "llm_kit"],
   "script": {
     "path": "scripts/bootstrap.py",
     "entry_point": "bootstrap"

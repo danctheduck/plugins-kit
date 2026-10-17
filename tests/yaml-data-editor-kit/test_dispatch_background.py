@@ -5,9 +5,9 @@ import pytest
 import yaml
 
 import yaml_data_editor_kit.dispatch.background as background_module
-from content_pipeline.llm.backends import MockBackend
-from content_pipeline.execution.model import AttemptKind, UnitState
-from content_pipeline.execution.store import ExecutionStore
+from llm_kit.pipeline.runtime.backends import MockBackend
+from llm_kit.pipeline.execution.model import AttemptKind, UnitState
+from llm_kit.pipeline.execution.store import ExecutionStore
 from yaml_data_editor_kit.comments import Comment, CommentStore
 from yaml_data_editor_kit.dispatch import (
     BackgroundStagesRequiredError,
