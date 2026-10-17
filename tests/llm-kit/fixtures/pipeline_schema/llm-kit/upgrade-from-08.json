@@ -1,0 +1,134 @@
+{
+  "journal_mode": "wal",
+  "schema_version": [
+    10
+  ],
+  "sqlite_master": [
+    [
+      "table",
+      "schema_version",
+      "schema_version",
+      "CREATE TABLE schema_version (\n            version INTEGER NOT NULL\n        )"
+    ],
+    [
+      "table",
+      "runs",
+      "runs",
+      "CREATE TABLE runs (\n            id TEXT PRIMARY KEY,\n            driver TEXT NOT NULL,\n            backend TEXT NOT NULL,\n            model TEXT NOT NULL,\n            adapter_version TEXT NOT NULL,\n            created_at REAL NOT NULL,\n            halted_kind TEXT,\n            halted_detail TEXT,\n            halted_at REAL\n        , environment TEXT, dispatcher_id TEXT, dispatcher_lease_expires_at REAL, dispatcher_fence INTEGER DEFAULT 0)"
+    ],
+    [
+      "index",
+      "sqlite_autoindex_runs_1",
+      "runs",
+      null
+    ],
+    [
+      "table",
+      "units",
+      "units",
+      "CREATE TABLE units (\n            run_id TEXT NOT NULL REFERENCES runs(id),\n            unit_id TEXT NOT NULL,\n            ordinal INTEGER NOT NULL,\n            state TEXT NOT NULL,\n            created_at REAL NOT NULL,\n            updated_at REAL NOT NULL,\n            claimed_by TEXT,\n            claimed_at REAL,\n            fencing_token INTEGER NOT NULL DEFAULT 0,\n            lease_expires_at REAL,\n            accepted_at REAL,\n            failed_at REAL, accepted_text TEXT,\n            PRIMARY KEY (run_id, unit_id)\n        )"
+    ],
+    [
+      "index",
+      "sqlite_autoindex_units_1",
+      "units",
+      null
+    ],
+    [
+      "index",
+      "idx_units_run_state",
+      "units",
+      "CREATE INDEX idx_units_run_state ON units(run_id, state)"
+    ],
+    [
+      "table",
+      "attempts",
+      "attempts",
+      "CREATE TABLE attempts (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            run_id TEXT NOT NULL,\n            unit_id TEXT NOT NULL,\n            kind TEXT NOT NULL,\n            at REAL NOT NULL,\n            worker_id TEXT,\n            fencing_token INTEGER,\n            error TEXT,\n            input_tokens INTEGER,\n            output_tokens INTEGER,\n            cache_hit_tokens INTEGER,\n            FOREIGN KEY (run_id, unit_id) REFERENCES units(run_id, unit_id)\n        )"
+    ],
+    [
+      "table",
+      "sqlite_sequence",
+      "sqlite_sequence",
+      "CREATE TABLE sqlite_sequence(name,seq)"
+    ],
+    [
+      "index",
+      "idx_attempts_run_unit",
+      "attempts",
+      "CREATE INDEX idx_attempts_run_unit ON attempts(run_id, unit_id)"
+    ],
+    [
+      "table",
+      "dispatches",
+      "dispatches",
+      "CREATE TABLE dispatches (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            run_id TEXT NOT NULL,\n            unit_id TEXT NOT NULL,\n            worker_id TEXT NOT NULL,\n            session_id TEXT,\n            launched_at REAL NOT NULL,\n            settled_at REAL,\n            outcome TEXT,\n            cli_version TEXT,\n            FOREIGN KEY (run_id, unit_id) REFERENCES units(run_id, unit_id)\n        )"
+    ],
+    [
+      "index",
+      "idx_dispatches_run_unit",
+      "dispatches",
+      "CREATE INDEX idx_dispatches_run_unit ON dispatches(run_id, unit_id)"
+    ],
+    [
+      "index",
+      "idx_dispatches_open_unique",
+      "dispatches",
+      "CREATE UNIQUE INDEX idx_dispatches_open_unique ON dispatches(run_id, unit_id) WHERE settled_at IS NULL"
+    ],
+    [
+      "table",
+      "interrupts",
+      "interrupts",
+      "CREATE TABLE interrupts (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            run_id TEXT NOT NULL,\n            unit_id TEXT NOT NULL,\n            fencing_token INTEGER NOT NULL,\n            envelope TEXT NOT NULL,\n            kind TEXT NOT NULL,\n            request_schema_json TEXT NOT NULL,\n            payload_json TEXT NOT NULL,\n            created_at REAL NOT NULL,\n            expires_at REAL,\n            on_rejected TEXT NOT NULL CHECK (on_rejected IN ('stop', 'release')),\n            on_expired TEXT NOT NULL CHECK (on_expired IN ('stop', 'release')),\n            FOREIGN KEY (run_id, unit_id) REFERENCES units(run_id, unit_id),\n            UNIQUE (run_id, unit_id, fencing_token)\n        )"
+    ],
+    [
+      "index",
+      "sqlite_autoindex_interrupts_1",
+      "interrupts",
+      null
+    ],
+    [
+      "index",
+      "idx_interrupts_run_unit",
+      "interrupts",
+      "CREATE INDEX idx_interrupts_run_unit ON interrupts(run_id, unit_id, id)"
+    ],
+    [
+      "table",
+      "interrupt_resolutions",
+      "interrupt_resolutions",
+      "CREATE TABLE interrupt_resolutions (\n            interrupt_id INTEGER PRIMARY KEY REFERENCES interrupts(id),\n            outcome TEXT NOT NULL CHECK (outcome IN ('answered', 'rejected', 'expired')),\n            input_json TEXT,\n            reason TEXT,\n            resolved_at REAL NOT NULL\n        )"
+    ],
+    [
+      "trigger",
+      "interrupts_one_open_per_unit",
+      "interrupts",
+      "CREATE TRIGGER interrupts_one_open_per_unit BEFORE INSERT ON interrupts\n            WHEN EXISTS (\n                SELECT 1 FROM interrupts AS open\n                WHERE open.run_id = NEW.run_id AND open.unit_id = NEW.unit_id\n                  AND NOT EXISTS (\n                      SELECT 1 FROM interrupt_resolutions AS r\n                      WHERE r.interrupt_id = open.id))\n            BEGIN SELECT RAISE(ABORT, 'unit already has an unresolved interrupt'); END"
+    ],
+    [
+      "trigger",
+      "interrupts_immutable_update",
+      "interrupts",
+      "CREATE TRIGGER interrupts_immutable_update BEFORE UPDATE ON interrupts\n            BEGIN SELECT RAISE(ABORT, 'interrupt records are immutable'); END"
+    ],
+    [
+      "trigger",
+      "interrupts_immutable_delete",
+      "interrupts",
+      "CREATE TRIGGER interrupts_immutable_delete BEFORE DELETE ON interrupts\n            BEGIN SELECT RAISE(ABORT, 'interrupt records are immutable'); END"
+    ],
+    [
+      "trigger",
+      "resolutions_immutable_update",
+      "interrupt_resolutions",
+      "CREATE TRIGGER resolutions_immutable_update BEFORE UPDATE ON interrupt_resolutions\n            BEGIN SELECT RAISE(ABORT, 'interrupt resolutions are immutable'); END"
+    ],
+    [
+      "trigger",
+      "resolutions_immutable_delete",
+      "interrupt_resolutions",
+      "CREATE TRIGGER resolutions_immutable_delete BEFORE DELETE ON interrupt_resolutions\n            BEGIN SELECT RAISE(ABORT, 'interrupt resolutions are immutable'); END"
+    ]
+  ]
+}

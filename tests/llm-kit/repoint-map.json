@@ -662,9 +662,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/__init__.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "a32ac8d8c87ebfca4b520eb56274132ac1afccd098c534327bf06b5ca0e1695b",
-      "copy_sha256": "a32ac8d8c87ebfca4b520eb56274132ac1afccd098c534327bf06b5ca0e1695b"
+      "copy_sha256": "e308892b536be3c80917e58a48c6d59e0978090ab3105b80706cd5df26e16b75",
+      "final": "llm_kit.pipeline.execution"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/_atomic_json.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/_atomic_json.py",
@@ -675,109 +676,122 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/adapter.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/adapter.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "aba6d9b639d1b46afabb26a73cc8756e38cff0becf56ecf503aedfdf2cf206f3",
-      "copy_sha256": "67965da7003b0316ee4488b50273de29499dfd77e2401a6e753aa1c68ddcc684"
+      "copy_sha256": "6096132f41ce6359c1619c023cbd4a017f96034cab8644a12ef7c179ec7eafc1",
+      "final": "llm_kit.pipeline.execution.adapter"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/controller.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/controller.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "8b788fc4dd3c1a7205714a2007b6fbf92cfc8afa870692c123d07150964aa98d",
-      "copy_sha256": "9d970858061bcead4826e68866a270a1d6fbaae7811893f50a77039e2b901a1d"
+      "copy_sha256": "1250953b317d1d5bf52eefc72546d598a850bb6abcf2d2265ebd25685dd0f018",
+      "final": "llm_kit.pipeline.execution.controller"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/deadlines.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/deadlines.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "f2b618ce0ffc9d506db2067c057f0c059d9c7650010ff0b7d44245341a2dfbfe",
-      "copy_sha256": "3ced8b4a07c0093356c895e2ffb909ac9b2b32869f8c27b10744a3f800dfc9a4"
+      "copy_sha256": "a7ebd9371db8112eaa2cd1f826f64de5da70301a2533103eb892c6b6bea5ec34",
+      "final": "llm_kit.pipeline.execution.deadlines"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/drivers/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/drivers/__init__.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "ffdc87e1951771b60e0dad6a22e4eea983d75f317a0f06d099b784b90bfaf1eb",
-      "copy_sha256": "ffdc87e1951771b60e0dad6a22e4eea983d75f317a0f06d099b784b90bfaf1eb"
+      "copy_sha256": "fa489368b163b12807cf0dfb386b53c6e7ec52cf37f8d8a9d2c69249a8116daf",
+      "final": "llm_kit.pipeline.execution.drivers"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/drivers/claude_bg.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/drivers/claude_bg.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "60e56afbff4f5ac9e426a05251f048bc394c28d9c4a979f124fdd70eb757cefd",
-      "copy_sha256": "267d524d913b88e39cbf341fb8e6ab9df6fa9321641190e4c0ee9a9f97a069c3"
+      "copy_sha256": "bed947b30fca55708812c04fb83470b78b632704e337ab974e296859083ca8db",
+      "final": "llm_kit.pipeline.execution.drivers.claude_bg"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/drivers/inline.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/drivers/inline.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "850bd2f473c2b8da55a3970937b473e9a7180387a8e472ce1199e5cdb15c850f",
-      "copy_sha256": "cf03f4f8ccc7625eb228e55dbd31f35289dac98c111636895efc2015f8a01a16"
+      "copy_sha256": "223c8dc0753613200d482e43c2d2934c8b111b4c86db56884f8d26f9d7849ce4",
+      "final": "llm_kit.pipeline.execution.drivers.inline"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/events.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/events.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "1dc46d9a7bf45fad1dc2dd523ab68dbf4c5cc48b47a9b561548cf7e9652e0aae",
-      "copy_sha256": "1b60255f0d41c20a59fba11cda53eec094e848edffada61735be68d1965ecec8",
-      "final": "llm_kit.execution"
+      "copy_sha256": "1e13d924589b127dc7c729247ccb6e692071fd7c70b1aaa3372298372ed86eff",
+      "final": "llm_kit.pipeline.execution.events"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/failure_cache.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/failure_cache.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "7b58880c51a5e7f8ed2ad26ae579caffe655bcf8c3a36ab9c18d91c862639310",
-      "copy_sha256": "adf5d71de66c3f140468efa19a40fa196e2837fd1af283a4497a55fe424bf2d6"
+      "copy_sha256": "0299e5ca2b315a8d1d965a010aaa18defdf18535d9f39915eb90e732813631d1",
+      "final": "llm_kit.pipeline.execution.failure_cache"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/interrupts.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "969b4999fddcecd848a22d9c149d40bfb3a9a03d3d712582a09d6e720111444d",
-      "copy_sha256": "19898a72fb3953c7f9b7b1efd22f5a5a08e6089eb047f03e85aab12d2a820e79",
-      "final": "llm_kit.execution"
+      "copy_sha256": "e933329c0daf053c4a64a7af33f69fe4eb9b2b2c9ae5913b60729954de328cad",
+      "final": "llm_kit.pipeline.execution.interrupts"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/model.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/model.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "207cbf59e54cd2b12cc5ff0aa9d84ab200e3fee4b802d3f496254d5cab4a4b77",
-      "copy_sha256": "27b034cf0d484b6eb5fd8d1cb6736dc9fcfcac66cc1b2215539aa9ce651e6dfe",
-      "final": "llm_kit.execution"
+      "copy_sha256": "d24bdac2d69e6dcfcf612b99e7feacacf9de0a9f2e8ac7920d03cad974a3decc",
+      "final": "llm_kit.pipeline.execution.model"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/parallel_graph.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/parallel_graph.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "6f6ca471b86261e655e8ed537b2b3d037d3bb964ad6964e2339b20ed286b687d",
-      "copy_sha256": "9661b2ae62b97a06b0d76875dfcfee85a653ff3198026b9edf5aa9441fffd93c"
+      "copy_sha256": "e58f12051ade8f6e875f36ff953372bded4b823496a711f2584351b1d0595a7d",
+      "final": "llm_kit.pipeline.execution.parallel_graph"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/protocol.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/protocol.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "0109f389b37a6a27ee69e113f3ab89fa69f2a56132d80725a7e5b27471d3d102",
-      "copy_sha256": "66afff9df71eddb3c83bba22dfce13d4d0d5a755c12370b0f70caf60b2899902"
+      "copy_sha256": "d301db5429f4bac028c858e896550ddfaf187b0152efa9fbeca5178c2e9d589c",
+      "final": "llm_kit.pipeline.execution.protocol"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/scheduler.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/scheduler.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "72d1a5770016777113a996921aedf56fc177eb248b3c7ff28d0fcd86b40c692d",
-      "copy_sha256": "72d1a5770016777113a996921aedf56fc177eb248b3c7ff28d0fcd86b40c692d"
+      "copy_sha256": "abe77d9b7b86550b8195f84a8925e6b996bbe067fc6c28d2ffae7c3314ced1b7",
+      "final": "llm_kit.pipeline.execution.scheduler"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/status.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/status.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "1c9126fcdfbb2342dff903c2fe4f80f8d880385ac93f3964944cae124346bfd9",
-      "copy_sha256": "aa6a1b7b918978438d68a1950f2c8714e52b9746fc495a42aba7608a3e6086b6"
+      "copy_sha256": "db0f2e08a72c7a69390b696c28ed4dc7dc716090f38bd39693f4c068bde3cdde",
+      "final": "llm_kit.pipeline.execution.status"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/store.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/store.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "f5f4869ad3e88794b001cb742e2e68c8f8dfe9b9c7fdfec00ef4a5cb1b4a846c",
-      "copy_sha256": "688a8e215356e6ed97fcc4291299189419097eebbde65983d99569b491c1a9d3",
-      "final": "llm_kit.storage"
+      "copy_sha256": "817556de82ae5e9d5839c4ac16ad0df67779fd6e523bcbd5da084a029429694f",
+      "final": "llm_kit.pipeline.execution.store"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/wave.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/wave.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "ff0b1589b867a7aa9be131dabd43deb6ab01b87547a30465b63dc5855c24eed4",
-      "copy_sha256": "57f7d90d04a919233707e63d5769569792e6326df139cafe4065c5e81b9cbf6d"
+      "copy_sha256": "ad528a1b0e07109bb4fbda85ab82390f4c85d29b02c72b056adb085e28a5394d",
+      "final": "llm_kit.pipeline.execution.wave"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/workerpack.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/workerpack.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "c0a5a964f252ffd0b4857bc1a122c770a8b4f74f3bc4ff071f41e9a123b728d0",
-      "copy_sha256": "17c1fe4c14cdf15c925da783f1264a2af261498e5ed7400986fb81aa2da16cf6"
+      "copy_sha256": "0bb819c214074051eaed7824ebb4c6feb1fdd242ccf56eef2f73326cbbf9006b",
+      "final": "llm_kit.pipeline.execution.workerpack"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/__init__.py",
@@ -1175,8 +1189,14 @@
     {
       "file": "tests/content-pipeline-kit/test_parallel_graph.py",
       "old": "    tree = ast.parse((EXECUTION / filename).read_text(encoding=\"utf-8\"))",
-      "new": "    source = (EXECUTION.parents[2] / \"storage\" / \"atomic_json.py\"\n              if filename == \"_atomic_json.py\" else EXECUTION / filename)\n    tree = ast.parse(source.read_text(encoding=\"utf-8\"))",
-      "reason": "_atomic_json moved to llm_kit.storage.atomic_json; the stdlib-only property is checked on the final file, not on the shim."
+      "new": "    source = (EXECUTION.parents[2] / \"storage\" / \"atomic_json.py\"\n              if filename == \"_atomic_json.py\"\n              else EXECUTION.parents[2] / \"pipeline\" / \"execution\" / filename)\n    tree = ast.parse(source.read_text(encoding=\"utf-8\"))",
+      "reason": "_atomic_json moved to llm_kit.storage.atomic_json and scheduler, deadlines and failure_cache to llm_kit.pipeline.execution; the stdlib-only property is checked on the final files, not on the shims."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_parallel_graph.py",
+      "old": "            names = [item.module or \"\"]\n",
+      "new": "            names = [item.module or \"\"]\n            if item.module == \"llm_kit.storage\":\n                # the one internal edge of the stdlib-only modules: the atomic-JSON writer\n                names = [f\"llm_kit.storage.{a.name}\" for a in item.names if a.name != \"atomic_json\"]\n",
+      "reason": "deadlines and failure_cache import the atomic-JSON writer from llm_kit.storage (it moved there); that import stays the one allowed internal edge, any other storage name is still refused."
     },
     {
       "file": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",

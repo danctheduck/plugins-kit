@@ -1,0 +1,26 @@
+{
+  "journal_mode": "wal",
+  "schema_version": [
+    2
+  ],
+  "sqlite_master": [
+    [
+      "table",
+      "schema_version",
+      "schema_version",
+      "CREATE TABLE schema_version (\n            version INTEGER NOT NULL\n        )"
+    ],
+    [
+      "table",
+      "runs",
+      "runs",
+      "CREATE TABLE runs (\n            id TEXT PRIMARY KEY,\n            driver TEXT NOT NULL,\n            backend TEXT NOT NULL,\n            model TEXT NOT NULL,\n            adapter_version TEXT NOT NULL,\n            created_at REAL NOT NULL,\n            halted_kind TEXT,\n            halted_detail TEXT,\n            halted_at REAL\n        )"
+    ],
+    [
+      "index",
+      "sqlite_autoindex_runs_1",
+      "runs",
+      null
+    ]
+  ]
+}
