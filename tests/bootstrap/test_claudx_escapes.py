@@ -38,6 +38,7 @@ Escape 5 -- a ``<PLUGIN>_ROOT`` pointing into the plugin cache reached a claudx
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -112,6 +113,9 @@ class _Harvest:
         # newline="\n": bash must not see CRLF on a Windows host.
         with open(sb, "w", encoding="utf-8", newline="\n") as f:
             f.write(_fake_cached_script(with_stand_down))
+        # The real prelude sources hooks/marketplace-name.sh from PLUGIN_ROOT.
+        shutil.copyfile(BOOTSTRAP / "hooks" / "marketplace-name.sh",
+                        install_path / "hooks" / "marketplace-name.sh")
         registry.parent.mkdir(parents=True, exist_ok=True)
         registry.write_text(
             json.dumps({"version": 2, "plugins": {"bootstrap@plugins-kit": [
