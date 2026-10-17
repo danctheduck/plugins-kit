@@ -226,6 +226,19 @@
         "skills-kit",
         "awesome-kit"
       ]
+    },
+    {
+      "name": "presence-kit",
+      "description": "Is the user at the keyboard, away, or has the work been handed over, and how should Claude wait, ask and recap in each case? Sits above bootstrap, which provisions the environment, because presence is a policy question bootstrap cannot answer for any session.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Christina"
+      },
+      "source": "./plugins/presence-kit",
+      "category": "development",
+      "dependencies": [
+        "bootstrap"
+      ]
     }
   ]
 }
