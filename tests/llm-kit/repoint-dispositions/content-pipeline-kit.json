@@ -289,11 +289,12 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_store.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit. Text edits (repoint-map test_text_edits): json_schema lives in llm_kit.schema; the shim at the copy path is the same module object, so its __name__ is the final name.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 81,
       "baseline_failures": []
@@ -301,14 +302,15 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; a message string naming the module; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes; prose mentions left unchanged.",
+      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; a message string naming the module; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes; prose mentions left unchanged. Text edits (repoint-map test_text_edits): json_schema lives in llm_kit.schema; the shim at the copy path is the same module object, so its __name__ is the final name.",
       "rewrite_classes": [
         "declared-skip",
         "import",
         "module-string",
         "named-message",
         "path-plugin-dir",
-        "prose-kept"
+        "prose-kept",
+        "text-edit"
       ],
       "collection_count": 56,
       "baseline_failures": [],
@@ -428,10 +430,11 @@
     {
       "path": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
       "disposition": "rewrite",
-      "reason": "Rewrites \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
+      "reason": "Rewrites \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): These four modules moved to llm_kit.pipeline.core and llm_kit.storage; the vocabulary scan reads the final files, not the shims. Reads the final file for a moved module (see FINAL).",
       "rewrite_classes": [
         "path-package-dir",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 1,
       "baseline_failures": []
@@ -527,12 +530,13 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes.",
+      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes. Text edits (repoint-map test_text_edits): The duplicate is gone: both ledgers delegate to llm_kit.storage.network, which is the original the spend ledger's copy must match.",
       "rewrite_classes": [
         "declared-skip",
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 106,
       "baseline_failures": [],
@@ -546,11 +550,12 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger_concurrency.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit. Text edits (repoint-map test_text_edits): _writer and _reader no longer hold the BEGIN literal; they call llm_kit.storage.transaction, so the guard counts those calls as the BEGIN sites.",
       "rewrite_classes": [
         "code-string",
         "import",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 10,
       "baseline_failures": []
@@ -628,12 +633,13 @@
     {
       "path": "tests/content-pipeline-kit/test_parallel_graph.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 9 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
+      "reason": "Rewrites 9 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): _atomic_json moved to llm_kit.storage.atomic_json; the stdlib-only property is checked on the final file, not on the shim.",
       "rewrite_classes": [
         "import",
         "module-string",
         "path-package-dir",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 44,
       "baseline_failures": []

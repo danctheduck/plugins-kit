@@ -267,9 +267,10 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/api_key.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/api_key.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "4603d615b785ee53f46bbebd946453d870290364069ed0537bacc4d91b546768",
-      "copy_sha256": "4603d615b785ee53f46bbebd946453d870290364069ed0537bacc4d91b546768"
+      "copy_sha256": "a12280ff3e91ccdf16b2d5a6fcd845a04ea3861ff0c59f8662cc375e7833c76d",
+      "final": "llm_kit.registry.api_key"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/cli.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/cli.py",
@@ -351,15 +352,17 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/json_repair.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/json_repair.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "1593023b18b00846db4f50bcb0a3493cbe622a4e2649de99ed0137de53457248",
-      "copy_sha256": "1593023b18b00846db4f50bcb0a3493cbe622a4e2649de99ed0137de53457248"
+      "copy_sha256": "0128df226a1e6a53ce5e26439d86a1f06e68ee0260b1b4698a5f9b03a720d03e",
+      "final": "llm_kit.schema.json_repair"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/json_schema.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/json_schema.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "b73f63d5c897453c43b561e1ebaa1ccf5a754778201029ca86af592f54d0ed92",
-      "copy_sha256": "b73f63d5c897453c43b561e1ebaa1ccf5a754778201029ca86af592f54d0ed92"
+      "copy_sha256": "56cc4844e9298865140bd78962326d9b256af731a2ee8eea2622043366bf8cde",
+      "final": "llm_kit.schema.json_schema"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/opencode_backend.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/opencode_backend.py",
@@ -405,15 +408,17 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/constants.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/constants.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "9ba53d62f468880d3788a5d2b48e323a1cbaa423735873f77bd2aa4339860c04",
-      "copy_sha256": "9ba53d62f468880d3788a5d2b48e323a1cbaa423735873f77bd2aa4339860c04"
+      "copy_sha256": "7613e0d86517627f21ee22350ddf5b35adba7c2773342b6fad640caf1ff3162d",
+      "final": "llm_kit.registry.constants"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/declaration.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/declaration.py",
-      "state": "unmoved",
+      "state": "slice",
       "legacy_sha256": "c35bdeb2091aa489e26fcbcae228eda16881ed1eeb05b76f02b31b51fcba4ea9",
-      "copy_sha256": "c35bdeb2091aa489e26fcbcae228eda16881ed1eeb05b76f02b31b51fcba4ea9"
+      "copy_sha256": "4e43e78a647f086e65558a8e488168ae6aeb8ed7fb67e78c24e02f96a71283a0",
+      "final": "llm_kit.registry.declaration_syntax"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/default_config.yaml": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/default_config.yaml",
@@ -423,15 +428,17 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/effort.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/effort.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "a60b8a6bacf1ad904722bcec03df87332c6465c297a0cc363e965fadcc310eed",
-      "copy_sha256": "a60b8a6bacf1ad904722bcec03df87332c6465c297a0cc363e965fadcc310eed"
+      "copy_sha256": "af2e7e7ad17a1a1a4ebde6d4073c897f7129742c39c65b7079b8258605a02844",
+      "final": "llm_kit.registry.effort"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/env_file.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/env_file.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "9a14a1c1e3c0c13c73a9074867cbd6d67d4e6067f5459589b57a2d176e1fcf91",
-      "copy_sha256": "9a14a1c1e3c0c13c73a9074867cbd6d67d4e6067f5459589b57a2d176e1fcf91"
+      "copy_sha256": "d76bd2c56f6df06d20d8d3f459a49127f5dc56a9fd85438aa0b964bb3aa7edc3",
+      "final": "llm_kit.registry.env_file"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/__init__.py",
@@ -459,21 +466,24 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/harness_adapters.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/harness_adapters.py",
-      "state": "unmoved",
+      "state": "slice",
       "legacy_sha256": "779f1493863d1d84accd3e1892d96c3a9ec07c27c4cb17f943e5fc814ff51b5a",
-      "copy_sha256": "779f1493863d1d84accd3e1892d96c3a9ec07c27c4cb17f943e5fc814ff51b5a"
+      "copy_sha256": "ff663a0909ed996fa713c8c26c5a44065b1fc428a0632901c16b1f256d6bb3f6",
+      "final": "llm_kit.registry.effort"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/model_endpoints.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/model_endpoints.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "fb39f7c4bc2617c81ffb18e2da9c93eb9db282284c9b0bfd8c3f18522c4f8e6e",
-      "copy_sha256": "fb39f7c4bc2617c81ffb18e2da9c93eb9db282284c9b0bfd8c3f18522c4f8e6e"
+      "copy_sha256": "92cbf5ae1469a247ea2af900ae8e867ae45b35e51e54f7bb700c6ffb9da9cd3e",
+      "final": "llm_kit.registry.model_endpoints"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/models.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/models.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "09fecee516ba3fcd94586f58a1fec5dae9e95ab7388b2f087c5815313fb2bd9c",
-      "copy_sha256": "09fecee516ba3fcd94586f58a1fec5dae9e95ab7388b2f087c5815313fb2bd9c"
+      "copy_sha256": "88a10851b8c2d40024b56374546daee620a30870f3d03a3e182b5aa7f6a0dde3",
+      "final": "llm_kit.registry.models"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/observer.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/observer.py",
@@ -519,9 +529,10 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/usage_budget.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/usage_budget.py",
-      "state": "unmoved",
+      "state": "slice",
       "legacy_sha256": "89e2203f4a9da882a950b213a858705c26f755511bb21f7afaf6b73aeeb6e161",
-      "copy_sha256": "89e2203f4a9da882a950b213a858705c26f755511bb21f7afaf6b73aeeb6e161"
+      "copy_sha256": "ef4fa52787ab794ad6e75df3cef6b0420169f1750288b2703ad786a658f0c9aa",
+      "final": "llm_kit.registry.conserve"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/__init__.py",
@@ -573,9 +584,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/scaffold.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/scaffold.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "f5edde0b85e374a0e2010f15d7176fc3051e44ed2d7f61656afe80eb9d5baa5b",
-      "copy_sha256": "f5edde0b85e374a0e2010f15d7176fc3051e44ed2d7f61656afe80eb9d5baa5b"
+      "copy_sha256": "6a14dcb39f103d0513225b1be6077b4d778b8a92e0569e97d5a51d2df9bafa8a",
+      "final": "llm_kit.scaffold"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/unsupported.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/unsupported.py",
@@ -615,9 +627,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/_atomic_json.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/_atomic_json.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "62b467142109577080eb3bcf07dbf55cc4e1071ad95b05d582b05138d7abda09",
-      "copy_sha256": "62b467142109577080eb3bcf07dbf55cc4e1071ad95b05d582b05138d7abda09"
+      "copy_sha256": "bcf4bd765fdbacff838bc4ec77a8311d7705eed4c638e1d2b8225439506e469b",
+      "final": "llm_kit.storage.atomic_json"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/adapter.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/adapter.py",
@@ -705,9 +718,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/store.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/store.py",
-      "state": "unmoved",
+      "state": "slice",
       "legacy_sha256": "f5f4869ad3e88794b001cb742e2e68c8f8dfe9b9c7fdfec00ef4a5cb1b4a846c",
-      "copy_sha256": "3cd8de8eae6083ef3b852913b23cee7b1d7f3dd8438922d9d7b9179a63f488bb"
+      "copy_sha256": "688a8e215356e6ed97fcc4291299189419097eebbde65983d99569b491c1a9d3",
+      "final": "llm_kit.storage"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/wave.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/wave.py",
@@ -747,9 +761,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/seed.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/seed.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "10e725d491a794058aae973d5e4cbf558484e90023e2aabe469530270b755287",
-      "copy_sha256": "10e725d491a794058aae973d5e4cbf558484e90023e2aabe469530270b755287"
+      "copy_sha256": "65113cf92067253fbc4bf9555c40d3079342a4747dccd31c522270e882050ac9",
+      "final": "llm_kit.pipeline.core.seed"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/tier.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/tier.py",
@@ -771,9 +786,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/convergence.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/convergence.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "5fb0724ed9be27ae9c199c8a077089799e5662a4469d09ba4789594199cd4745",
-      "copy_sha256": "5fb0724ed9be27ae9c199c8a077089799e5662a4469d09ba4789594199cd4745"
+      "copy_sha256": "24f692b536d5acd8515e5b5eda4f7e277885d2653d836f3d57a1154e64eaae47",
+      "final": "llm_kit.pipeline.core.convergence"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/gate.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/gate.py",
@@ -789,9 +805,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/spend_ledger.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/spend_ledger.py",
-      "state": "unmoved",
+      "state": "slice",
       "legacy_sha256": "05e3570a84a001528f13308718791ca2fe432139a60ccfa478b2aa3b899dca9b",
-      "copy_sha256": "5e47f27dca805b441400d205105b4dd86b6a8638cd5a154fa53fa9408b4f192b"
+      "copy_sha256": "dfef25d304ac5a27a19de40cbdbfde31a7d391b6060ded18c286c43c31ca05b1",
+      "final": "llm_kit.storage"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/yaml_extract.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/yaml_extract.py",
@@ -801,45 +818,52 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/__init__.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "afc33d59ee0e6896959cbcc2ee3759a1700f347bd1ff41c69845816e26185deb",
-      "copy_sha256": "afc33d59ee0e6896959cbcc2ee3759a1700f347bd1ff41c69845816e26185deb"
+      "copy_sha256": "b0a7908a3fb8d979d2d28eef75be1706e2663625745e7390df87da73c03cdbb2",
+      "final": "llm_kit.pipeline.core"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/cell_policy.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/cell_policy.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "8f287baef590539ffb39615d446432b929a37a528222e1dd0700ab1ea20a790f",
-      "copy_sha256": "cb8e3f98ec62d24d9370418c18a185f8d3c5bdb18794f7806e403e39888ebc11"
+      "copy_sha256": "e54ee768313185b9f52aaf811e7dcd0bad29802b006e2082be456abe0524d7af",
+      "final": "llm_kit.pipeline.core.cell_policy"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/convergence_loop.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/convergence_loop.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "96b219ce2afa82676904131b0fb14ca39f2bbef8406eb1bcad2d5fc521ef175b",
-      "copy_sha256": "24be210fd26d52f39550a0ede23bffca559f54373d141a62a7cfcbf4ac3e187b"
+      "copy_sha256": "af900ae12c2556fe53ffa680548a6ecc061b668cdb83306d97a4a34015292476",
+      "final": "llm_kit.pipeline.core.convergence_loop"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/gate.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/gate.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "0b45e5b01e833c02290c1ec96fb77eba4ef2be17c4fcd6c64edd88400c22ed16",
-      "copy_sha256": "fab9ee0648e28d5008b139a1886c4d31d03de03cc2f3eac251347447193b1c6b"
+      "copy_sha256": "ef304348a0ee87b692dff94aee2a0d22dd540efe0943f8230deaca2b3f8d138b",
+      "final": "llm_kit.pipeline.core.gate"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/single_pass.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/single_pass.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "126133b03378a793528ab4b35316c92fb73205630cdfaefb33a91f40268ec719",
-      "copy_sha256": "a6602e90fe61fd6983edb428dd9274f59ca5e8bf1bce384eb5535ce2a37c3ccc"
+      "copy_sha256": "39bedf74db6467038ef1ebc228c454774ae66912f197466a04a51bf9e474f79d",
+      "final": "llm_kit.pipeline.core.single_pass"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/stage.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/stage.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "662da0ec462c940f446c35289f5e66b70296a6cc5e7a5e349000749b7cbb7cb7",
-      "copy_sha256": "662da0ec462c940f446c35289f5e66b70296a6cc5e7a5e349000749b7cbb7cb7"
+      "copy_sha256": "57c193adbdd0321abefc15959433693a76a97274ac4410841d846b0e862e1350",
+      "final": "llm_kit.pipeline.core.stage"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/workunit.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/workunit.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "61261ba6c96d34ce7416d1167206ca0b2f3edc60a5c4d6cf4a0e122a5c525620",
-      "copy_sha256": "61261ba6c96d34ce7416d1167206ca0b2f3edc60a5c4d6cf4a0e122a5c525620"
+      "copy_sha256": "e4951326eb8a2b26196dfbd1be71a30e62dff5e4cd8b4a8bc7d3694a6d428e5e",
+      "final": "llm_kit.pipeline.core.workunit"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/provenance/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/provenance/__init__.py",
@@ -939,27 +963,31 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/validate/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/validate/__init__.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "b3b08073d315a1ede33e343173da0c78b5aec371fbc0bd6fce7472627554028f",
-      "copy_sha256": "b3b08073d315a1ede33e343173da0c78b5aec371fbc0bd6fce7472627554028f"
+      "copy_sha256": "66ae3db3eeb6bd519d088a250130b762e15d34541824d4de9aac40215d380e93",
+      "final": "llm_kit.pipeline.core.validate"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/validate/contract.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/validate/contract.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "c3c77ba7f098ef605994973c7df6c5ca0ad4d86130b5ed948e23c4434362aac4",
-      "copy_sha256": "c3c77ba7f098ef605994973c7df6c5ca0ad4d86130b5ed948e23c4434362aac4"
+      "copy_sha256": "01aceed20050689b151ea88fafd1979b66c18eb25dc5d1b082c1da59167071f1",
+      "final": "llm_kit.pipeline.core.validate.contract"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/validate/floor_guard.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/validate/floor_guard.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "96968bad9bc6b515cfb02ef4515c540371a22fe638e4c4c652fd19ef3bdffc18",
-      "copy_sha256": "96968bad9bc6b515cfb02ef4515c540371a22fe638e4c4c652fd19ef3bdffc18"
+      "copy_sha256": "7011c25a4b67f7360a54dd90a9d32bcc98906245549893fdf5721b720cfa385a",
+      "final": "llm_kit.pipeline.core.validate.floor_guard"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/validate/riders.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/validate/riders.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "7f0f08ef4ba72b190a59d1716f538effcb3fd436fc6f79fabc40172b177ecafa",
-      "copy_sha256": "194a557db8f866ce0d42b8d65cc5e255720c475e2974909c9b4222db6f61c65f"
+      "copy_sha256": "f0e254b090ce6ebd58d815302ceaddf2f74022726eeada01bdcdd90217737452",
+      "final": "llm_kit.pipeline.core.validate.riders"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/vcs/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/vcs/__init__.py",
@@ -981,9 +1009,10 @@
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/vcs/seam.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/vcs/seam.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "a9d7d904edef3e1a2c750042a91a4cd6242d7cb153e5f9d7ea8471d2d08c0a9a",
-      "copy_sha256": "a9d7d904edef3e1a2c750042a91a4cd6242d7cb153e5f9d7ea8471d2d08c0a9a"
+      "copy_sha256": "c9434676c3042baad8cfa0cdf5ce33454e35dde9776642c623c95a59be680c28",
+      "final": "llm_kit.pipeline.core.vcs_seam"
     },
     "plugins/job-kit/lib/job_kit/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/__init__.py",
@@ -1029,9 +1058,10 @@
     },
     "plugins/job-kit/lib/job_kit/store.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/store.py",
-      "state": "unmoved",
+      "state": "slice",
       "legacy_sha256": "9e5b04c8057f007c178f4bee98a7c22da2c3f6a70de4ff66ace3961849770795",
-      "copy_sha256": "9e5b04c8057f007c178f4bee98a7c22da2c3f6a70de4ff66ace3961849770795"
+      "copy_sha256": "3c71cd363fac40ffe5501ec19365c78ed21840aecb14880da016ae2fe86492fc",
+      "final": "llm_kit.storage"
     },
     "plugins/job-kit/lib/job_kit/workspace.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/workspace.py",
@@ -1039,5 +1069,69 @@
       "legacy_sha256": "ec89f6ab102b8c374bdecb32bef1e0dfdac452b32a975a8b37f2e8a80b9bedb1",
       "copy_sha256": "ec89f6ab102b8c374bdecb32bef1e0dfdac452b32a975a8b37f2e8a80b9bedb1"
     }
-  }
+  },
+  "test_text_edits": [
+    {
+      "file": "tests/content-pipeline-kit/test_execution_interrupts_store.py",
+      "old": "seen[\"validator\"].__name__ == \"llm_kit._copy.llm_scripting_kit.completion.json_schema\"",
+      "new": "seen[\"validator\"].__name__ == \"llm_kit.schema.json_schema\"",
+      "reason": "json_schema lives in llm_kit.schema; the shim at the copy path is the same module object, so its __name__ is the final name."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
+      "old": "assert found_validator.__name__ == VALIDATOR_MODULE",
+      "new": "assert found_validator.__name__ == \"llm_kit.schema.json_schema\"",
+      "reason": "json_schema lives in llm_kit.schema; the shim at the copy path is the same module object, so its __name__ is the final name."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_parallel_graph.py",
+      "old": "    tree = ast.parse((EXECUTION / filename).read_text(encoding=\"utf-8\"))",
+      "new": "    source = (EXECUTION.parents[2] / \"storage\" / \"atomic_json.py\"\n              if filename == \"_atomic_json.py\" else EXECUTION / filename)\n    tree = ast.parse(source.read_text(encoding=\"utf-8\"))",
+      "reason": "_atomic_json moved to llm_kit.storage.atomic_json; the stdlib-only property is checked on the final file, not on the shim."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
+      "old": "TERMS = re.compile(",
+      "new": "FINAL = {\n    \"llm/convergence.py\": LIB.parents[1] / \"pipeline\" / \"core\" / \"convergence.py\",\n    \"pipeline/convergence_loop.py\": LIB.parents[1] / \"pipeline\" / \"core\" / \"convergence_loop.py\",\n    \"pipeline/cell_policy.py\": LIB.parents[1] / \"pipeline\" / \"core\" / \"cell_policy.py\",\n    \"execution/_atomic_json.py\": LIB.parents[1] / \"storage\" / \"atomic_json.py\",\n}\nTERMS = re.compile(",
+      "reason": "These four modules moved to llm_kit.pipeline.core and llm_kit.storage; the vocabulary scan reads the final files, not the shims."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
+      "old": "        text = (LIB / rel).read_text(encoding=\"utf-8\")",
+      "new": "        text = FINAL.get(rel, LIB / rel).read_text(encoding=\"utf-8\")",
+      "reason": "Reads the final file for a moved module (see FINAL)."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_spend_ledger_concurrency.py",
+      "old": "        sites = _string_constants(tree, owners, (\"BEGIN\",))\n",
+      "new": "        sites = _string_constants(tree, owners, (\"BEGIN\",))\n        # The BEGIN verb is carried by llm_kit.storage.transaction; the ledger names it\n        # by calling write_transaction (BEGIN IMMEDIATE) or read_transaction (plain BEGIN).\n        sites += [\n            (owners.get(id(call), \"<module>\"),\n             \"BEGIN IMMEDIATE\" if call.func.attr == \"write_transaction\" else \"BEGIN\")\n            for call in ast.walk(tree)\n            if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)\n            and call.func.attr in (\"write_transaction\", \"read_transaction\")\n        ]\n",
+      "reason": "_writer and _reader no longer hold the BEGIN literal; they call llm_kit.storage.transaction, so the guard counts those calls as the BEGIN sites."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_spend_ledger.py",
+      "old": "from llm_kit._copy.content_pipeline.execution.store import looks_like_network_path as original",
+      "new": "from llm_kit.storage.network import looks_like_network_path as original",
+      "reason": "The duplicate is gone: both ledgers delegate to llm_kit.storage.network, which is the original the spend ledger's copy must match."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_endpoints.py",
+      "old": "types.ModuleType(\"llm_kit._copy.llm_scripting_kit.model_endpoints\")",
+      "new": "types.ModuleType(\"llm_kit.registry.model_endpoints\")",
+      "count": 2,
+      "reason": "models now lives in llm_kit.registry and imports its sibling by the final name, so the fake registry module is installed under that name."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_endpoints.py",
+      "old": "monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.model_endpoints\", fake)",
+      "new": "monkeypatch.setitem(sys.modules, \"llm_kit.registry.model_endpoints\", fake)",
+      "count": 2,
+      "reason": "models now lives in llm_kit.registry and imports its sibling by the final name, so the fake registry module is installed under that name."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_model_resolve.py",
+      "old": "yaml_path = Path(models_mod.__file__).parent / \"default_config.yaml\"",
+      "new": "yaml_path = Path(__import__(\"llm_kit._copy.llm_scripting_kit\", fromlist=[\"x\"]).__file__).parent / \"default_config.yaml\"",
+      "reason": "models lives in llm_kit.registry; the bootstrap seed file default_config.yaml stays beside the quarantined copy until the seeding surface moves."
+    }
+  ]
 }

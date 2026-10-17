@@ -57,11 +57,9 @@ see :func:`looks_like_network_path`.
 
 from __future__ import annotations
 
-import ctypes
 import json
 import os
 import sqlite3
-import sys
 import time
 import uuid
 import warnings
@@ -73,6 +71,9 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping, Optional, Union
 
 from llm_kit._copy.content_pipeline.llm.platform import BudgetExceededError, estimate_cost
+from llm_kit.storage import connection as _connection
+from llm_kit.storage import network as _network
+from llm_kit.storage import transaction as _transaction
 
 __all__ = [
     "NANO_PER_USD",
@@ -260,35 +261,20 @@ def estimate_reservation(
 # Network-path detection
 # ---------------------------------------------------------------------------
 
-_DRIVE_REMOTE = 4  # Windows GetDriveTypeW result for a mapped/UNC network drive
-
-
 def looks_like_network_path(path: Union[str, Path]) -> bool:
     """Best-effort check whether ``path`` resolves to a network filesystem.
 
-    A DUPLICATE of ``content_pipeline.execution.store.looks_like_network_path``
-    and must stay behaviourally identical to it (there is a parity test). It is
-    duplicated rather than imported because ``llm/`` may not import
-    ``execution/`` -- keep both copies in step when either changes.
+    Delegates to :func:`llm_kit.storage.network.looks_like_network_path`, the
+    single implementation both ledgers share. The name stays in this module's
+    namespace because callers (and tests) replace it here to force or suppress
+    the network-path warning.
 
     WAL mode is unsafe on a network share, so the ledger warns. False positives
     are tolerated (the caller only warns, never refuses) and false negatives
     are expected: POSIX network mounts under a local-looking path are not
     detected.
     """
-    text = str(path)
-    if text.startswith("\\\\") or text.startswith("//"):
-        return True
-    if sys.platform == "win32":
-        drive = Path(path).resolve().drive
-        if drive:
-            root = drive + "\\"
-            try:
-                drive_type = ctypes.windll.kernel32.GetDriveTypeW(root)  # type: ignore[attr-defined]
-            except Exception:  # noqa: BLE001 -- best-effort probe, never fatal
-                return False
-            return drive_type == _DRIVE_REMOTE
-    return False
+    return _network.looks_like_network_path(path)
 
 
 # ---------------------------------------------------------------------------
@@ -614,45 +600,27 @@ class SpendLedger:
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         """Open one connection, apply per-connection pragmas, close on exit."""
-        conn = sqlite3.connect(str(self._path), timeout=self._busy_timeout_ms / 1000.0)
-        try:
-            conn.row_factory = sqlite3.Row
-            conn.isolation_level = None  # explicit BEGIN; no implicit transaction
-            conn.execute(f"PRAGMA busy_timeout = {int(self._busy_timeout_ms)}")
-            self._ensure_wal(conn)
-            conn.execute(f"PRAGMA synchronous = {self._synchronous}")
+        with _connection.connect(
+            self._path,
+            _connection.ConnectionPolicy(
+                busy_timeout_ms=self._busy_timeout_ms,
+                post_wal_pragmas=(("synchronous", self._synchronous),),
+                explicit_transactions=True,
+            ),
+        ) as conn:
             yield conn
-        finally:
-            conn.close()
 
     def _ensure_wal(self, conn: sqlite3.Connection) -> None:
         """Put ``conn`` into WAL mode without racing concurrent first-opens.
 
-        ``PRAGMA journal_mode`` with no argument is a lock-free read. The form
-        that SETS the mode takes a brief write lock even when the database is
-        already in WAL mode, and does NOT honour ``busy_timeout`` -- it fails
-        almost instantly instead of waiting. So read first and skip the write
-        in the common case; when the write is genuinely needed, retry it here
-        against the busy-timeout budget. This pragma is the ONLY thing in this
-        module that retries; no transaction does.
+        This pragma is the ONLY thing in this module that retries; no
+        transaction does.
         """
-        current = conn.execute("PRAGMA journal_mode").fetchone()[0]
-        if isinstance(current, str) and current.lower() == "wal":
-            return
-        deadline = time.monotonic() + (self._busy_timeout_ms / 1000.0)
-        while True:
-            try:
-                conn.execute("PRAGMA journal_mode = WAL")
-                return
-            except sqlite3.OperationalError as exc:
-                if "locked" not in str(exc).lower():
-                    raise
-                if time.monotonic() >= deadline:
-                    raise sqlite3.OperationalError(
-                        f"could not set WAL journal mode within "
-                        f"{self._busy_timeout_ms} ms (database is locked): {exc}"
-                    ) from exc
-                time.sleep(0.005)
+        _connection.ensure_wal(conn, self._busy_timeout_ms)
+
+    def _validate(self, conn: sqlite3.Connection) -> None:
+        self._validate_identity(conn)
+        self._validate_structure(conn)
 
     @contextmanager
     def _writer(self) -> Iterator[sqlite3.Connection]:
@@ -668,16 +636,8 @@ class SpendLedger:
         Identity and structure are validated BEFORE the body runs, so nothing
         is admitted against a cap, a run, or a row set whose meaning changed.
         """
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            try:
-                self._validate_identity(conn)
-                self._validate_structure(conn)
-                yield conn
-                conn.commit()
-            except BaseException:
-                conn.rollback()
-                raise
+        with _transaction.write_transaction(self._connect, validate=self._validate) as conn:
+            yield conn
 
     @contextmanager
     def _reader(self) -> Iterator[sqlite3.Connection]:
@@ -688,16 +648,8 @@ class SpendLedger:
         so every query in the body sees one state without blocking a writer.
         Read-only by contract: never execute an INSERT/UPDATE/DELETE here.
         """
-        with self._connect() as conn:
-            conn.execute("BEGIN")
-            try:
-                self._validate_identity(conn)
-                self._validate_structure(conn)
-                yield conn
-                conn.commit()
-            except BaseException:
-                conn.rollback()
-                raise
+        with _transaction.read_transaction(self._connect, validate=self._validate) as conn:
+            yield conn
 
     # -- per-transaction validation ------------------------------------------
 

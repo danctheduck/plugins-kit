@@ -14,11 +14,27 @@ Commands (run from the repository root, ``uv run --extra dev python <this file>
               has moved (``state`` other than ``unmoved``) is never overwritten and a
               legacy edit after its move is refused unless the porting ledger
               records it.
+``moved``     Regenerate every re-export shim (map rows whose ``state`` is ``shim``)
+              from the legacy module's names and its ``final`` module, and record
+              the hash of every moved module (``shim`` and ``slice``) in the map.
+              Run it after editing a slice by hand.
 ``mirror``    Regenerate only the mirror under ``tmp/``.
 ``clean``     Remove the mirror under tmp/ (the files this tool wrote, nothing else).
 ``check``     Exit 1 when the copy, the map or the ledgers disagree with the legacy
               trees (what ``tests/llm-kit/test_copy_inventory.py`` asserts).
 ``propose``   Print map entries for runtime-string sites not yet classified.
+
+Module states in the map: ``unmoved`` (generated from the legacy module on every
+sync), ``shim`` (the whole module now lives at ``final``; the copy file is a
+generated re-export of it) and ``slice`` (part of the module lives under
+``final``; the copy file is hand-edited to import and delegate and keeps its
+other code). A shim of a plain module replaces itself in ``sys.modules`` with
+its final module, so the copy name and the final name are one module object:
+a test that patches, fakes or probes the copy name acts on the final code and
+a loader that names the copy still finds what a test installed. A shim of a
+package ``__init__`` imports the final package (the two shimmed packages bind no
+names of their own). A test string that must read the final file instead of
+the shim is edited by a ``test_text_edits`` row.
 
 The rewrite is mechanical and parsed, never a blind text replace: absolute
 imports are rewritten from the syntax tree, runtime-string sites only where the
@@ -593,7 +609,37 @@ def rewrite_test_source(data: bytes, relpath: str, mapping: Mapping,
         return "plugins/llm-kit/lib"
 
     text = _SLASH_PATH_RE.sub(slash_path, text)
+    text, edited = apply_text_edits(text, relpath, mapping)
+    if edited:
+        classes.add("text-edit")
     return text.encode("utf-8"), sorted(classes)
+
+
+# --------------------------------------------------------------------------
+# edits a moved module makes to a mirrored test
+# --------------------------------------------------------------------------
+
+
+def apply_text_edits(text: str, relpath: str, mapping: Mapping) -> tuple[str, bool]:
+    """Apply the map's ``test_text_edits`` rows for one test file.
+
+    Each row names an exact text, its replacement and a reason, and must match
+    exactly ``count`` times (default once): a row that no longer matches fails
+    the run instead of silently leaving the test pointed at a moved module.
+    """
+    changed = False
+    for row in mapping.get("test_text_edits", []):
+        if row["file"] != relpath:
+            continue
+        found = text.count(row["old"])
+        want = row.get("count", 1)
+        if found != want:
+            raise SystemExit(
+                f"{relpath}: test_text_edits row matches {found} time(s), expected {want}: "
+                f"{row['old'][:70]!r}")
+        text = text.replace(row["old"], row["new"])
+        changed = True
+    return text, changed
 
 
 def render_sitecustomize(mapping: Mapping) -> str:
@@ -764,6 +810,156 @@ def write_mirror(files: Mapping[str, tuple[bytes, list[str]]]) -> None:
 
 
 # --------------------------------------------------------------------------
+# moved modules: shims and slices
+# --------------------------------------------------------------------------
+
+MOVED_STATES = ("shim", "slice")
+
+
+def _toplevel_names(tree: ast.Module) -> list[str]:
+    """Names a module binds at module level (through if/try, not into defs)."""
+    names: set[str] = set()
+
+    def target_names(t: ast.AST) -> None:
+        if isinstance(t, ast.Name):
+            names.add(t.id)
+        elif isinstance(t, (ast.Tuple, ast.List)):
+            for e in t.elts:
+                target_names(e)
+
+    def visit(body: list) -> None:
+        for node in body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.add(node.name)
+            elif isinstance(node, ast.Assign):
+                for t in node.targets:
+                    target_names(t)
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                target_names(node.target)
+            elif isinstance(node, ast.Import):
+                for a in node.names:
+                    names.add((a.asname or a.name).split(".")[0])
+            elif isinstance(node, ast.ImportFrom):
+                if node.module == "__future__" and not node.level:
+                    continue
+                for a in node.names:
+                    if a.name != "*":
+                        names.add(a.asname or a.name)
+            elif isinstance(node, ast.If):
+                visit(node.body)
+                visit(node.orelse)
+            elif isinstance(node, ast.Try):
+                visit(node.body)
+                for h in node.handlers:
+                    visit(h.body)
+                visit(node.orelse)
+                visit(node.finalbody)
+
+    visit(tree.body)
+    return sorted(n for n in names if not (n.startswith("__") and n.endswith("__")))
+
+
+def _literal_all(tree: ast.Module) -> Optional[list]:
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets):
+            try:
+                value = ast.literal_eval(node.value)
+            except ValueError:
+                return None
+            return [str(v) for v in value]
+    return None
+
+
+def shim_names(legacy_form: bytes, own_submodules: Iterable[str]) -> tuple[list, Optional[list]]:
+    """(names to re-export, literal ``__all__`` or None) for a module's generated form.
+
+    A package shim never re-exports a name that is also one of its own
+    submodules: the submodule attribute must be the sibling shim, which the
+    import system sets when that shim loads.
+    """
+    tree = ast.parse(legacy_form.decode("utf-8"))
+    skip = set(own_submodules)
+    return [n for n in _toplevel_names(tree) if n not in skip], _literal_all(tree)
+
+
+def render_shim(legacy_path: str, row: Mapping, legacy_form: bytes,
+                own_submodules: Iterable[str], is_package: bool) -> bytes:
+    final = row["final"]
+    legacy_name = legacy_path.split("/lib/", 1)[1][:-3].replace("/", ".")
+    if legacy_name.endswith(".__init__"):
+        legacy_name = legacy_name[: -len(".__init__")]
+    lines = [
+        f'"""Re-export shim: ``{legacy_name}`` now lives in ``{final}``.',
+        "",
+        "Generated by scripts/llm_kit_repoint.py (command ``moved``); do not edit. The",
+        "quarantined copy keeps this path importable until the quarantine is removed.",
+        '"""',
+        "",
+    ]
+    if not is_package:
+        lines += [
+            "import sys",
+            "",
+            f"import {final} as _final",
+            "",
+            "# One module object under both names: patches, fakes and module state seen",
+            "# through the copy path are the final module's.",
+            "sys.modules[__name__] = _final",
+        ]
+        return ("\n".join(lines) + "\n").encode("ascii")
+    names, all_list = shim_names(legacy_form, own_submodules)
+    lines += ["from __future__ import annotations", ""]
+    if names:
+        lines.append(f"from {final} import (")
+        lines += [f"    {n}," for n in names]
+        lines.append(")")
+    else:
+        lines.append(f"import {final}  # noqa: F401 -- the legacy module bound no names")
+    if all_list is not None:
+        lines += ["", "__all__ = ["] + [f"    {n!r}," for n in all_list] + ["]"]
+    return ("\n".join(lines) + "\n").encode("ascii")
+
+
+def own_submodules_of(mapping: Mapping, copy_path: str) -> list:
+    """Submodule and subpackage names of a package ``__init__`` copy path."""
+    if not copy_path.endswith("/__init__.py"):
+        return []
+    pkg_dir = copy_path[: -len("__init__.py")]
+    subs: set[str] = set()
+    for row in mapping["modules"].values():
+        other = row["copy"]
+        if other != copy_path and other.startswith(pkg_dir):
+            subs.add(other[len(pkg_dir):].split("/", 1)[0].removesuffix(".py"))
+    return sorted(subs)
+
+
+def shim_text(mapping: Mapping, legacy: str, row: Mapping, files: Mapping[str, bytes]) -> bytes:
+    return render_shim(legacy, row, files[row["copy"]], own_submodules_of(mapping, row["copy"]),
+                       row["copy"].endswith("/__init__.py"))
+
+
+def cmd_moved(_args: argparse.Namespace) -> int:
+    mapping = load_map()
+    files = build_copy(mapping)
+    count = {"shim": 0, "slice": 0}
+    for legacy, row in mapping["modules"].items():
+        if row["state"] not in MOVED_STATES:
+            continue
+        if "final" not in row:
+            raise SystemExit(f"{legacy}: a {row['state']} row must name its final module")
+        path = REPO / row["copy"]
+        if row["state"] == "shim":
+            path.write_bytes(shim_text(mapping, legacy, row, files))
+        row["copy_sha256"] = _sha(_read(path))
+        count[row["state"]] += 1
+    dump_json(MAP_PATH, mapping)
+    write_mirror(build_mirror(mapping, load_dispositions()))
+    print(f"shims: {count['shim']}; slices: {count['slice']}")
+    return 0
+
+
+# --------------------------------------------------------------------------
 # sync / check
 # --------------------------------------------------------------------------
 
@@ -793,6 +989,8 @@ def module_table(mapping: Mapping, files: Mapping[str, bytes]) -> dict[str, dict
             "copy": row["copy"], "state": state,
             "legacy_sha256": legacy_hash, "copy_sha256": copy_hash,
         }
+        if "final" in prior:
+            table[row["legacy"]]["final"] = prior["final"]
     return table
 
 
@@ -897,10 +1095,14 @@ def check_problems() -> list[str]:
             elif _sha(_read(copy_path)) != _sha(files[row["copy"]]):
                 problems.append(f"copy differs from its generated form: {row['copy']}")
         else:
+            if "final" not in entry:
+                problems.append(f"moved module names no final module: {row['legacy']}")
             if not copy_path.is_file():
                 problems.append(f"moved module missing: {row['copy']}")
             elif _sha(_read(copy_path)) != entry["copy_sha256"]:
                 problems.append(f"moved module changed without a map update: {row['copy']}")
+            elif entry["state"] == "shim" and "final" in entry and                     _read(copy_path) != shim_text(mapping, row["legacy"], entry, files):
+                problems.append(f"shim differs from its generated form: {row['copy']}")
     wanted = {r["copy"] for r in legacy_package_files(mapping) if r["state"] == "copy"}
     wanted |= set(package_initializers(mapping))
     for rel in existing_copy_files():
@@ -942,6 +1144,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     p = sub.add_parser("sync", help="refresh copy, hashes, counts and mirror")
     p.add_argument("--no-counts", action="store_true", help="skip pytest collection counts")
     p.set_defaults(func=cmd_sync)
+    sub.add_parser("moved", help="regenerate shims and rehash moved modules").set_defaults(func=cmd_moved)
     sub.add_parser("mirror", help="regenerate the mirror only").set_defaults(func=cmd_mirror)
     sub.add_parser("clean", help="remove the mirror under tmp/").set_defaults(func=cmd_clean)
     sub.add_parser("check", help="verify copy and map against the legacy trees").set_defaults(func=cmd_check)

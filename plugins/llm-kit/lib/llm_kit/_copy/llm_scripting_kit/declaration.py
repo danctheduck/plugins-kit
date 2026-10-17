@@ -73,6 +73,12 @@ from .usage_budget import (
     quota_pool_key,
     record_observed_halt,
 )
+from llm_kit.registry.declaration_syntax import (
+    _MODEL_DECLARATION_BOOTSTRAP,
+    DeclarationSupportError,
+    _model_declaration,
+)
+
 
 CALLER_SESSION = "session"
 CALLER_PROCESS = "process"
@@ -106,8 +112,6 @@ _DISPATCHABLE_KINDS = (DISPATCHABLE_TRANSPORT,)
 #: Below this fraction of the window left, a pace is not meaningful.
 _ABOUT_TO_RESET = 0.01
 
-#: The bootstrap release that shipped ``bootstrap_lib.model_declaration``.
-_MODEL_DECLARATION_BOOTSTRAP = "0.129.0"
 
 #: The bootstrap release that shipped ``bootstrap_lib.execution_event``.
 EXECUTION_EVENT_BOOTSTRAP = "0.135.0"
@@ -164,45 +168,6 @@ RULE_INDEPENDENCE = (
     "Independence: prefer a non-author entry; the author may review when no "
     "other usable entry exists, and says so."
 )
-
-
-class DeclarationSupportError(ImportError):
-    """``bootstrap_lib.model_declaration`` is absent or too old here.
-
-    llm-scripting-kit links ``bootstrap_lib`` (its ``shared_lib_imports``) and
-    bootstrap is a declared dependency of every plugin, so the posture is
-    REQUIRED: without the structural validator there is no declaration to
-    describe. The two states are diagnosed apart because they have different
-    remedies.
-    """
-
-
-def _model_declaration() -> Any:
-    """Return ``bootstrap_lib.model_declaration``, probed for the symbols used."""
-    try:
-        import bootstrap_lib  # noqa: F401, PLC0415
-    except ImportError as exc:
-        raise DeclarationSupportError(
-            "bootstrap_lib is not linked into this environment; declare "
-            "'bootstrap_lib' in the consuming plugin's bootstrap.json "
-            "shared_lib_imports (llm-scripting-kit's describe/run need "
-            f"bootstrap >= {_MODEL_DECLARATION_BOOTSTRAP})"
-        ) from exc
-    try:
-        from bootstrap_lib import model_declaration  # noqa: PLC0415
-    except ImportError:
-        model_declaration = None
-    if (
-        model_declaration is None
-        or not callable(getattr(model_declaration, "parse", None))
-        or not isinstance(getattr(model_declaration, "CORE_IDS", None), frozenset)
-    ):
-        raise DeclarationSupportError(
-            "the linked bootstrap_lib predates model_declaration.parse/CORE_IDS; "
-            f"llm-scripting-kit's describe/run need bootstrap >= "
-            f"{_MODEL_DECLARATION_BOOTSTRAP} -- update the bootstrap plugin"
-        )
-    return model_declaration
 
 
 def _execution_event() -> Any:

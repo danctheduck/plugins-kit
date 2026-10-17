@@ -54,10 +54,29 @@
       "disposition": "rewrite",
       "reason": "Rewrites 1 import line(s) -> llm_kit._copy.llm_scripting_kit.",
       "rewrite_classes": [
+        "declared-skip",
         "import"
       ],
       "collection_count": 4,
-      "baseline_failures": []
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_cli_command_contract.py::test_cli_command_branches_on_win32": {
+          "mirror_status": "failed",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264)"
+        },
+        "llm-scripting-kit/test_cli_command_contract.py::test_cli_command_is_a_display_string_not_a_resolved_path": {
+          "mirror_status": "failed",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264)"
+        },
+        "llm-scripting-kit/test_cli_command_contract.py::test_redirected_command_branches_on_win32_like_the_contract": {
+          "mirror_status": "failed",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264)"
+        },
+        "llm-scripting-kit/test_cli_command_contract.py::test_contract_path_exists_on_a_provisioned_host": {
+          "mirror_status": "skipped",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264); the llm-kit venv is not provisioned on every host"
+        }
+      }
     },
     {
       "path": "tests/llm-scripting-kit/test_cli_json_repair.py",
@@ -84,11 +103,15 @@
       "declared_differences": {
         "llm-scripting-kit/test_cli_redirect.py::TestEntryPointsRefuseInASubprocess::test_console_script_shape_exits_2": {
           "mirror_status": "skipped",
-          "reason": "The child puts only constants.__file__.parent.parent on sys.path, which in the copy is llm_kit/_copy, so the rewritten llm_kit._copy.llm_scripting_kit.cli import cannot resolve; the path anchor is re-pointed in I9."
+          "reason": "The child puts only constants.__file__.parent.parent on sys.path, which with constants moved to llm_kit.registry is llm_kit/, so the rewritten llm_kit._copy.llm_scripting_kit.cli import cannot resolve; the path anchor is re-pointed in I9."
         },
         "llm-scripting-kit/test_cli_redirect.py::TestEntryPointsRefuseInASubprocess::test_launcher_script_exits_2_before_importing_the_cli": {
           "mirror_status": "skipped",
           "reason": "Launches scripts/llm_scripting_kit_cli.py, a launcher surface not copied in I1; re-pointed in I9."
+        },
+        "llm-scripting-kit/test_cli_redirect.py::TestCliCommandIsRedirectAware::test_redirected_returns_the_redirect_aware_form": {
+          "mirror_status": "failed",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264)"
         }
       }
     },
@@ -373,10 +396,11 @@
     {
       "path": "tests/llm-scripting-kit/test_endpoints.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 16 import line(s) -> llm_kit._copy.llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
+      "reason": "Rewrites 16 import line(s) -> llm_kit._copy.llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): models now lives in llm_kit.registry and imports its sibling by the final name, so the fake registry module is installed under that name.",
       "rewrite_classes": [
         "import",
-        "module-string"
+        "module-string",
+        "text-edit"
       ],
       "collection_count": 45,
       "baseline_failures": []
@@ -466,9 +490,10 @@
     {
       "path": "tests/llm-scripting-kit/test_model_resolve.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 21 import line(s) -> llm_kit._copy.llm_scripting_kit.",
+      "reason": "Rewrites 21 import line(s) -> llm_kit._copy.llm_scripting_kit. Text edits (repoint-map test_text_edits): models lives in llm_kit.registry; the bootstrap seed file default_config.yaml stays beside the quarantined copy until the seeding surface moves.",
       "rewrite_classes": [
-        "import"
+        "import",
+        "text-edit"
       ],
       "collection_count": 43,
       "baseline_failures": []

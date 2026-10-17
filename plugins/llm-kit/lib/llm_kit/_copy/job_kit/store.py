@@ -25,11 +25,14 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
-import urllib.parse
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from typing import Iterator, Mapping, Optional, Sequence
+
+from llm_kit.storage import connection as _connection
+from llm_kit.storage import schema_version as _schema_version
+from llm_kit.storage import transaction as _transaction
 
 from . import events as _events
 from . import interrupts as _interrupts
@@ -778,67 +781,38 @@ class JobStore:
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         """Open a connection and apply all per-connection pragmas."""
-        conn = sqlite3.connect(
-            str(self.db_path), timeout=self.busy_timeout_ms / 1000.0
-        )
-        try:
-            conn.row_factory = sqlite3.Row
-            conn.execute(f"PRAGMA busy_timeout = {self.busy_timeout_ms}")
-            self._ensure_wal(conn)
-            conn.execute("PRAGMA foreign_keys = ON")
+        with _connection.connect(
+            self.db_path,
+            _connection.ConnectionPolicy(
+                busy_timeout_ms=self.busy_timeout_ms,
+                post_wal_pragmas=(("foreign_keys", "ON"),),
+                wal_failure=_connection.WAL_RERAISE,
+            ),
+        ) as conn:
             yield conn
-        finally:
-            conn.close()
 
     def _ensure_wal(self, conn: sqlite3.Connection) -> None:
         """Set WAL mode, retrying the one pragma that ignores busy timeout."""
-        mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
-        if isinstance(mode, str) and mode.lower() == "wal":
-            return
-        deadline = time.monotonic() + self.busy_timeout_ms / 1000.0
-        while True:
-            try:
-                conn.execute("PRAGMA journal_mode = WAL")
-                return
-            except sqlite3.OperationalError as exc:
-                if "locked" not in str(exc).lower() or time.monotonic() >= deadline:
-                    raise
-                time.sleep(0.005)
+        _connection.ensure_wal(
+            conn, self.busy_timeout_ms, wal_failure=_connection.WAL_RERAISE
+        )
 
     @contextmanager
     def _writer(self) -> Iterator[sqlite3.Connection]:
         """Run one write verb inside a transaction with an upfront lock."""
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            try:
-                yield conn
-                conn.commit()
-            except BaseException:
-                conn.rollback()
-                raise
+        with _transaction.write_transaction(self._connect) as conn:
+            yield conn
 
     @contextmanager
     def read_transaction(self) -> Iterator[sqlite3.Connection]:
         """Expose one consistent read snapshot for status operations."""
-        with self._connect() as conn:
-            conn.execute("BEGIN")
-            try:
-                yield conn
-                conn.commit()
-            except BaseException:
-                conn.rollback()
-                raise
+        with _transaction.read_transaction(self._connect) as conn:
+            yield conn
 
     @staticmethod
     def _read_schema_version(conn: sqlite3.Connection) -> int:
         """Read schema version without taking a write lock."""
-        table = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
-        ).fetchone()
-        if table is None:
-            return 0
-        row = conn.execute("SELECT MAX(version) AS version FROM schema_version").fetchone()
-        return int(row["version"]) if row["version"] is not None else 0
+        return _schema_version.read_schema_version(conn, as_int=True)
 
     def _migrate(self) -> None:
         """Apply all pending schema steps atomically."""
@@ -846,14 +820,10 @@ class JobStore:
         # no pragma, no row -- so a database from a NEWER job-kit is refused
         # before anything is written, not merely before the migration loop
         # (which runs inside _connect(), which itself writes pragmas).
-        probe = sqlite3.connect(
-            str(self.db_path), timeout=self.busy_timeout_ms / 1000.0
-        )
-        try:
-            probe.row_factory = sqlite3.Row
+        with _connection.connect_probe(
+            self.db_path, self.busy_timeout_ms, set_busy_timeout=False
+        ) as probe:
             stored_version = self._read_schema_version(probe)
-        finally:
-            probe.close()
         if stored_version > len(_MIGRATIONS):
             raise StoreError(_future_schema_message(stored_version))
         with self._connect() as conn:
@@ -2903,32 +2873,19 @@ class LedgerReader:
             raise StoreNotFoundError(self.db_path)
 
     def _uri(self) -> str:
-        path = urllib.parse.quote(self.db_path.resolve().as_posix())
-        return f"file:{path}?mode=ro"
+        return _connection.readonly_uri(self.db_path)
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         """Open a read-only connection that cannot write, even by pragma."""
-        conn = sqlite3.connect(
-            self._uri(), uri=True, timeout=self.busy_timeout_ms / 1000.0
-        )
-        try:
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA query_only = ON")
-            conn.execute(f"PRAGMA busy_timeout = {self.busy_timeout_ms}")
+        with _connection.connect_readonly(self.db_path, self.busy_timeout_ms) as conn:
             yield conn
-        finally:
-            conn.close()
 
     @contextmanager
     def read_transaction(self) -> Iterator[sqlite3.Connection]:
         """One read transaction: every read inside it sees one snapshot."""
-        with self._connect() as conn:
-            conn.execute("BEGIN")
-            try:
-                yield conn
-            finally:
-                conn.rollback()
+        with _transaction.read_transaction(self._connect, rollback_on_exit=True) as conn:
+            yield conn
 
     @staticmethod
     def _checked_version(conn: sqlite3.Connection) -> int:

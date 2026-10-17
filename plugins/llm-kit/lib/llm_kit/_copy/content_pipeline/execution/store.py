@@ -60,10 +60,8 @@ section comment above those verbs. Their two tables exist in every store
 
 from __future__ import annotations
 
-import ctypes
 import json
 import sqlite3
-import sys
 import time
 import warnings
 from contextlib import contextmanager
@@ -72,6 +70,10 @@ from pathlib import Path
 from typing import Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple, Union
 
 from llm_kit._copy.content_pipeline.execution import interrupts as _interrupts
+from llm_kit.storage import connection as _connection
+from llm_kit.storage import network as _network
+from llm_kit.storage import schema_version as _schema_version
+from llm_kit.storage import transaction as _transaction
 from llm_kit._copy.content_pipeline.execution.model import (
     AlreadyClaimedError,
     AttemptKind,
@@ -144,42 +146,14 @@ def lease_for(expected_unit_seconds: Optional[float], *, default: float = DEFAUL
 # Network-path detection -- a loud warning, never a refusal
 # ---------------------------------------------------------------------------
 
-_DRIVE_REMOTE = 4  # Windows GetDriveTypeW result for a mapped/UNC network drive
-
-
 def looks_like_network_path(path: Union[str, Path]) -> bool:
     """Best-effort check whether ``path`` resolves to a network filesystem.
 
-    False positives are tolerated (the caller only warns, never refuses) and
-    false negatives are expected on filesystems this function does not know
-    how to probe -- it is a heuristic, not a guarantee. Two checks:
-
-    - **UNC form** -- a path starting with ``\\\\`` (or POSIX-style ``//``,
-      the form ``pathlib`` normalizes a UNC path to on some platforms) is
-      always treated as a network path, no OS call needed.
-    - **Windows mapped drive** -- ``GetDriveTypeW`` via ``ctypes`` (stdlib,
-      no ``pywin32`` dependency) reports ``DRIVE_REMOTE`` for a mapped
-      network drive letter.
-
-    POSIX network mounts (NFS, CIFS/SMB mounted under a local-looking path)
-    are not detected -- there is no stdlib-portable way to ask "is this mount
-    remote" without parsing ``/proc/mounts``, which is Linux-only and easy to
-    get wrong. Under-detection there is accepted; the warning is a courtesy,
-    not a safety net.
+    Delegates to :func:`llm_kit.storage.network.looks_like_network_path`. The
+    name stays in this module's namespace because callers (and tests) replace
+    it here to force or suppress the network-path warning.
     """
-    text = str(path)
-    if text.startswith("\\\\") or text.startswith("//"):
-        return True
-    if sys.platform == "win32":
-        drive = Path(path).resolve().drive
-        if drive:
-            root = drive + "\\"
-            try:
-                drive_type = ctypes.windll.kernel32.GetDriveTypeW(root)  # type: ignore[attr-defined]
-            except Exception:  # noqa: BLE001 -- best-effort probe, never fatal
-                return False
-            return drive_type == _DRIVE_REMOTE
-    return False
+    return _network.looks_like_network_path(path)
 
 
 # ---------------------------------------------------------------------------
@@ -604,114 +578,42 @@ class ExecutionStore:
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         """Open one connection, apply per-connection pragmas, close on exit."""
-        conn = sqlite3.connect(str(self.db_path), timeout=self.busy_timeout_ms / 1000.0)
-        try:
-            conn.row_factory = sqlite3.Row
-            conn.execute(f"PRAGMA busy_timeout = {int(self.busy_timeout_ms)}")
-            self._ensure_wal(conn)
-            conn.execute("PRAGMA foreign_keys = ON")
+        with _connection.connect(
+            self.db_path,
+            _connection.ConnectionPolicy(
+                busy_timeout_ms=self.busy_timeout_ms,
+                post_wal_pragmas=(("foreign_keys", "ON"),),
+            ),
+        ) as conn:
             yield conn
-        finally:
-            conn.close()
 
     def _ensure_wal(self, conn: sqlite3.Connection) -> None:
-        """Put ``conn`` into WAL mode, without racing concurrent first-opens.
-
-        ``PRAGMA journal_mode`` with no argument is a plain read (current
-        mode) and never takes a lock. ``PRAGMA journal_mode = WAL`` -- the
-        form that actually SETS the mode -- takes a brief write lock even
-        when the database is already in WAL mode, and critically does **not**
-        honor ``busy_timeout``: it fails almost instantly with "database is
-        locked" instead of waiting, which used to be the entire first-open
-        flake under concurrent opens (every observed failure was this
-        statement, never a migration statement).
-
-        So: read the current mode first (lock-free). If it is already
-        ``wal``, there is nothing to do -- skip the write entirely, which is
-        the common case for every open after the very first. Only when the
-        mode is not yet ``wal`` do we need the write, and then we retry it
-        ourselves against the busy-timeout budget (since SQLite won't), on
-        the theory that whoever holds the lock is another connection about to
-        finish setting WAL mode too.
-        """
-        current = conn.execute("PRAGMA journal_mode").fetchone()[0]
-        if isinstance(current, str) and current.lower() == "wal":
-            return
-
-        deadline = time.monotonic() + (self.busy_timeout_ms / 1000.0)
-        while True:
-            try:
-                conn.execute("PRAGMA journal_mode = WAL")
-                return
-            except sqlite3.OperationalError as exc:
-                if "locked" not in str(exc).lower():
-                    raise
-                if time.monotonic() >= deadline:
-                    raise sqlite3.OperationalError(
-                        f"could not set WAL journal mode within "
-                        f"{self.busy_timeout_ms} ms (database is locked): {exc}"
-                    ) from exc
-                time.sleep(0.005)
+        """Put ``conn`` into WAL mode, without racing concurrent first-opens."""
+        _connection.ensure_wal(conn, self.busy_timeout_ms)
 
     @contextmanager
     def _writer(self) -> Iterator[sqlite3.Connection]:
         """A connection inside a ``BEGIN IMMEDIATE`` transaction.
 
-        ``BEGIN IMMEDIATE`` takes the write lock up front rather than on the
-        first write statement, so two concurrent claimants against the same
-        unit serialize instead of racing to a lost-update. Commits on a clean
-        exit, rolls back on any exception.
+        Commits on a clean exit, rolls back on any exception.
         """
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            try:
-                yield conn
-                conn.commit()
-            except BaseException:
-                conn.rollback()
-                raise
+        with _transaction.write_transaction(self._connect) as conn:
+            yield conn
 
     @contextmanager
     def read_transaction(self) -> Iterator[sqlite3.Connection]:
         """One connection, one consistent read transaction.
 
-        For a caller that must run several queries none of which may observe
-        a write that lands in between them (e.g. :meth:`snapshot`, which the
-        status digest depends on for invariant-consistent counts). In WAL
-        mode a plain ``BEGIN`` (deferred) transaction establishes its
-        snapshot at the first read and holds it for the life of the
-        transaction without blocking concurrent writers -- so this never
-        contends with a worker's claim/submit transaction, it just doesn't
-        see a write that commits after the snapshot was taken.
-
         Read-only by contract: never execute an INSERT/UPDATE/DELETE inside
         this transaction.
         """
-        with self._connect() as conn:
-            conn.execute("BEGIN")
-            try:
-                yield conn
-                conn.commit()
-            except BaseException:
-                conn.rollback()
-                raise
+        with _transaction.read_transaction(self._connect) as conn:
+            yield conn
 
     @staticmethod
     def _read_schema_version(conn: sqlite3.Connection) -> int:
-        """Read the current schema version with plain reads -- no write lock.
-
-        Safe to call outside any transaction (autocommit reads) or inside
-        one; either way it takes no write lock itself, so it is the
-        lock-free fast path in :meth:`_migrate` AND the authoritative
-        recheck once ``BEGIN IMMEDIATE`` is actually held.
-        """
-        existing = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
-        ).fetchone()
-        if existing is None:
-            return 0
-        row = conn.execute("SELECT MAX(version) AS v FROM schema_version").fetchone()
-        return row["v"] if row and row["v"] is not None else 0
+        """Read the current schema version with plain reads -- no write lock."""
+        return _schema_version.read_schema_version(conn)
 
     def _migrate(self) -> None:
         """Apply any migration steps not yet applied.
