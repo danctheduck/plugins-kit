@@ -1,6 +1,6 @@
 [project]
 name = "llm-kit"
-version = "0.1.7"
+version = "0.1.8"
 description = "LLM access, durable agent jobs and batch content pipelines in one library (dev-only consolidation)"
 requires-python = ">=3.12"
 
@@ -8,6 +8,9 @@ requires-python = ">=3.12"
 # needs a third-party package names it in an extra; the owner venv enables every
 # extra its bundled commands reach (see bootstrap.json).
 dependencies = []
+
+[project.scripts]
+llm-kit = "llm_kit.cli:main"
 
 [project.optional-dependencies]
 config = ["pyyaml>=6.0"]

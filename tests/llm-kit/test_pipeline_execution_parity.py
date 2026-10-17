@@ -57,6 +57,8 @@ from typing import Any, Callable, Mapping, Optional
 
 import pytest
 
+from final_wording import floor_to_final
+
 _REPO = Path(__file__).resolve().parents[2]
 _CPK_LIB = _REPO / "plugins" / "content-pipeline-kit" / "lib"
 _LSK_LIB = _REPO / "plugins" / "llm-scripting-kit" / "lib"
@@ -2362,7 +2364,9 @@ class TestDeliberateDifferences:
     def test_the_events_and_interrupts_refusals_name_the_same_floors(self, sides):
         legacy, final = sides
         assert final.interrupts.INTERRUPT_CONTRACT_BOOTSTRAP == legacy.interrupts.INTERRUPT_CONTRACT_BOOTSTRAP
-        assert final.interrupts.JSON_SCHEMA_LSK_VERSION == legacy.interrupts.JSON_SCHEMA_LSK_VERSION
+        # the validator floor is the first llm-kit release that ships the module
+        # (final_wording.FLOORS); the contract floor is bootstrap's, unchanged
+        assert final.interrupts.JSON_SCHEMA_LSK_VERSION == floor_to_final(legacy.interrupts.JSON_SCHEMA_LSK_VERSION)
 
 
 def _regenerate_fixtures() -> None:

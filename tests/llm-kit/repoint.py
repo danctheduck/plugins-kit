@@ -1,4 +1,4 @@
-"""Helpers for the old-versus-copy differential.
+"""Helpers for the old-versus-final differential.
 
 Imported by ``test_copy_inventory.py`` and ``test_repointed_suites.py``; also a
 command line for iterating on one suite:
@@ -123,11 +123,41 @@ def parse_junit(path: Path, suite: str) -> dict[str, Outcome]:
     return out
 
 
-def _path_pairs() -> list[tuple[str, str]]:
-    """(copy path, legacy path) pairs, longest copy path first."""
-    packages = json.loads((REPO / "tests" / "llm-kit" / "repoint-map.json").read_text(encoding="utf-8"))["packages"]
-    pairs = [(spec["copy_dir"], spec["source_dir"]) for spec in packages.values()]
-    return sorted(pairs, key=lambda p: len(p[0]), reverse=True)
+_REVERSE: list = []
+
+
+def _reverse_names() -> list[tuple[str, str]]:
+    """(final dotted name, legacy dotted name) pairs, longest final name first.
+
+    A mirror run names final modules where the legacy run names legacy ones, so a
+    node id or a failure message is spelled back in legacy names before the two
+    runs are compared. The generated alias tree (``legacy_names.<legacy>``) is
+    spelled back the same way.
+    """
+    if not _REVERSE:
+        gen = load_generator()
+        mapping = json.loads((REPO / "tests" / "llm-kit" / "repoint-map.json").read_text(encoding="utf-8"))
+        for path, row in mapping["modules"].items():
+            if row["kind"] in ("module", "facade-package") and path.endswith(".py"):
+                _REVERSE.append((row["final"], gen.legacy_dotted(path)))
+        _REVERSE.sort(key=lambda p: len(p[0]), reverse=True)
+    return _REVERSE
+
+
+def _reverse_path_overrides() -> list[tuple[str, str]]:
+    """(final path, legacy path) for the map's path overrides (made-up paths a test uses as data)."""
+    mapping = json.loads((REPO / "tests" / "llm-kit" / "repoint-map.json").read_text(encoding="utf-8"))
+    return [(row["to"], legacy) for legacy, row in mapping.get("path_overrides", {}).items()]
+
+
+def to_legacy_names(text: str) -> str:
+    """Spell final module names in legacy names (idempotent on legacy text)."""
+    text = text.replace("legacy_names.", "")
+    for final, legacy in _reverse_path_overrides():
+        text = text.replace(final, legacy)
+    for final, legacy in _reverse_names():
+        text = re.sub(rf"(?<![\w.]){re.escape(final)}(?![\w])", legacy, text)
+    return text
 
 
 def normalize_nodeid(nodeid: str) -> str:
@@ -136,14 +166,10 @@ def normalize_nodeid(nodeid: str) -> str:
     Parameter ids derive from the strings a test parametrizes over, which the
     re-pointer rewrites; the legacy spelling is the stable one.
     """
-    for copy, legacy in _path_pairs():
-        nodeid = nodeid.replace(copy, legacy)
-    return nodeid.replace("llm_kit._copy.", "")
+    return to_legacy_names(nodeid)
 
 
 _NORMALIZERS = [
-    (re.compile(r"llm_kit\._copy\."), ""),
-    (re.compile(r"llm_kit[\\/]_copy[\\/]"), ""),
     (re.compile(r"plugins[\\/]llm-kit[\\/]lib"), "<LIB>"),
     (re.compile(r"plugins[\\/](?:llm-scripting-kit|content-pipeline-kit|job-kit)[\\/]lib"), "<LIB>"),
     (re.compile(r"[A-Za-z]:[\\/][^\s'\"]*?(?:pytest-of-[^\\/]+|Temp)[\\/][^\s'\"]*"), "<TMP>"),
@@ -156,6 +182,7 @@ _NORMALIZERS = [
 
 def normalize_message(message: str) -> str:
     line = message.strip().splitlines()[0] if message.strip() else ""
+    line = to_legacy_names(line)
     for pattern, repl in _NORMALIZERS:
         line = pattern.sub(repl, line)
     return line[:300]
@@ -217,11 +244,14 @@ def compare(suite: str, legacy: Mapping[str, Outcome], mirror: Mapping[str, Outc
     declared_base = declared_differences(ledger)
 
     class _Declared(dict):
-        """Declared differences are keyed by node id without parameters."""
+        """Declared differences are keyed by node id without parameters, or by the
+        exact parametrized node id when only one parameter differs."""
         def __contains__(self, node):
-            return declared_base.__contains__(str(node).split("[", 1)[0])
+            return str(node) in declared_base or declared_base.__contains__(str(node).split("[", 1)[0])
 
         def __getitem__(self, node):
+            if str(node) in declared_base:
+                return declared_base[str(node)]
             return declared_base[str(node).split("[", 1)[0]]
 
     declared = _Declared()
@@ -263,12 +293,50 @@ def compare(suite: str, legacy: Mapping[str, Outcome], mirror: Mapping[str, Outc
     return problems
 
 
+def flaky_nodes(ledger: Mapping) -> dict[str, str]:
+    """Function-level node id -> reason, for tests whose outcome depends on timing."""
+    return {node: reason for row in ledger["rows"] for node, reason in row.get("flaky_nodes", {}).items()}
+
+
+def rerun_flaky(suite: str, run: SuiteRun, flaky: Mapping[str, str], workdir: Path, *, mirror: bool,
+                attempts: int = 2) -> list[str]:
+    """Re-run the failing flaky nodes of one run, up to ``attempts`` times; return the nodes that recovered.
+
+    A node counts as recovered only when its own re-run passes, so a defect that
+    fails the test every time stays a failure. Only nodes the ledger lists as
+    flaky are ever re-run, and the recovery is reported by the caller.
+    """
+    root = "tmp" if mirror else "tests"
+    recovered: list[str] = []
+    for attempt in range(attempts):
+        pending = {n for n, o in failing(run.outcomes).items() if n.split("[", 1)[0] in flaky}
+        if not pending:
+            break
+        targets = sorted({f"{root}/{n.split('[', 1)[0]}" for n in pending})
+        junit = workdir / f"rerun-{'mirror' if mirror else 'legacy'}-{suite}-{attempt}.xml"
+        run_pytest(targets[0], junit, mirror=mirror, extra_args=targets[1:])
+        if not junit.is_file():
+            break
+        again = parse_junit(junit, suite)
+        for node in sorted(pending):
+            if again.get(node) is not None and again[node].status == "passed":
+                run.outcomes[node] = again[node]
+                recovered.append(node)
+    return recovered
+
+
 def compare_suite(suite: str, workdir: Path) -> tuple[list[str], SuiteRun, SuiteRun]:
     gen = load_generator()
     gen.cmd_mirror(None)
     legacy = run_suite(suite, workdir, mirror=False)
     mirror = run_suite(suite, workdir, mirror=True)
-    return compare(suite, legacy.outcomes, mirror.outcomes, load_ledger(suite)), legacy, mirror
+    ledger = load_ledger(suite)
+    flaky = flaky_nodes(ledger)
+    if flaky:
+        for run, is_mirror in ((legacy, False), (mirror, True)):
+            for node in rerun_flaky(suite, run, flaky, workdir, mirror=is_mirror):
+                print(f"flaky node recovered on re-run ({'mirror' if is_mirror else 'legacy'}): {node}", file=sys.stderr)
+    return compare(suite, legacy.outcomes, mirror.outcomes, ledger), legacy, mirror
 
 
 def _main(argv: list[str]) -> int:

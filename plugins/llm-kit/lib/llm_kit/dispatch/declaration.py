@@ -151,7 +151,7 @@ def rule_trigger_session() -> str:
         "re-selecting a unit that may have written, reset its workspace to its "
         "launch state or re-run it in a fresh worktree; read-only review lanes skip "
         "this step. A quota or credit halt (a usage-limit or out-of-credits error) "
-        f"is written back first: run `{cli_command()} record-halt <entry>` before "
+        f"is written back first: run `{cli_command()} models record-halt <entry>` before "
         "re-selecting or re-running describe with --exclude, so every later render "
         "in this session shows that entry out of quota."
     )

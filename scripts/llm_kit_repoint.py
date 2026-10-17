@@ -1,48 +1,51 @@
 #!/usr/bin/env python3
-"""Generate llm-kit's quarantined copy and the re-pointed legacy test mirror.
+"""Generate the re-pointed legacy test mirror for llm-kit's differential.
 
-Maintainer tool for the llm-kit consolidation; it reads three legacy plugin
-trees and writes (a) ``plugins/llm-kit/lib/llm_kit/_copy/**`` and (b) the
-ignored in-repo mirror under ``tmp/`` that the old-versus-copy differential
-runs. The legacy trees are never written.
+Maintainer tool for the llm-kit consolidation. It reads the three legacy plugin
+trees and their test suites and writes the ignored in-repo mirror under ``tmp/``:
+each legacy test file whose ledger row says ``rewrite``, re-pointed from the
+legacy package names to llm-kit's final names, plus the generated alias
+modules that stand in for the legacy package namespaces (``tmp/legacy_names``).
+The legacy trees are never written, and nothing here writes under ``plugins/``.
 
 Commands (run from the repository root, ``uv run --extra dev python <this file>
 <command>``; ``sync`` collects the legacy suites, so pytest must be importable):
 
-``sync``      Refresh the copy, the hash table in ``tests/llm-kit/repoint-map.json``
-              and the collection counts in the disposition ledgers. A module that
-              has moved (``state`` other than ``unmoved``) is never overwritten and a
-              legacy edit after its move is refused unless the porting ledger
-              records it.
-``moved``     Regenerate every re-export shim (map rows whose ``state`` is ``shim``)
-              from the legacy module's names and its ``final`` module, and record
-              the hash of every moved module (``shim`` and ``slice``) in the map.
-              Run it after editing a slice by hand.
+``sync``      Refresh the collection counts in the disposition ledgers and the
+              mirror. It never touches the legacy-module hash table.
 ``mirror``    Regenerate only the mirror under ``tmp/``.
 ``clean``     Remove the mirror under tmp/ (the files this tool wrote, nothing else).
-``check``     Exit 1 when the copy, the map or the ledgers disagree with the legacy
-              trees (what ``tests/llm-kit/test_copy_inventory.py`` asserts).
-``propose``   Print map entries for runtime-string sites not yet classified.
+``check``     Exit 1 when the map, the ledgers or the final tree disagree with
+              the legacy trees (what ``tests/llm-kit/test_copy_inventory.py`` asserts).
+``report``    Print every legacy name a ``rewrite`` test file uses that has no
+              final home yet, per file (the input to a ledger decision).
 
-Module states in the map: ``unmoved`` (generated from the legacy module on every
-sync), ``shim`` (the whole module now lives at ``final``; the copy file is a
-generated re-export of it) and ``slice`` (part of the module lives under
-``final``; the copy file is hand-edited to import and delegate and keeps its
-other code; a slice that delegates to several final modules lists them all in
-``final``). A shim of a plain module replaces itself in ``sys.modules`` with
-its final module, so the copy name and the final name are one module object:
-a test that patches, fakes or probes the copy name acts on the final code and
-a loader that names the copy still finds what a test installed. A package
-shim row may list ``dropped_names``: legacy names the final package
-deliberately no longer binds, left out of the shim's imports and ``__all__``.
-A shim of a package ``__init__`` imports the final package (the two shimmed packages bind no
-names of their own). A test string that must read the final file instead of
-the shim is edited by a ``test_text_edits`` row.
+The map (``tests/llm-kit/repoint-map.json``, schema 2) names, for every legacy
+module, where its code lives in the final package:
+
+``module``          the whole module lives at ``final``.
+``facade-package``  a legacy package ``__init__``; its names are the final
+                    package's (``dropped_names`` are names the final package
+                    deliberately no longer binds).
+``facade-names``    a legacy ``__init__`` whose names come from several final
+                    modules; ``names`` maps each to ``[final module, attribute]``.
+``forwarded``       a legacy CLI module whose code now lives in the CLI groups
+                    (``homes``). Its alias module forwards attribute reads and
+                    writes to the group modules that bind the name and translates
+                    ``main(argv)`` from the legacy verb to the group form, so a
+                    test patches and drives the final code; what the translation
+                    cannot reproduce is declared in the ledger.
+``data``            a data file the final package does not carry.
 
 The rewrite is mechanical and parsed, never a blind text replace: absolute
-imports are rewritten from the syntax tree, runtime-string sites only where the
-map classifies them, and test strings and paths only in the shapes listed in
-``rewrite_test_source``.
+imports are rewritten from the syntax tree, module-name strings and code strings
+only in the shapes listed in ``rewrite_test_source``. A legacy name that has no
+final home is collected and reported (``report``); generation fails on it, so a
+test never silently runs against a stale name. Three map sections state the
+deliberate exceptions, each with a reason: ``name_overrides`` (a legacy dotted
+name written as a given final one), ``accepted_unmapped`` (a name the final
+package deliberately lacks; the statement is left and a ``test_text_edits`` row
+removes it) and ``path_overrides`` (a path string with no final file).
 """
 
 from __future__ import annotations
@@ -63,13 +66,13 @@ REPO = Path(__file__).resolve().parents[1]
 MAP_PATH = REPO / "tests" / "llm-kit" / "repoint-map.json"
 DISPOSITIONS_DIR = REPO / "tests" / "llm-kit" / "repoint-dispositions"
 PORTING_LEDGER = REPO / "tests" / "llm-kit" / "porting-ledger.json"
-COPY_ROOT = REPO / "plugins" / "llm-kit" / "lib" / "llm_kit" / "_copy"
 LLM_KIT_LIB = REPO / "plugins" / "llm-kit" / "lib"
 MIRROR_ROOT = REPO / "tmp"
+FACADE_PKG = "legacy_names"
 GUARD_MODULE = "llm_kit.bootstrap_guard"
 SUITES = ("llm-scripting-kit", "content-pipeline-kit", "job-kit")
-DISPOSITIONS = ("rewrite", "legacy-only", "deferred-to-I9")
-SITE_ACTIONS = ("rewrite", "keep-human")
+DISPOSITIONS = ("rewrite", "legacy-only")
+KINDS = ("module", "facade-package", "facade-names", "forwarded", "data")
 
 _ROOT_ALT = "llm_scripting_kit|content_pipeline|job_kit"
 
@@ -79,8 +82,8 @@ def _read(path: Path) -> bytes:
 
     The repository pins LF in the index (.gitattributes), but a working tree
     checked out under another setting can hold CRLF. Every hash and rewrite is
-    taken over the LF form so the copy, its hashes and the mirror do not depend
-    on the checkout that produced them.
+    taken over the LF form so the mirror and its hashes do not depend on the
+    checkout that produced them.
     """
     return path.read_bytes().replace(b"\r\n", b"\n")
 
@@ -105,20 +108,6 @@ def git_files(*paths: str) -> list[str]:
         cwd=REPO, capture_output=True, check=True,
     ).stdout.decode("utf-8")
     return sorted(p for p in out.split("\0") if p)
-
-
-# --------------------------------------------------------------------------
-# map access
-# --------------------------------------------------------------------------
-
-def roots(mapping: Mapping) -> dict[str, str]:
-    """legacy package name -> copy dotted name."""
-    return {name: spec["copy"] for name, spec in mapping["packages"].items()}
-
-
-def token_re(names: Iterable[str]) -> "re.Pattern[str]":
-    alt = "|".join(sorted(names, key=len, reverse=True))
-    return re.compile(rf"(?<![\w.\\/-])({alt})(?![\w\\/-])")
 
 
 # --------------------------------------------------------------------------
@@ -179,282 +168,246 @@ def site_key(relpath: str, value: str, ordinal: int) -> str:
     return f"{relpath}::{hashlib.sha1(value.encode('utf-8')).hexdigest()[:10]}::{ordinal}"
 
 
-def string_sites(relpath: str, tree: ast.AST, names: Iterable[str]) -> list[tuple[str, ast.Constant]]:
-    """(key, node) for each non-prose string constant that names a legacy root."""
-    pattern = re.compile(rf"\b({'|'.join(names)})\b")
-    seen: dict[str, int] = {}
-    out = []
-    for node in string_constants(tree):
-        if not pattern.search(node.value):
-            continue
-        n = seen.get(node.value, 0)
-        seen[node.value] = n + 1
-        out.append((site_key(relpath, node.value, n), node))
-    return out
-
-
 # --------------------------------------------------------------------------
-# import rewriting (shared by the copy and the tests)
+# the legacy trees and the map
 # --------------------------------------------------------------------------
 
-def _stmt_segment(data: bytes, starts: list[int], node: ast.AST) -> tuple[int, int, bytes]:
-    s, e = _span(starts, node)
-    return s, e, data[s:e]
+def legacy_dotted(path: str) -> str:
+    """Dotted legacy module name of a tracked package file (a package for ``__init__``)."""
+    rel = path.split("/lib/", 1)[1]
+    if rel.endswith("/__init__.py"):
+        rel = rel[: -len("/__init__.py")]
+    elif rel.endswith(".py"):
+        rel = rel[:-3]
+    return rel.replace("/", ".")
 
-
-def _alias_text(alias: ast.alias) -> str:
-    return alias.name + (f" as {alias.asname}" if alias.asname else "")
-
-
-def rewrite_import_node(node: ast.AST, seg: bytes, rt: Mapping[str, str],
-                        dropped_rel: Optional[set[str]] = None) -> Optional[bytes]:
-    """Return replacement bytes for one import statement, or None to keep it."""
-    if isinstance(node, ast.Import):
-        if not any(a.name.split(".")[0] in rt or a.name == "bootstrap_guard" for a in node.names):
-            return None
-        pieces: list[str] = []
-        bound: set[str] = set()
-        for alias in node.names:
-            top = alias.name.split(".")[0]
-            if top in rt:
-                rest = alias.name[len(top):]
-                target = rt[top]
-                if alias.asname:
-                    pieces.append(f"import {target}{rest} as {alias.asname}")
-                elif not rest:
-                    pieces.append(f"import {target} as {top}")
-                    bound.add(top)
-                else:
-                    pieces.append(f"import {target}{rest}")
-                    if top not in bound:
-                        pieces.append(f"import {target} as {top}")
-                        bound.add(top)
-            elif alias.name == "bootstrap_guard":
-                pieces.append(
-                    f"from llm_kit import bootstrap_guard"
-                    + (f" as {alias.asname}" if alias.asname else "")
-                )
-            else:
-                pieces.append(f"import {_alias_text(alias)}")
-        return "; ".join(pieces).encode("utf-8")
-    if isinstance(node, ast.ImportFrom):
-        module = node.module or ""
-        top = module.split(".")[0]
-        if node.level and dropped_rel is not None and module in dropped_rel:
-            m = re.match(rb"(from\s+)\.+" + re.escape(module.encode()) + rb"(\s+import\b)", seg)
-            if m is None:
-                raise ValueError("unexpected relative import shape: " + seg[:80].decode())
-            return m.group(1) + GUARD_MODULE.encode() + seg[m.end(1) + node.level + len(module):]
-        if node.level:
-            return None
-        if top == "bootstrap_guard" and module == "bootstrap_guard":
-            m = re.match(rb"(from\s+)bootstrap_guard(\s+import\b)", seg)
-            if m is None:
-                raise ValueError("unexpected guard import shape")
-            return m.group(1) + GUARD_MODULE.encode() + seg[m.end(1) + len("bootstrap_guard"):]
-        if top not in rt:
-            return None
-        # `from llm_scripting_kit import completion, bootstrap_guard` splits.
-        if module == top and any(a.name == "bootstrap_guard" for a in node.names):
-            keep = [a for a in node.names if a.name != "bootstrap_guard"]
-            guard = [a for a in node.names if a.name == "bootstrap_guard"][0]
-            parts = []
-            if keep:
-                parts.append(f"from {rt[top]} import " + ", ".join(_alias_text(a) for a in keep))
-            parts.append(
-                "from llm_kit import bootstrap_guard"
-                + (f" as {guard.asname}" if guard.asname else "")
-            )
-            return "; ".join(parts).encode("utf-8")
-        m = re.match(rb"(from\s+)" + re.escape(module.encode()) + rb"(\s+import\b)", seg)
-        if m is None:
-            raise ValueError("unexpected from-import shape: " + seg[:80].decode())
-        new_module = (rt[top] + module[len(top):]).encode()
-        return m.group(1) + new_module + seg[m.end(1) + len(module):]
-    return None
-
-
-def rewrite_imports(data: bytes, tree: ast.AST, rt: Mapping[str, str],
-                    dropped_rel: Optional[set[str]] = None) -> tuple[bytes, int]:
-    starts = _line_starts(data)
-    edits: list[tuple[int, int, bytes]] = []
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            s, e, seg = _stmt_segment(data, starts, node)
-            repl = rewrite_import_node(node, seg, rt, dropped_rel)
-            if repl is not None and repl != seg:
-                edits.append((s, e, repl))
-    return apply_edits(data, edits), len(edits)
-
-
-# --------------------------------------------------------------------------
-# the copy
-# --------------------------------------------------------------------------
 
 def legacy_package_files(mapping: Mapping) -> list[dict]:
-    """Every tracked file of the three legacy packages with its copy disposition."""
+    """Every tracked file of the three legacy packages with its classification."""
     rows = []
     for name, spec in mapping["packages"].items():
         for path in git_files(spec["source_dir"]):
-            rel_in_pkg = path[len(spec["source_dir"]) + 1:]
             base = os.path.basename(path)
             if path in mapping["dropped"]:
                 state = "dropped"
             elif path in mapping["excluded"]:
                 state = "excluded"
             elif base.endswith(".py") or base in mapping["data_files"]:
-                state = "copy"
+                state = "module"
             else:
                 raise SystemExit(
                     f"unclassified legacy package file: {path} (add it to "
                     f"'excluded' or 'dropped' in {MAP_PATH.name})"
                 )
-            rows.append({
-                "legacy": path, "package": name, "state": state,
-                "copy": (spec["copy_dir"] + "/" + rel_in_pkg) if state == "copy" else None,
-            })
+            rows.append({"legacy": path, "package": name, "state": state})
     return rows
 
 
-def dropped_relative_modules(mapping: Mapping, legacy_path: str) -> set[str]:
-    """Sibling module names (relative-import spelling) dropped from this file's package."""
-    pkg_dir = legacy_path.rsplit("/", 1)[0]
-    out = set()
-    for dropped in mapping["dropped"]:
-        if dropped.rsplit("/", 1)[0] == pkg_dir:
-            out.add(os.path.basename(dropped)[:-3])
-    return out
+class Unmapped(Exception):
+    """A legacy name with no final home."""
 
 
-def rewrite_lib_source(data: bytes, legacy_path: str, mapping: Mapping) -> bytes:
-    """The copy of one legacy module: parsed import rewrite plus classified string sites."""
-    rt = roots(mapping)
-    tree = ast.parse(data.decode("utf-8"))
-    starts = _line_starts(data)
-    dropped_rel = dropped_relative_modules(mapping, legacy_path)
-    edits: list[tuple[int, int, bytes]] = []
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            s, e, seg = _stmt_segment(data, starts, node)
-            repl = rewrite_import_node(node, seg, rt, dropped_rel)
-            if repl is not None and repl != seg:
-                edits.append((s, e, repl))
-    wanted = mapping_sites_for(legacy_path, mapping)
-    token = token_re(rt.keys())
-    for key, node in string_sites(legacy_path, tree, rt.keys()):
-        entry = wanted.get(key)
-        if entry is not None and entry["action"] == "rewrite":
-            s, e = _span(starts, node)
-            seg = data[s:e].decode("utf-8")
-            edits.append((s, e, token.sub(lambda m: rt[m.group(1)], seg).encode("utf-8")))
-    return apply_edits(data, edits)
+class Names:
+    """Resolve legacy dotted names to final ones, from the map's ``modules`` table."""
 
+    def __init__(self, mapping: Mapping) -> None:
+        self.mapping = mapping
+        self.rows: dict[str, dict] = {}
+        for path, row in mapping["modules"].items():
+            if path.endswith(".py"):
+                self.rows[legacy_dotted(path)] = row
+        self.roots = tuple(mapping["packages"])
+        self.guard_legacy = mapping["guard"]["legacy"]
+        self.guard_module = mapping["guard"]["module"]
 
-def mapping_sites_for(legacy_path: str, mapping: Mapping) -> dict[str, dict]:
-    return {k: v for k, v in mapping["string_sites"].items() if v["file"] == legacy_path}
+    # -- lookup ---------------------------------------------------------
 
+    def prefix(self, dotted: str) -> tuple[Optional[str], list[str]]:
+        """(longest dotted prefix that has a row, the remaining components)."""
+        parts = dotted.split(".")
+        for i in range(len(parts), 0, -1):
+            head = ".".join(parts[:i])
+            if head in self.rows:
+                return head, parts[i:]
+        return None, parts
 
-def unclassified_sites(mapping: Mapping) -> list[tuple[str, str, str]]:
-    """(key, file, preview) for each runtime-string site the map does not classify."""
-    rt = roots(mapping)
-    out = []
-    for row in legacy_package_files(mapping):
-        if row["state"] != "copy" or not row["legacy"].endswith(".py"):
-            continue
-        data = _read(REPO / row["legacy"])
-        tree = ast.parse(data.decode("utf-8"))
-        for key, node in string_sites(row["legacy"], tree, rt.keys()):
-            if key not in mapping["string_sites"]:
-                out.append((key, row["legacy"], node.value[:70].replace("\n", " ")))
-    return out
+    def children(self, facade: str) -> dict[str, str]:
+        """child name -> import target (final module, or alias for a facade child)."""
+        out = {}
+        stem = facade + "."
+        for name, row in self.rows.items():
+            if name.startswith(stem) and "." not in name[len(stem):]:
+                if row["kind"] in ("module", "facade-package", "facade-names", "forwarded"):
+                    out[name[len(stem):]] = self.module_target(name)
+        for dropped in self.mapping["dropped"]:
+            if dropped.endswith(f"/{self.guard_legacy}.py") and legacy_dotted(dropped) == f"{facade}.{self.guard_legacy}":
+                out[self.guard_legacy] = self.guard_module
+        return dict(sorted(out.items()))
 
+    def alias(self, dotted: str) -> str:
+        return f"{FACADE_PKG}.{dotted}"
 
-def stale_sites(mapping: Mapping) -> list[str]:
-    rt = roots(mapping)
-    live: set[str] = set()
-    for row in legacy_package_files(mapping):
-        if row["state"] != "copy" or not row["legacy"].endswith(".py"):
-            continue
-        tree = ast.parse(_read(REPO / row["legacy"]).decode("utf-8"))
-        live.update(k for k, _ in string_sites(row["legacy"], tree, rt.keys()))
-    return sorted(set(mapping["string_sites"]) - live)
+    def override(self, dotted: str) -> Optional[str]:
+        entry = self.mapping.get("name_overrides", {}).get(dotted)
+        return None if entry is None else entry["to"]
 
+    def module_target(self, dotted: str) -> str:
+        """The module to import for a legacy module or package named by itself."""
+        head, rest = self.prefix(dotted)
+        if head is None or rest:
+            raise Unmapped(f"{dotted}: no legacy module")
+        row = self.rows[head]
+        kind = row["kind"]
+        if kind == "module":
+            return row["final"]
+        if kind == "facade-package":
+            return row["final"]
+        if kind in ("facade-names", "forwarded"):
+            return self.alias(head)
+        raise Unmapped(f"{dotted}: {kind} module has no final import target")
 
-def remaining_legacy_imports(data: bytes, rt: Mapping[str, str]) -> list[str]:
-    """Absolute imports of a legacy root still present in a copied module."""
-    tree = ast.parse(data.decode("utf-8"))
-    found = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            found += [a.name for a in node.names
-                      if a.name.split(".")[0] in rt or a.name == "bootstrap_guard"]
-        elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
-            if node.module.split(".")[0] in rt or node.module == "bootstrap_guard":
-                found.append(node.module)
-    return found
+    def dotted(self, dotted: str) -> str:
+        """A legacy dotted name (module, or module plus attributes) as a final one."""
+        if dotted == self.guard_legacy:
+            return self.guard_module
+        forced = self.override(dotted)
+        if forced is not None:
+            return forced
+        head, rest = self.prefix(dotted)
+        if head is None:
+            raise Unmapped(f"{dotted}: no legacy module")
+        row = self.rows[head]
+        kind = row["kind"]
+        if kind == "forwarded":
+            return self.alias(head) + "".join("." + r for r in rest)
+        if kind == "module":
+            return row["final"] + "".join("." + r for r in rest)
+        if kind == "facade-package":
+            if row.get("dropped_names") and rest and rest[0] in row["dropped_names"]:
+                raise Unmapped(f"{dotted}: {rest[0]} is a dropped name of {head}")
+            return row["final"] + "".join("." + r for r in rest)
+        if kind == "facade-names":
+            if not rest:
+                return self.alias(head)
+            entry = row["names"].get(rest[0])
+            if entry is None:
+                if rest[0] in row.get("constants", {}):
+                    return self.alias(head) + "".join("." + r for r in rest)
+                raise Unmapped(f"{dotted}: {head} exports no name {rest[0]!r}")
+            return entry[0] + "." + entry[1] + "".join("." + r for r in rest[1:])
+        raise Unmapped(f"{dotted}: {head} is a {kind} module with no final home")
 
+    def from_import(self, module: str, name: str) -> tuple[str, str, str]:
+        """(kind, module, attribute) for ``from <module> import <name>``.
 
-def build_copy(mapping: Mapping) -> dict[str, bytes]:
-    """copy path (repo-relative) -> bytes, for every copied module."""
-    files: dict[str, bytes] = {}
-    for row in legacy_package_files(mapping):
-        if row["state"] != "copy":
-            continue
-        data = _read(REPO / row["legacy"])
-        if row["legacy"].endswith(".py"):
-            data = rewrite_lib_source(data, row["legacy"], mapping)
-        files[row["copy"]] = data
-    return files
-
-
-def existing_copy_files() -> list[str]:
-    if not COPY_ROOT.is_dir():
-        return []
-    out = []
-    for p in COPY_ROOT.rglob("*"):
-        if p.is_file() and "__pycache__" not in p.parts:
-            out.append(p.relative_to(REPO).as_posix())
-    return sorted(out)
-
-
-def package_initializers(mapping: Mapping) -> list[str]:
-    return [(COPY_ROOT / "__init__.py").relative_to(REPO).as_posix()]
-
-
-def write_copy(mapping: Mapping, files: Mapping[str, bytes]) -> None:
-    moved = {m["copy"] for m in mapping["modules"].values() if m["state"] != "unmoved"}
-    for rel, data in files.items():
-        if rel in moved:
-            continue
-        target = REPO / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-    (COPY_ROOT / "__init__.py").write_bytes(b"")
-    wanted = set(files) | set(package_initializers(mapping))
-    for rel in existing_copy_files():
-        if rel not in wanted and rel not in moved:
-            (REPO / rel).unlink()
-    for d in sorted((p for p in COPY_ROOT.rglob("*") if p.is_dir()), reverse=True):
-        if not any(d.iterdir()):
-            d.rmdir()
+        kind is ``attr`` (``from module import attribute``) or ``module`` (the
+        name is itself a module: ``import module as name``).
+        """
+        head, rest = self.prefix(module)
+        if head is None or rest:
+            raise Unmapped(f"{module}: no legacy module")
+        row = self.rows[head]
+        kind = row["kind"]
+        child = module + "." + name
+        # A name the legacy package binds to a callable or value wins over a
+        # submodule of the same name (``from .adapter_capabilities import
+        # adapter_capabilities`` rebinds the attribute the import created).
+        bound_by_name = kind == "facade-names" and name in row["names"]
+        if not bound_by_name and child in self.rows and self.rows[child]["kind"] in (
+                "module", "facade-package", "facade-names", "forwarded"):
+            return "module", self.module_target(child), ""
+        if kind == "forwarded":
+            return "attr", self.alias(head), name
+        if kind in ("module", "facade-package"):
+            if row.get("dropped_names") and name in row["dropped_names"]:
+                raise Unmapped(f"{module}.{name}: dropped name of {head}")
+            return "attr", row["final"], name
+        if kind == "facade-names":
+            entry = row["names"].get(name)
+            if entry is None:
+                if name in row.get("constants", {}):
+                    return "attr", self.alias(head), name
+                raise Unmapped(f"{module}.{name}: {head} exports no name {name!r}")
+            return "attr", entry[0], entry[1]
+        raise Unmapped(f"{module}.{name}: {head} is a {kind} module with no final home")
 
 
 # --------------------------------------------------------------------------
-# the mirror
+# import rewriting
 # --------------------------------------------------------------------------
 
-_PLUGIN_DIR_RE_TMPL = (
-    r"(?P<q1>[\"'])plugins(?P=q1)(?P<sep>\s*(?:/|,)\s*)"
-    r"(?P<q2>[\"'])(?P<name>{names})(?P=q2)"
-)
-_LIB_PKG_RE = re.compile(
-    r"(?P<q1>[\"'])lib(?P=q1)(?P<sep>\s*(?:/|,)\s*)(?P<q2>[\"'])"
-    rf"(?P<pkg>{_ROOT_ALT})(?P=q2)"
-)
-_SLASH_PATH_RE = re.compile(
-    rf"plugins/(?P<plugin>llm-scripting-kit|content-pipeline-kit|job-kit)/lib(?P<rest>/(?P<pkg>{_ROOT_ALT})\b)?"
-)
+def _alias_text(alias: ast.alias) -> str:
+    return alias.name + (f" as {alias.asname}" if alias.asname else "")
 
+
+def _is_legacy(name: str, names: Names) -> bool:
+    return name.split(".")[0] in names.roots or name == names.guard_legacy
+
+
+def rewrite_import_node(node: ast.AST, seg: bytes, names: Names, unmapped: list[str],
+                        where: str) -> Optional[bytes]:
+    """Replacement bytes for one import statement, or None to keep it."""
+    if isinstance(node, ast.Import):
+        if not any(_is_legacy(a.name, names) for a in node.names):
+            return None
+        pieces: list[str] = []
+        for alias in node.names:
+            if not _is_legacy(alias.name, names):
+                pieces.append(f"import {_alias_text(alias)}")
+                continue
+            try:
+                target = names.module_target(alias.name) if alias.name != names.guard_legacy \
+                    else names.guard_module
+            except Unmapped as exc:
+                unmapped.append(f"{where}: {exc}")
+                pieces.append(f"import {_alias_text(alias)}")
+                continue
+            if alias.asname:
+                pieces.append(f"import {target} as {alias.asname}")
+            elif alias.name == names.guard_legacy:
+                pieces.append("from llm_kit import bootstrap_guard")
+            else:
+                top = alias.name.split(".")[0]
+                if "." in alias.name:
+                    pieces.append(f"import {target}")
+                pieces.append(f"import {names.alias(top)} as {top}")
+        return "; ".join(pieces).encode("utf-8")
+    if isinstance(node, ast.ImportFrom):
+        module = node.module or ""
+        if node.level or not module or not _is_legacy(module, names):
+            return None
+        if module == names.guard_legacy:
+            m = re.match(rb"(from\s+)bootstrap_guard(\s+import\b)", seg)
+            if m is None:
+                raise ValueError("unexpected guard import shape")
+            return m.group(1) + names.guard_module.encode() + seg[m.end(1) + len("bootstrap_guard"):]
+        pieces = []
+        for alias in node.names:
+            local = alias.asname or alias.name
+            if alias.name == "*":
+                unmapped.append(f"{where}: star import from {module}")
+                return None
+            if alias.name == names.guard_legacy and module in names.roots:
+                pieces.append("from llm_kit import bootstrap_guard" + (f" as {alias.asname}" if alias.asname else ""))
+                continue
+            try:
+                kind, target, attr = names.from_import(module, alias.name)
+            except Unmapped as exc:
+                unmapped.append(f"{where}: {exc}")
+                return None
+            if kind == "module":
+                pieces.append(f"import {target} as {local}")
+            elif attr == local:
+                pieces.append(f"from {target} import {attr}")
+            else:
+                pieces.append(f"from {target} import {attr} as {local}")
+        return "; ".join(pieces).encode("utf-8")
+    return None
+
+
+# --------------------------------------------------------------------------
+# strings and paths
+# --------------------------------------------------------------------------
 
 def _code_like(value: str) -> bool:
     return bool(re.search(r"(^|\n)\s*(import|from)\s+\w", value)) or "sys.modules" in value \
@@ -462,33 +415,82 @@ def _code_like(value: str) -> bool:
 
 
 def _is_module_name(value: str, names: Iterable[str]) -> bool:
-    return re.fullmatch(rf"({'|'.join(names)})(\.\w+)*\.?", value) is not None
+    return re.fullmatch(rf"({'|'.join(names)})(\.\w+)*", value) is not None
 
 
-_CODE_IMPORT_RE = re.compile(
-    rf"^(?P<ind>[ \t]*)import[ \t]+(?P<top>{_ROOT_ALT})(?P<rest>(?:\.\w+)*)(?P<alias>[ \t]+as[ \t]+\w+)?[ \t]*$",
+_DOTTED_IN_QUOTES = re.compile(
+    rf"(?P<q>['\"])(?P<name>(?:{_ROOT_ALT})(?:\.\w+)*)(?P=q)"
+)
+_QUOTED_PREFIX = re.compile(rf"(?P<q>['\"])(?P<name>(?:{_ROOT_ALT})(?:\.\w+)*\.)(?P=q)")
+_FROM_STMT = re.compile(
+    rf"(?P<lead>(?:^|;)[ \t]*)from[ \t]+(?P<mod>(?:{_ROOT_ALT}|bootstrap_guard)(?:\.\w+)*)[ \t]+import[ \t]+"
+    rf"(?P<names>\([^)]*\)|[\w, \t]+?(?=;|\n|$))",
+    re.M,
+)
+_IMPORT_INLINE = re.compile(
+    rf"(?P<lead>(?:^|;)[ \t]*)import[ \t]+(?P<mod>(?:{_ROOT_ALT})(?:\.\w+)*)(?:[ \t]+as[ \t]+(?P<as>\w+))?(?=[ \t]*(?:;|\n|$))",
     re.M,
 )
 
 
-def rewrite_code_string(seg: str, rt: Mapping[str, str]) -> str:
-    """Rewrite module names inside a code string's source text."""
-    def import_stmt(m: "re.Match[str]") -> str:
-        top, rest, alias = m.group("top"), m.group("rest"), m.group("alias") or ""
-        target = rt[top]
-        if alias:
-            return f"{m.group('ind')}import {target}{rest}{alias}"
-        if not rest:
-            return f"{m.group('ind')}import {target} as {top}"
-        return f"{m.group('ind')}import {target}{rest}; import {target} as {top}"
+def rewrite_code_string(seg: str, names: Names, unmapped: list[str], where: str) -> str:
+    """Rewrite module names inside a code string's source text.
 
-    seg = _CODE_IMPORT_RE.sub(import_stmt, seg)
-    token = token_re(rt.keys())
-    seg = token.sub(lambda m: rt[m.group(1)], seg)
-    seg = re.sub(r"(?m)^([ \t]*)from[ \t]+bootstrap_guard[ \t]+import\b",
-                 lambda m: f"{m.group(1)}from {GUARD_MODULE} import", seg)
+    Only import statements and quoted module names change. A bare dotted use
+    (``llm_scripting_kit.completion.X``) is left: the import statement binds the
+    top name to the generated alias tree, which resolves it at run time.
+    """
+    def from_stmt(m: "re.Match[str]") -> str:
+        module = m.group("mod")
+        raw = m.group("names").strip()
+        if raw.startswith("("):
+            raw = raw[1:-1]
+        if module == names.guard_legacy:
+            return f"{m.group('lead')}from {names.guard_module} import {raw.strip()}"
+        pieces = []
+        for part in [p.strip() for p in raw.replace("\n", " ").split(",") if p.strip()]:
+            name, _, local = part.partition(" as ")
+            name, local = name.strip(), (local.strip() or name.strip())
+            try:
+                kind, target, attr = names.from_import(module, name)
+            except Unmapped as exc:
+                unmapped.append(f"{where}: {exc}")
+                return m.group(0)
+            if kind == "module":
+                pieces.append(f"import {target} as {local}")
+            elif attr == local:
+                pieces.append(f"from {target} import {attr}")
+            else:
+                pieces.append(f"from {target} import {attr} as {local}")
+        return m.group("lead") + "; ".join(pieces)
+
+    def import_stmt(m: "re.Match[str]") -> str:
+        dotted = m.group("mod")
+        try:
+            target = names.module_target(dotted)
+        except Unmapped as exc:
+            unmapped.append(f"{where}: {exc}")
+            return m.group(0)
+        if m.group("as"):
+            return f"{m.group('lead')}import {target} as {m.group('as')}"
+        top = dotted.split(".")[0]
+        lead = m.group("lead")
+        if "." in dotted:
+            return f"{lead}import {target}; import {names.alias(top)} as {top}"
+        return f"{lead}import {names.alias(top)} as {top}"
+
+    def quoted(m: "re.Match[str]") -> str:
+        try:
+            return m.group("q") + names.dotted(m.group("name")) + m.group("q")
+        except Unmapped as exc:
+            unmapped.append(f"{where}: {exc}")
+            return m.group(0)
+
+    seg = _FROM_STMT.sub(from_stmt, seg)
+    seg = _IMPORT_INLINE.sub(import_stmt, seg)
+    seg = _DOTTED_IN_QUOTES.sub(quoted, seg)
     seg = re.sub(r"(?m)^([ \t]*)import[ \t]+bootstrap_guard[ \t]*$",
-                 lambda m: f"{m.group(1)}from llm_kit import bootstrap_guard", seg)
+                 lambda mm: f"{mm.group(1)}from llm_kit import bootstrap_guard", seg)
     return seg
 
 
@@ -524,15 +526,46 @@ def _qualnames(tree: ast.AST) -> dict[str, ast.AST]:
     return out
 
 
+_PLUGIN_DIR_RE_TMPL = (
+    r"(?P<q1>[\"'])plugins(?P=q1)(?P<sep>\s*(?:/|,)\s*)"
+    r"(?P<q2>[\"'])(?P<name>{names})(?P=q2)"
+)
+_LIB_PKG_RE = re.compile(
+    r"(?P<q1>[\"'])lib(?P=q1)(?P<sep>\s*(?:/|,)\s*)(?P<q2>[\"'])"
+    rf"(?P<pkg>{_ROOT_ALT})(?P=q2)"
+)
+_SLASH_PATH_RE = re.compile(
+    rf"plugins/(?P<plugin>llm-scripting-kit|content-pipeline-kit|job-kit)/lib"
+    rf"(?:/(?P<pkg>{_ROOT_ALT})\b(?P<rest>(?:/[\w.\-]+)*))?"
+)
+
+
+def final_path(names: Names, pkg: str, rest: str) -> Optional[str]:
+    """Final repo-relative path for a legacy package-relative file path, or None."""
+    if not rest.endswith(".py"):
+        return None
+    legacy = pkg + rest[: -len(".py")].replace("/", ".")
+    if legacy.endswith(".__init__"):
+        legacy = legacy[: -len(".__init__")]
+    row = names.rows.get(legacy)
+    if row is None or row["kind"] not in ("module", "facade-package"):
+        return None
+    base = "plugins/llm-kit/lib/" + row["final"].replace(".", "/")
+    return base + ("/__init__.py" if row["kind"] == "facade-package" else ".py")
+
+
 def rewrite_test_source(data: bytes, relpath: str, mapping: Mapping,
-                        skips: Optional[Mapping[str, str]] = None) -> tuple[bytes, list[str]]:
-    """Re-point one legacy test file at the copy. Returns (bytes, rewrite classes).
+                        skips: Optional[Mapping[str, str]] = None,
+                        unmapped: Optional[list[str]] = None) -> tuple[bytes, list[str]]:
+    """Re-point one legacy test file at the final package. Returns (bytes, rewrite classes).
 
     One pass over the original syntax tree collects every edit (imports, module
     and code strings); a second regex pass rewrites the path shapes. A string
-    that is a path component, or prose, is never treated as a module name.
+    that is a path component, or prose, is never treated as a module name. Every
+    legacy name with no final home is appended to ``unmapped``.
     """
-    rt = roots(mapping)
+    names = Names(mapping)
+    bad: list[str] = unmapped if unmapped is not None else []
     classes: set[str] = set()
     tree = ast.parse(data.decode("utf-8"))
     parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
@@ -541,8 +574,9 @@ def rewrite_test_source(data: bytes, relpath: str, mapping: Mapping,
 
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
-            s, e, seg = _stmt_segment(data, starts, node)
-            repl = rewrite_import_node(node, seg, rt)
+            s, e = _span(starts, node)
+            seg = data[s:e]
+            repl = rewrite_import_node(node, seg, names, bad, f"{relpath}:{node.lineno}")
             if repl is not None and repl != seg:
                 edits.append((s, e, repl))
                 classes.add("import")
@@ -563,17 +597,31 @@ def rewrite_test_source(data: bytes, relpath: str, mapping: Mapping,
         forced = override is not None and override["action"] == "rewrite"
         if not forced and _is_path_segment(node, parents):
             continue
-        module_like = _is_module_name(value, rt.keys())
+        module_like = _is_module_name(value, names.roots)
         code_like = _code_like(value)
         if not (forced or module_like or code_like):
             classes.add("prose-kept")
             continue
         s, e = _span(starts, node)
         seg = data[s:e].decode("utf-8")
-        new_seg = rewrite_code_string(seg, rt)
+        where = f"{relpath}:{node.lineno}"
+        if module_like:
+            try:
+                resolved = names.dotted(value)
+            except Unmapped as exc:
+                bad.append(f"{where}: {exc}")
+                continue
+            quote = seg[0]
+            new_seg = f"{quote}{resolved}{quote}"
+            classes.add("module-string")
+        else:
+            new_value = rewrite_code_string(value, names, bad, where)
+            # the rewrite works on the evaluated text; the literal is re-emitted
+            # from it, so statements split by an escaped newline are seen as lines
+            new_seg = seg if new_value == value else repr(new_value)
+            classes.add("code-string" if code_like else "named-message")
         if new_seg != seg:
             edits.append((s, e, new_seg.encode("utf-8")))
-            classes.add("code-string" if code_like else "module-string" if module_like else "named-message")
     if skips:
         defs = _qualnames(tree)
         for qual, reason in skips.items():
@@ -600,28 +648,39 @@ def rewrite_test_source(data: bytes, relpath: str, mapping: Mapping,
     def lib_pkg(m: "re.Match[str]") -> str:
         classes.add("path-package-dir")
         sep, q1, q2 = m.group("sep"), m.group("q1"), m.group("q2")
-        parts = ["llm_kit", "_copy", m.group("pkg")]
-        return f"{q1}lib{q1}" + "".join(f"{sep}{q2}{p}{q2}" for p in parts)
+        return f"{q1}lib{q1}{sep}{q2}llm_kit{q2}"
 
     text = _LIB_PKG_RE.sub(lib_pkg, text)
 
     def slash_path(m: "re.Match[str]") -> str:
         classes.add("path-string")
-        if m.group("pkg"):
-            return f"plugins/llm-kit/lib/llm_kit/_copy/{m.group('pkg')}"
-        return "plugins/llm-kit/lib"
+        if not m.group("pkg"):
+            return "plugins/llm-kit/lib"
+        override = mapping.get("path_overrides", {}).get(m.group(0))
+        if override is not None:
+            return override["to"]
+        rest = m.group("rest") or ""
+        if not rest:
+            return "plugins/llm-kit/lib/llm_kit"
+        target = final_path(names, m.group("pkg"), rest)
+        if target is None:
+            bad.append(f"{relpath}: path {m.group(0)} has no final file")
+            return m.group(0)
+        return target
 
     text = _SLASH_PATH_RE.sub(slash_path, text)
     text, edited = apply_text_edits(text, relpath, mapping)
     if edited:
         classes.add("text-edit")
+    text, worded = apply_wording_edits(text, relpath, mapping)
+    if worded:
+        classes.add("wording-edit")
     return text.encode("utf-8"), sorted(classes)
 
 
 # --------------------------------------------------------------------------
-# edits a moved module makes to a mirrored test
+# edits a final module makes to a mirrored test
 # --------------------------------------------------------------------------
-
 
 def apply_text_edits(text: str, relpath: str, mapping: Mapping) -> tuple[str, bool]:
     """Apply the map's ``test_text_edits`` rows for one test file.
@@ -644,6 +703,25 @@ def apply_text_edits(text: str, relpath: str, mapping: Mapping) -> tuple[str, bo
         changed = True
     return text, changed
 
+
+def apply_wording_edits(text: str, relpath: str, mapping: Mapping) -> tuple[str, bool]:
+    """Apply the map's ``wording_edits`` to one test file.
+
+    A wording edit states a message the final package words for llm-kit; it is
+    applied wherever its text occurs, in every mirrored file. A rule that
+    occurs in no file at all is stale and fails ``check``.
+    """
+    changed = False
+    for row in mapping.get("wording_edits", []):
+        if row["old"] in text:
+            text = text.replace(row["old"], row["new"])
+            changed = True
+    return text, changed
+
+
+# --------------------------------------------------------------------------
+# the import-root guard (sitecustomize)
+# --------------------------------------------------------------------------
 
 def render_sitecustomize(mapping: Mapping) -> str:
     legacy_libs = sorted({
@@ -752,9 +830,160 @@ if not getattr(subprocess.Popen.__init__, "_mirror_patched", False):
 '''
 
 
-def mirror_rows(dispositions: Mapping[str, Mapping]) -> list[dict]:
-    return [r for led in dispositions.values() for r in led["rows"] if r["disposition"] == "rewrite"]
+# --------------------------------------------------------------------------
+# the alias tree (legacy package namespaces for the mirrored tests)
+# --------------------------------------------------------------------------
 
+_FACADE_HELPER = '''"""Alias-module support for the legacy package namespaces (generated).
+
+Each module under ``legacy_names`` stands for one legacy package: it carries no
+code of its own and resolves every attribute to the llm-kit object that now
+holds it, by a lazy module ``__getattr__``. Test-only: nothing under ``plugins/``
+imports it.
+"""
+import importlib
+import sys
+
+
+def install(name, final=None, names=None, children=None, constants=None):
+    module = sys.modules[name]
+    names = names or {}
+    children = children or {}
+    constants = constants or {}
+
+    def __getattr__(attr):
+        if attr in constants:
+            return constants[attr]
+        if attr in names:
+            owner, original = names[attr]
+            return getattr(importlib.import_module(owner), original)
+        if attr in children:
+            return importlib.import_module(children[attr])
+        if final is not None:
+            return getattr(importlib.import_module(final), attr)
+        raise AttributeError(f"module {name!r} has no attribute {attr!r}")
+
+    module.__getattr__ = __getattr__
+
+
+def forwarded_module(name, homes, group=None, verbs=None, passthrough=()):
+    """Make ``name`` a view of the CLI group modules ``homes``.
+
+    Reads resolve in the first home that binds the attribute; a write or delete
+    goes to every home that binds it, so a test that patches ``cli.create_backend``
+    patches the code that runs. ``main`` translates a legacy argv (a bare verb, or
+    job-kit's verbs under ``group``) to the llm-kit form and runs llm-kit's entry.
+    """
+    import types
+
+    module = sys.modules[name]
+    verbs = verbs or {}
+
+    def owners(attr):
+        found = []
+        for home in homes:
+            mod = importlib.import_module(home)
+            if hasattr(mod, attr):
+                found.append(mod)
+        return found
+
+    def translate(argv):
+        argv = list(argv)
+        if group is not None:
+            return [group, *argv]
+        if argv and argv[0] in verbs:
+            owner, verb = verbs[argv[0]]
+            return [owner, verb, *argv[1:]]
+        if argv and argv[0] in passthrough:
+            return argv
+        return argv
+
+    def main(argv=None):
+        entry = importlib.import_module("llm_kit.cli")
+        if argv is None:
+            saved = sys.argv
+            sys.argv = [saved[0], *translate(saved[1:])]
+            try:
+                return entry.main(None)
+            finally:
+                sys.argv = saved
+        return entry.main(translate(argv))
+
+    class Forwarded(types.ModuleType):
+        def __getattr__(self, attr):
+            if attr.startswith("__") and attr.endswith("__"):
+                raise AttributeError(attr)
+            found = owners(attr)
+            if not found:
+                raise AttributeError(f"module {name!r} has no attribute {attr!r}")
+            return getattr(found[0], attr)
+
+        def __setattr__(self, attr, value):
+            found = owners(attr) if not (attr.startswith("__") and attr.endswith("__")) else []
+            if not found:
+                super().__setattr__(attr, value)
+            for mod in found:
+                setattr(mod, attr, value)
+
+        def __delattr__(self, attr):
+            found = owners(attr)
+            if not found:
+                super().__delattr__(attr)
+            for mod in found:
+                delattr(mod, attr)
+
+    module.__class__ = Forwarded
+    object.__setattr__(module, "main", main)
+'''
+
+
+def build_facades(mapping: Mapping) -> dict[str, tuple[bytes, list[str]]]:
+    """Mirror-relative path -> (bytes, []) for the alias tree."""
+    names = Names(mapping)
+    files: dict[str, tuple[bytes, list[str]]] = {
+        f"{FACADE_PKG}/__init__.py": (b"", []),
+        f"{FACADE_PKG}/_facade.py": (_FACADE_HELPER.encode("ascii"), []),
+    }
+    for dotted, row in names.rows.items():
+        if row["kind"] == "forwarded":
+            args = [json.dumps(row["homes"])]
+            if row.get("group"):
+                args.append(f"group={row['group']!r}")
+            if row.get("verbs"):
+                args.append(f"verbs={json.dumps(row['verbs'], sort_keys=True)}")
+            if row.get("passthrough"):
+                args.append(f"passthrough={json.dumps(row['passthrough'])}")
+            files[f"{FACADE_PKG}/{dotted.replace('.', '/')}.py"] = ((
+                f'"""Forwarding view of the legacy CLI module ``{dotted}`` (generated by scripts/llm_kit_repoint.py)."""\n'
+                f"from {FACADE_PKG}._facade import forwarded_module\n\n"
+                f"forwarded_module(__name__, {', '.join(args)})\n"
+            ).encode("ascii"), [])
+            continue
+        if row["kind"] not in ("facade-package", "facade-names"):
+            continue
+        body = [
+            f'"""Alias for the legacy package ``{dotted}`` (generated by scripts/llm_kit_repoint.py)."""',
+            f"from {FACADE_PKG}._facade import install",
+            "",
+            "install(",
+            "    __name__,",
+        ]
+        if row["kind"] == "facade-package":
+            body.append(f"    final={row['final']!r},")
+        else:
+            body.append(f"    names={json.dumps(row['names'], sort_keys=True)},")
+            if row.get("constants"):
+                body.append(f"    constants={json.dumps(row['constants'], sort_keys=True)},")
+        body.append(f"    children={json.dumps(names.children(dotted), sort_keys=True)},")
+        body.append(")")
+        files[f"{FACADE_PKG}/{dotted.replace('.', '/')}/__init__.py"] = (
+            ("\n".join(body) + "\n").encode("ascii"), [])
+    return files
+
+
+# --------------------------------------------------------------------------
+# the mirror
+# --------------------------------------------------------------------------
 
 def load_dispositions() -> dict[str, dict]:
     out = {}
@@ -765,9 +994,11 @@ def load_dispositions() -> dict[str, dict]:
     return out
 
 
-def build_mirror(mapping: Mapping, dispositions: Mapping[str, Mapping]) -> dict[str, tuple[bytes, list[str]]]:
+def build_mirror(mapping: Mapping, dispositions: Mapping[str, Mapping],
+                 unmapped: Optional[list[str]] = None) -> dict[str, tuple[bytes, list[str]]]:
     """mirror path (relative to MIRROR_ROOT) -> (bytes, classes)."""
     files: dict[str, tuple[bytes, list[str]]] = {}
+    bad: list[str] = unmapped if unmapped is not None else []
     for suite in SUITES:
         led = dispositions[suite]
         for row in led["rows"]:
@@ -780,17 +1011,46 @@ def build_mirror(mapping: Mapping, dispositions: Mapping[str, Mapping]) -> dict[
                 if entry["mirror_status"] == "skipped" and entry.get("injected", True):
                     nested = node_id.split("::", 1)[1].split("[")[0].replace("::", ".")
                     skips[nested] = entry["reason"]
-            files[rel] = rewrite_test_source(_read(src), row["path"], mapping, skips)
+            files[rel] = rewrite_test_source(_read(src), row["path"], mapping, skips, bad)
         conftest = REPO / "tests" / suite / "conftest.py"
         files[f"{suite}/conftest.py"] = rewrite_test_source(
-            _read(conftest), f"tests/{suite}/conftest.py", mapping)
+            _read(conftest), f"tests/{suite}/conftest.py", mapping, None, bad)
     files["conftest.py"] = (_read(REPO / "tests" / "conftest.py"), [])
     for p in sorted((REPO / "tests" / "test_support").rglob("*")):
         if p.is_file() and "__pycache__" not in p.parts:
             files["test_support/" + p.relative_to(REPO / "tests" / "test_support").as_posix()] = (
                 _read(p), [])
     files["sitecustomize.py"] = (render_sitecustomize(mapping).encode("utf-8"), [])
+    files.update(build_facades(mapping))
+    for rule in mapping.get("wording_edits", []):
+        if not any(rule["new"] in data.decode("utf-8", "replace") for rel, (data, _c) in files.items()
+                   if rel.endswith(".py") and "/" in rel):
+            bad.append(f"wording_edits rule applies nowhere: {rule['old'][:60]!r}")
+    kept = filter_accepted(mapping, bad)
+    if unmapped is None:
+        if kept:
+            raise SystemExit(_unmapped_report(kept))
+    else:
+        unmapped[:] = kept
     return files
+
+
+def filter_accepted(mapping: Mapping, bad: list[str]) -> list[str]:
+    """``bad`` without the names the map's ``accepted_unmapped`` rows state deliberately lack a home."""
+    kept = list(bad)
+    for row in mapping.get("accepted_unmapped", []):
+        hit = [b for b in kept if b.startswith(row["file"] + ":") and f" {row['name']}:" in b]
+        if not hit:
+            raise SystemExit(f"accepted_unmapped row matches nothing: {row['file']} {row['name']}")
+        kept = [b for b in kept if b not in hit]
+    return kept
+
+
+def _unmapped_report(bad: list[str]) -> str:
+    lines = sorted(set(bad))
+    return (f"{len(lines)} legacy name(s) with no final home in rewrite files "
+            "(dispose of the file as legacy-only, add the name to the map, or fix the test):\n  "
+            + "\n  ".join(lines))
 
 
 def write_mirror(files: Mapping[str, tuple[bytes, list[str]]]) -> None:
@@ -804,7 +1064,7 @@ def write_mirror(files: Mapping[str, tuple[bytes, list[str]]]) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     wanted = {MIRROR_ROOT / rel for rel in files}
-    for managed in [MIRROR_ROOT / s for s in SUITES] + [MIRROR_ROOT / "test_support"]:
+    for managed in [MIRROR_ROOT / s for s in SUITES] + [MIRROR_ROOT / "test_support", MIRROR_ROOT / FACADE_PKG]:
         if not managed.is_dir():
             continue
         for path in managed.rglob("*"):
@@ -813,223 +1073,8 @@ def write_mirror(files: Mapping[str, tuple[bytes, list[str]]]) -> None:
 
 
 # --------------------------------------------------------------------------
-# moved modules: shims and slices
-# --------------------------------------------------------------------------
-
-MOVED_STATES = ("shim", "slice")
-
-
-def _toplevel_names(tree: ast.Module) -> list[str]:
-    """Names a module binds at module level (through if/try, not into defs)."""
-    names: set[str] = set()
-
-    def target_names(t: ast.AST) -> None:
-        if isinstance(t, ast.Name):
-            names.add(t.id)
-        elif isinstance(t, (ast.Tuple, ast.List)):
-            for e in t.elts:
-                target_names(e)
-
-    def visit(body: list) -> None:
-        for node in body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                names.add(node.name)
-            elif isinstance(node, ast.Assign):
-                for t in node.targets:
-                    target_names(t)
-            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
-                target_names(node.target)
-            elif isinstance(node, ast.Import):
-                for a in node.names:
-                    names.add((a.asname or a.name).split(".")[0])
-            elif isinstance(node, ast.ImportFrom):
-                if node.module == "__future__" and not node.level:
-                    continue
-                for a in node.names:
-                    if a.name != "*":
-                        names.add(a.asname or a.name)
-            elif isinstance(node, ast.If):
-                visit(node.body)
-                visit(node.orelse)
-            elif isinstance(node, ast.Try):
-                visit(node.body)
-                for h in node.handlers:
-                    visit(h.body)
-                visit(node.orelse)
-                visit(node.finalbody)
-
-    visit(tree.body)
-    return sorted(n for n in names
-                  if n == "__version__" or not (n.startswith("__") and n.endswith("__")))
-
-
-def _literal_all(tree: ast.Module) -> Optional[list]:
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(
-                isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets):
-            try:
-                value = ast.literal_eval(node.value)
-            except ValueError:
-                return None
-            return [str(v) for v in value]
-    return None
-
-
-def shim_names(legacy_form: bytes, own_submodules: Iterable[str]) -> tuple[list, Optional[list]]:
-    """(names to re-export, literal ``__all__`` or None) for a module's generated form.
-
-    A package shim never re-exports a name that is also one of its own
-    submodules: the submodule attribute must be the sibling shim, which the
-    import system sets when that shim loads.
-    """
-    tree = ast.parse(legacy_form.decode("utf-8"))
-    skip = set(own_submodules)
-    return [n for n in _toplevel_names(tree) if n not in skip], _literal_all(tree)
-
-
-def render_shim(legacy_path: str, row: Mapping, legacy_form: bytes,
-                own_submodules: Iterable[str], is_package: bool) -> bytes:
-    final = row["final"]
-    legacy_name = legacy_path.split("/lib/", 1)[1][:-3].replace("/", ".")
-    if legacy_name.endswith(".__init__"):
-        legacy_name = legacy_name[: -len(".__init__")]
-    lines = [
-        f'"""Re-export shim: ``{legacy_name}`` now lives in ``{final}``.',
-        "",
-        "Generated by scripts/llm_kit_repoint.py (command ``moved``); do not edit. The",
-        "quarantined copy keeps this path importable until the quarantine is removed.",
-        '"""',
-        "",
-    ]
-    if not is_package:
-        lines += [
-            "import sys",
-            "",
-            f"import {final} as _final",
-            "",
-            "# One module object under both names: patches, fakes and module state seen",
-            "# through the copy path are the final module's.",
-            "sys.modules[__name__] = _final",
-        ]
-        return ("\n".join(lines) + "\n").encode("ascii")
-    names, all_list = shim_names(legacy_form, own_submodules)
-    # Names the final package deliberately no longer binds (a declared
-    # difference named by the row): the shim neither imports nor exports them.
-    dropped = set(row.get("dropped_names", ()))
-    names = [n for n in names if n not in dropped]
-    if all_list is not None:
-        all_list = [n for n in all_list if n not in dropped]
-    lazy_getattr = any(
-        isinstance(node, ast.FunctionDef) and node.name == "__getattr__"
-        for node in ast.parse(legacy_form.decode("utf-8")).body
-    )
-    lines += ["from __future__ import annotations", ""]
-    if names:
-        lines.append(f"from {final} import (")
-        lines += [f"    {n}," for n in names]
-        lines.append(")")
-    else:
-        lines.append(f"import {final}  # noqa: F401 -- the legacy module bound no names")
-    if lazy_getattr:
-        # The legacy package resolves a lazy re-export through a module-level
-        # ``__getattr__``; the shim forwards to the final package's.
-        lines += ["", f"from {final} import __getattr__  # noqa: E402,F401"]
-    if all_list is not None:
-        lines += ["", "__all__ = ["] + [f"    {n!r}," for n in all_list] + ["]"]
-    return ("\n".join(lines) + "\n").encode("ascii")
-
-
-def own_submodules_of(mapping: Mapping, copy_path: str) -> list:
-    """Submodule and subpackage names of a package ``__init__`` copy path."""
-    if not copy_path.endswith("/__init__.py"):
-        return []
-    pkg_dir = copy_path[: -len("__init__.py")]
-    subs: set[str] = set()
-    for row in mapping["modules"].values():
-        other = row["copy"]
-        if other != copy_path and other.startswith(pkg_dir):
-            subs.add(other[len(pkg_dir):].split("/", 1)[0].removesuffix(".py"))
-    return sorted(subs)
-
-
-def shim_text(mapping: Mapping, legacy: str, row: Mapping, files: Mapping[str, bytes]) -> bytes:
-    return render_shim(legacy, row, files[row["copy"]], own_submodules_of(mapping, row["copy"]),
-                       row["copy"].endswith("/__init__.py"))
-
-
-def final_problem(state: str, final: Any) -> Optional[str]:
-    """Why a moved row's ``final`` is malformed, or None.
-
-    A shim names exactly one final module (a string). A slice names one, or a
-    list of them when its hand-edited code delegates to several final modules.
-    """
-    if isinstance(final, str) and final:
-        return None
-    if state == "slice" and isinstance(final, list) and final and all(
-            isinstance(f, str) and f for f in final):
-        return None
-    return "a shim names one final module (a string); a slice a string or a list of them"
-
-
-def cmd_moved(_args: argparse.Namespace) -> int:
-    mapping = load_map()
-    files = build_copy(mapping)
-    count = {"shim": 0, "slice": 0}
-    for legacy, row in mapping["modules"].items():
-        if row["state"] not in MOVED_STATES:
-            continue
-        if "final" not in row:
-            raise SystemExit(f"{legacy}: a {row['state']} row must name its final module")
-        problem = final_problem(row["state"], row["final"])
-        if problem:
-            raise SystemExit(f"{legacy}: {problem}")
-        path = REPO / row["copy"]
-        if row["state"] == "shim":
-            path.write_bytes(shim_text(mapping, legacy, row, files))
-        row["copy_sha256"] = _sha(_read(path))
-        count[row["state"]] += 1
-    dump_json(MAP_PATH, mapping)
-    write_mirror(build_mirror(mapping, load_dispositions()))
-    print(f"shims: {count['shim']}; slices: {count['slice']}")
-    return 0
-
-
-# --------------------------------------------------------------------------
 # sync / check
 # --------------------------------------------------------------------------
-
-def module_table(mapping: Mapping, files: Mapping[str, bytes]) -> dict[str, dict]:
-    old = mapping.get("modules", {})
-    table: dict[str, dict] = {}
-    for row in legacy_package_files(mapping):
-        if row["state"] != "copy":
-            continue
-        prior = old.get(row["legacy"], {})
-        state = prior.get("state", "unmoved")
-        legacy_hash = _sha(_read(REPO / row["legacy"]))
-        if state != "unmoved":
-            copy_hash = prior["copy_sha256"]
-            if prior["legacy_sha256"] != legacy_hash:
-                recorded = json.loads(PORTING_LEDGER.read_text(encoding="utf-8")) \
-                    if PORTING_LEDGER.is_file() else {"entries": []}
-                if not any(e["legacy_path"] == row["legacy"] and e["legacy_sha256"] == legacy_hash
-                           for e in recorded["entries"]):
-                    raise SystemExit(
-                        f"{row['legacy']}: legacy edited after the module moved; record it in "
-                        f"{PORTING_LEDGER.name} (ported or rejected with evidence)")
-                legacy_hash = prior["legacy_sha256"]
-        else:
-            copy_hash = _sha(files[row["copy"]])
-        table[row["legacy"]] = {
-            "copy": row["copy"], "state": state,
-            "legacy_sha256": legacy_hash, "copy_sha256": copy_hash,
-        }
-        if "final" in prior:
-            table[row["legacy"]]["final"] = prior["final"]
-        if "dropped_names" in prior:
-            table[row["legacy"]]["dropped_names"] = prior["dropped_names"]
-    return table
-
 
 def collect_counts(suite: str) -> dict[str, int]:
     proc = subprocess.run(
@@ -1049,16 +1094,6 @@ def collect_counts(suite: str) -> dict[str, int]:
 
 def cmd_sync(args: argparse.Namespace) -> int:
     mapping = load_map()
-    missing = unclassified_sites(mapping)
-    if missing:
-        for key, file, preview in missing:
-            print(f"unclassified runtime-string site: {file}: {preview!r} ({key})", file=sys.stderr)
-        print("run 'propose' and classify them in repoint-map.json", file=sys.stderr)
-        return 1
-    files = build_copy(mapping)
-    mapping["modules"] = module_table(mapping, files)
-    write_copy(mapping, files)
-    dump_json(MAP_PATH, mapping)
     dispositions = load_dispositions()
     if not args.no_counts:
         for suite in SUITES:
@@ -1085,7 +1120,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
                 row["rewrite_classes"] = []
         dump_json(DISPOSITIONS_DIR / f"{suite}.json", dispositions[suite])
     write_mirror(mirror)
-    print(f"copy: {len(files)} files; mirror: {len(mirror)} files")
+    print(f"mirror: {len(mirror)} files")
     return 0
 
 
@@ -1094,6 +1129,7 @@ def cmd_clean(_args: argparse.Namespace) -> int:
     for suite in SUITES:
         shutil.rmtree(MIRROR_ROOT / suite, ignore_errors=True)
     shutil.rmtree(MIRROR_ROOT / "test_support", ignore_errors=True)
+    shutil.rmtree(MIRROR_ROOT / FACADE_PKG, ignore_errors=True)
     for name in ("conftest.py", "sitecustomize.py"):
         (MIRROR_ROOT / name).unlink(missing_ok=True)
     return 0
@@ -1105,51 +1141,87 @@ def cmd_mirror(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(_args: argparse.Namespace) -> int:
+    bad: list[str] = []
+    build_mirror(load_map(), load_dispositions(), bad)
+    print(_unmapped_report(bad) if bad else "every rewrite file maps")
+    return 0
+
+
+def final_file(final: str) -> Optional[Path]:
+    """The source file of a final dotted module, or None."""
+    base = LLM_KIT_LIB / final.replace(".", "/")
+    if base.with_suffix(".py").is_file():
+        return base.with_suffix(".py")
+    if (base / "__init__.py").is_file():
+        return base / "__init__.py"
+    return None
+
+
+def _bound_names(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    bound: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                for n in ast.walk(t):
+                    if isinstance(n, ast.Name):
+                        bound.add(n.id)
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)) and isinstance(node.target, ast.Name):
+            bound.add(node.target.id)
+        elif isinstance(node, ast.ImportFrom):
+            for a in node.names:
+                bound.add(a.asname or a.name)
+        elif isinstance(node, ast.Import):
+            for a in node.names:
+                bound.add((a.asname or a.name).split(".")[0])
+    return bound
+
+
 def check_problems() -> list[str]:
-    """Disagreements between the legacy trees, the map and the committed copy."""
+    """Disagreements between the legacy trees, the map and the final tree."""
     mapping = load_map()
     problems: list[str] = []
-    for key, file, preview in unclassified_sites(mapping):
-        problems.append(f"unclassified runtime-string site {file}: {preview!r}")
-    for key in stale_sites(mapping):
-        problems.append(f"map classifies a runtime-string site that no longer exists: {key}")
-    files = build_copy(mapping)
-    table = mapping.get("modules", {})
-    for row in legacy_package_files(mapping):
-        if row["state"] != "copy":
+    if mapping.get("schema") != 2:
+        problems.append("repoint-map.json is not schema 2")
+    if (LLM_KIT_LIB / "llm_kit" / "_copy").exists():
+        problems.append("the quarantined copy llm_kit/_copy still exists")
+    table = mapping["modules"]
+    legacy = {r["legacy"]: r for r in legacy_package_files(mapping) if r["state"] == "module"}
+    for path in sorted(set(legacy) - set(table)):
+        problems.append(f"module missing from the map: {path}")
+    for path in sorted(set(table) - set(legacy)):
+        problems.append(f"map lists a module the legacy tree no longer has: {path}")
+    ledger = json.loads(PORTING_LEDGER.read_text(encoding="utf-8")) if PORTING_LEDGER.is_file() \
+        else {"entries": []}
+    for path, row in sorted(table.items()):
+        if path not in legacy:
             continue
-        entry = table.get(row["legacy"])
-        if entry is None:
-            problems.append(f"module missing from the map: {row['legacy']}")
+        if row["kind"] not in KINDS:
+            problems.append(f"{path}: unknown kind {row['kind']!r}")
             continue
-        legacy_hash = _sha(_read(REPO / row["legacy"]))
-        copy_path = REPO / row["copy"]
-        if entry["state"] == "unmoved":
-            if legacy_hash != entry["legacy_sha256"]:
-                problems.append(f"legacy module edited since the last sync: {row['legacy']}")
-            if not copy_path.is_file():
-                problems.append(f"copy missing: {row['copy']}")
-            elif _sha(_read(copy_path)) != _sha(files[row["copy"]]):
-                problems.append(f"copy differs from its generated form: {row['copy']}")
-        else:
-            if "final" not in entry:
-                problems.append(f"moved module names no final module: {row['legacy']}")
-            elif final_problem(entry["state"], entry["final"]):
-                problems.append(f"moved module has a malformed final: {row['legacy']}")
-            if not copy_path.is_file():
-                problems.append(f"moved module missing: {row['copy']}")
-            elif _sha(_read(copy_path)) != entry["copy_sha256"]:
-                problems.append(f"moved module changed without a map update: {row['copy']}")
-            elif entry["state"] == "shim" and "final" in entry and                     _read(copy_path) != shim_text(mapping, row["legacy"], entry, files):
-                problems.append(f"shim differs from its generated form: {row['copy']}")
-    wanted = {r["copy"] for r in legacy_package_files(mapping) if r["state"] == "copy"}
-    wanted |= set(package_initializers(mapping))
-    for rel in existing_copy_files():
-        if rel not in wanted:
-            problems.append(f"stray file in the copy: {rel}")
-    for legacy in table:
-        if legacy not in {r["legacy"] for r in legacy_package_files(mapping)}:
-            problems.append(f"map lists a module the legacy tree no longer has: {legacy}")
+        current = _sha(_read(REPO / path))
+        if current != row["legacy_sha256"] and not any(
+                e["legacy_path"] == path and e["legacy_sha256"] == current for e in ledger["entries"]):
+            problems.append(f"legacy module edited since the map recorded it, and the edit is not in "
+                            f"{PORTING_LEDGER.name}: {path}")
+        finals: list[tuple[str, Optional[str]]] = []
+        if row["kind"] in ("module", "facade-package"):
+            finals.append((row["final"], None))
+        elif row["kind"] == "facade-names":
+            finals.extend((m, a) for m, a in row["names"].values())
+        elif row["kind"] == "forwarded":
+            finals.extend((m, None) for m in row["homes"])
+        elif row["kind"] == "data" and row.get("final") is not None:
+            problems.append(f"{path}: a data file names a final module")
+        for module, attr in finals:
+            found = final_file(module)
+            if found is None:
+                problems.append(f"{path}: final module {module} does not exist")
+            elif attr is not None and attr not in _bound_names(found):
+                problems.append(f"{path}: final module {module} binds no {attr!r}")
     return problems
 
 
@@ -1160,34 +1232,16 @@ def cmd_check(_args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
-def cmd_propose(_args: argparse.Namespace) -> int:
-    mapping = load_map()
-    rt = roots(mapping)
-    out = {}
-    for key, file, preview in unclassified_sites(mapping):
-        tree = ast.parse(_read(REPO / file).decode("utf-8"))
-        node = dict(string_sites(file, tree, rt.keys()))[key]
-        pure = _is_module_name(node.value, rt.keys()) or re.fullmatch(r"(-m|[\w.]+)", node.value)
-        out[key] = {
-            "file": file, "preview": node.value[:80].replace("\n", " "),
-            "action": "rewrite" if pure else "keep-human",
-            "reason": "module loader or argv target" if pure else "human-facing text",
-        }
-    print(json.dumps(out, indent=2))
-    return 0
-
-
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    p = sub.add_parser("sync", help="refresh copy, hashes, counts and mirror")
+    p = sub.add_parser("sync", help="refresh collection counts and mirror")
     p.add_argument("--no-counts", action="store_true", help="skip pytest collection counts")
     p.set_defaults(func=cmd_sync)
-    sub.add_parser("moved", help="regenerate shims and rehash moved modules").set_defaults(func=cmd_moved)
     sub.add_parser("mirror", help="regenerate the mirror only").set_defaults(func=cmd_mirror)
     sub.add_parser("clean", help="remove the mirror under tmp/").set_defaults(func=cmd_clean)
-    sub.add_parser("check", help="verify copy and map against the legacy trees").set_defaults(func=cmd_check)
-    sub.add_parser("propose", help="print unclassified string sites").set_defaults(func=cmd_propose)
+    sub.add_parser("check", help="verify the map against the legacy trees and the final tree").set_defaults(func=cmd_check)
+    sub.add_parser("report", help="print legacy names with no final home").set_defaults(func=cmd_report)
     args = parser.parse_args(argv)
     return args.func(args)
 

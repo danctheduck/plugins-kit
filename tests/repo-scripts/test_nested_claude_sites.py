@@ -33,6 +33,7 @@ must be flagged.
 from __future__ import annotations
 
 import ast
+import json
 import subprocess
 from pathlib import Path
 
@@ -92,30 +93,26 @@ SITES = {
 }
 
 
-# The llm-kit quarantined copy (plugins/llm-kit/lib/llm_kit/_copy/<package>/) carries
-# every legacy site unchanged, so each legacy entry is classified again under its
-# copy path. A legacy package missing from this map leaves its copy's sites
-# unclassified, which the inventory test below reports. llm-kit is a dev-only
-# plugin whose source master does not carry, so an entry exists only where the
-# copy file does.
-_COPY_PREFIXES = {
-    "plugins/llm-scripting-kit/lib/llm_scripting_kit/": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/",
-    "plugins/content-pipeline-kit/lib/content_pipeline/": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/",
-    "plugins/job-kit/lib/job_kit/": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/",
-}
+# llm-kit carries every legacy site in its final modules (the repoint map's module
+# table names where each legacy module lives), so each legacy entry is classified
+# again under its final path. A legacy module missing from the map leaves its final
+# file's sites unclassified, which the inventory test below reports. llm-kit is a
+# dev-only plugin whose source master does not carry, so an entry exists only where
+# the final file does.
+_REPOINT_MAP = json.loads((_REPO_ROOT / "tests" / "llm-kit" / "repoint-map.json").read_text(encoding="utf-8"))
 
 
-def _copy_path(relpath: str) -> str:
-    for legacy, copy in _COPY_PREFIXES.items():
-        if relpath.startswith(legacy):
-            return copy + relpath[len(legacy):]
+def _final_path(relpath: str) -> str:
+    row = _REPOINT_MAP["modules"].get(relpath)
+    if row is not None and row["kind"] == "module":
+        return "plugins/llm-kit/lib/" + row["final"].replace(".", "/") + ".py"
     return relpath
 
 
 SITES.update({
-    (_copy_path(path), qualname, rule): entry
+    (_final_path(path), qualname, rule): entry
     for (path, qualname, rule), entry in list(SITES.items())
-    if _copy_path(path) != path and (_REPO_ROOT / _copy_path(path)).is_file()
+    if _final_path(path) != path and (_REPO_ROOT / _final_path(path)).is_file()
 })
 
 SITE_TABLE = SITES

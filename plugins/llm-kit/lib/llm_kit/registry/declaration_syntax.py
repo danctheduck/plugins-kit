@@ -18,7 +18,7 @@ _MODEL_DECLARATION_BOOTSTRAP = "0.129.0"
 class DeclarationSupportError(ImportError):
     """``bootstrap_lib.model_declaration`` is absent or too old here.
 
-    llm-scripting-kit links ``bootstrap_lib`` (its ``shared_lib_imports``) and
+    llm-kit links ``bootstrap_lib`` (its ``shared_lib_imports``) and
     bootstrap is a declared dependency of every plugin, so the posture is
     REQUIRED: without the structural validator there is no declaration to
     describe. The two states are diagnosed apart because they have different
@@ -34,7 +34,7 @@ def _model_declaration() -> Any:
         raise DeclarationSupportError(
             "bootstrap_lib is not linked into this environment; declare "
             "'bootstrap_lib' in the consuming plugin's bootstrap.json "
-            "shared_lib_imports (llm-scripting-kit's describe/run need "
+            "shared_lib_imports (llm-kit's describe/run need "
             f"bootstrap >= {_MODEL_DECLARATION_BOOTSTRAP})"
         ) from exc
     try:
@@ -48,7 +48,7 @@ def _model_declaration() -> Any:
     ):
         raise DeclarationSupportError(
             "the linked bootstrap_lib predates model_declaration.parse/CORE_IDS; "
-            f"llm-scripting-kit's describe/run need bootstrap >= "
+            f"llm-kit's describe/run need bootstrap >= "
             f"{_MODEL_DECLARATION_BOOTSTRAP} -- update the bootstrap plugin"
         )
     return model_declaration

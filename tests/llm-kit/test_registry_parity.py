@@ -24,6 +24,8 @@ from pathlib import Path
 
 import pytest
 
+from final_wording import to_final
+
 _REPO = Path(__file__).resolve().parents[2]
 _LEGACY_LIB = _REPO / "plugins" / "llm-scripting-kit" / "lib"
 
@@ -94,8 +96,8 @@ def _exc(exc):
     return (
         "raise",
         [c.__name__ for c in type(exc).__mro__],
-        str(exc),
-        None if cause is None else ([c.__name__ for c in type(cause).__mro__], str(cause)),
+        to_final(str(exc)),
+        None if cause is None else ([c.__name__ for c in type(cause).__mro__], to_final(str(cause))),
     )
 
 

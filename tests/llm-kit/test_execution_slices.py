@@ -1,17 +1,18 @@
-"""Join test: the re-pointed execution slices in ``_copy`` say what the legacy products say.
+"""Join test: the execution product modules say what the legacy products say.
 
 ``test_execution_parity.py`` pins ``llm_kit.execution`` to the legacy products
 through reference wording held in that file. This file closes the other half:
-the product wording, error classes, floors and literals now live in the
-``_copy`` slices (job_kit and content_pipeline.execution events and
-interrupts), so those slices are driven directly against the legacy modules.
+the product wording, error classes, floors and literals live in the product
+modules (``llm_kit.jobs`` and ``llm_kit.pipeline.execution`` events and
+interrupts), so those modules are driven directly against the legacy ones.
 
-- Every render function in a slice equals the reference wording in the parity
-  file, failure by failure. A changed word in a slice goes red here, because
-  the legacy suites assert only fragments of these messages.
-- The slice probes refuse exactly as the legacy probes do across the same
+- Every render function equals the reference wording in the parity file, failure
+  by failure, in its final wording. A changed word goes red here, because the
+  legacy suites assert only fragments of these messages.
+- The probes refuse exactly as the legacy probes do across the same
   environments, except the documented divergences.
-- Floors and literals equal the legacy constants.
+- Floors and literals equal the legacy constants, except the named differences
+  in ``final_wording`` (the validator floor and owner name llm-kit).
 """
 
 from __future__ import annotations
@@ -27,10 +28,12 @@ from test_execution_parity import legacy  # noqa: F401 - the module-scoped fixtu
 from llm_kit.execution import probe
 from llm_kit.execution.probe import ProbeFailure
 
-from llm_kit._copy.content_pipeline.execution import events as cpk_events
-from llm_kit._copy.content_pipeline.execution import interrupts as cpk_interrupts
-from llm_kit._copy.job_kit import events as job_events
-from llm_kit._copy.job_kit import interrupts as job_interrupts
+from llm_kit.jobs import events as job_events
+from llm_kit.jobs import interrupts as job_interrupts
+from llm_kit.pipeline.execution import events as cpk_events
+from llm_kit.pipeline.execution import interrupts as cpk_interrupts
+
+from final_wording import floor_to_final, floors_in_text_to_final, to_final
 
 _FINAL_VALIDATOR = "llm_kit.schema.json_schema"
 
@@ -38,7 +41,8 @@ _FINAL_VALIDATOR = "llm_kit.schema.json_schema"
 def by_name(result):
     """An outcome with its exception class replaced by the class name."""
     if result[0] == "raise":
-        return ("raise", result[1].__name__, *result[2:])
+        message = floors_in_text_to_final(to_final(result[2]))
+        return ("raise", result[1].__name__, message, *result[3:])
     return result
 
 
@@ -65,7 +69,7 @@ def _failures():
 def test_render_functions_equal_the_reference_wording(render, reference):
     count = 0
     for failure in _failures():
-        assert render(failure) == reference(failure), failure
+        assert render(failure) == floors_in_text_to_final(to_final(reference(failure))), failure
         count += 1
     assert count == len(probe.KINDS) * 2 * 3
 
@@ -115,10 +119,6 @@ _VALIDATOR_MODULE_ENVIRONMENTS = [
 ]
 
 
-def _under_final_name(text):
-    return text.replace(_FINAL_VALIDATOR, P._LSK_VALIDATOR)
-
-
 def _validator_outcomes(legacy_fn, slice_fn, environment, tmp_path, monkeypatch):
     with monkeypatch.context() as mp:
         P.apply_validator_environment(mp, tmp_path / "legacy", environment)
@@ -127,8 +127,9 @@ def _validator_outcomes(legacy_fn, slice_fn, environment, tmp_path, monkeypatch)
         mp.setattr(P, "_LSK_VALIDATOR", _FINAL_VALIDATOR)
         P.apply_validator_environment(mp, tmp_path / "slice", environment)
         actual = by_name(P.outcome(slice_fn))
-    if actual[0] == "raise":
-        actual = (*actual[:2], _under_final_name(actual[2]), *actual[3:])
+    if expected[0] == "raise":
+        # the validator module is llm_kit.schema.json_schema in the final package
+        expected = (*expected[:2], expected[2].replace(P._LSK_VALIDATOR, _FINAL_VALIDATOR), *expected[3:])
     return expected, actual
 
 
@@ -186,9 +187,9 @@ class TestLiteralsAndFloors:
         old, new = legacy.job_interrupts, job_interrupts
         for name in ("REQUEST_ENVELOPE_V1", "RESOLUTION_ENVELOPE_V1", "REQUEST_ENVELOPES",
                      "REQUEST_FILE_LIMIT", "INPUT_LIMIT", "KIND_LIMIT", "EXPIRES_IN_S_MAX",
-                     "_JSON_SCHEMA_LSK_VERSION", "_INTERRUPT_CONTRACT_BOOTSTRAP", "_CONTRACT_V1",
-                     "_OWNER"):
+                     "_INTERRUPT_CONTRACT_BOOTSTRAP", "_CONTRACT_V1", "_OWNER"):
             assert getattr(new, name) == getattr(old, name), name
+        assert new._JSON_SCHEMA_LSK_VERSION == floor_to_final(old._JSON_SCHEMA_LSK_VERSION)
         assert new._CONTRACT_CALL_SHAPES == old._CONTRACT_CALL_SHAPES
 
     def test_cpk_interrupts(self, legacy):  # noqa: F811
@@ -196,9 +197,12 @@ class TestLiteralsAndFloors:
         for name in ("OWNER", "CONTRACT", "REQUEST_ENVELOPE", "REQUEST_ENVELOPES",
                      "RESOLUTION_ENVELOPE", "VALIDATOR_SUBSET", "INPUT_LIMIT", "KIND_LIMIT",
                      "EXPIRES_IN_S_MAX", "REASON_LIMIT", "INTERRUPT_CONTRACT_BOOTSTRAP",
-                     "JSON_SCHEMA_LSK_VERSION", "_CONTRACT_OWNER", "_VALIDATOR_OWNER",
-                     "_CONTRACT_MODULE", "_CONTRACT_CALLS", "_CONTRACT_ERRORS", "_VALIDATOR_CALLS"):
+                     "_CONTRACT_OWNER", "_CONTRACT_MODULE", "_CONTRACT_CALLS", "_CONTRACT_ERRORS",
+                     "_VALIDATOR_CALLS"):
             assert getattr(new, name) == getattr(old, name), name
+        # named differences (final_wording): the validator is llm-kit's own
+        assert new.JSON_SCHEMA_LSK_VERSION == floor_to_final(old.JSON_SCHEMA_LSK_VERSION)
+        assert new._VALIDATOR_OWNER == to_final(old._VALIDATOR_OWNER) == "llm-kit@plugins-kit"
         assert cpk_interrupts._VALIDATOR_MODULE == _FINAL_VALIDATOR
         assert old._VALIDATOR_MODULE == P._LSK_VALIDATOR
 

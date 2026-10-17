@@ -73,8 +73,8 @@ _TOO_OLD_MESSAGE = (
 )
 _NO_PYYAML_MESSAGE = (
     "the interpreter running this call has no PyYAML, which "
-    "bootstrap_lib.skill_material needs to read a skill; llm-scripting-kit's "
-    "own environment has it, so run the call through the `llm-scripting-kit` "
+    "bootstrap_lib.skill_material needs to read a skill; llm-kit's "
+    "own environment has it, so run the call through the `llm-kit` "
     "command or from a plugin that declares PyYAML. Nothing was dispatched."
 )
 

@@ -17,6 +17,7 @@ import dataclasses
 import importlib
 import inspect
 import json
+import contextlib
 import math
 import pickle
 import subprocess
@@ -26,6 +27,8 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
+
+from final_wording import to_final
 
 _REPO = Path(__file__).resolve().parents[2]
 _LEGACY_LIB = _REPO / "plugins" / "llm-scripting-kit" / "lib"
@@ -91,11 +94,30 @@ FINAL = _load_final()
 # --------------------------------------------------------------------------
 
 
+_LEGACY_ACTIVE = [False]
+
+
+@contextlib.contextmanager
+def legacy_wording():
+    """While active, ``norm`` words legacy text in its final wording.
+
+    The named deliberate wording differences live in ``final_wording.RENAMES``
+    (each proved against the live sources by ``test_final_messages.py``).
+    """
+    _LEGACY_ACTIVE[0] = True
+    try:
+        yield
+    finally:
+        _LEGACY_ACTIVE[0] = False
+
+
 def norm(value, depth: int = 0):
     if depth > 25:
         raise AssertionError("normalization depth exceeded")
     d = depth + 1
-    if value is None or isinstance(value, (bool, int, str, bytes)):
+    if isinstance(value, str):
+        return to_final(value) if _LEGACY_ACTIVE[0] else value
+    if value is None or isinstance(value, (bool, int, bytes)):
         return value
     if isinstance(value, float):
         return "nan" if math.isnan(value) else value
@@ -103,7 +125,7 @@ def norm(value, depth: int = 0):
         return (
             "exc",
             type(value).__name__,
-            str(value),
+            norm(str(value), d),
             norm(dict(vars(value)), d),
             type(value.__cause__).__name__ if value.__cause__ is not None else None,
         )
@@ -140,7 +162,8 @@ def outcome(fn, *args, **kwargs):
 def check(scenario, *args):
     """Run a scenario on both sides; assert identical labelled outcomes."""
     got = scenario(FINAL, *args)
-    want = scenario(LEGACY, *args)
+    with legacy_wording():
+        want = scenario(LEGACY, *args)
     assert [label for label, _ in got] == [label for label, _ in want]
     for (label, g), (_, w) in zip(got, want):
         assert g == w, f"{label}: final {g!r} != legacy {w!r}"
@@ -347,7 +370,8 @@ def module_surface(mod) -> dict:
 @pytest.mark.parametrize("name", ALL_MODULES)
 def test_module_surface_parity(name):
     final = module_surface(FINAL.modules[name])
-    legacy = module_surface(LEGACY.modules[name])
+    with legacy_wording():
+        legacy = module_surface(LEGACY.modules[name])
     assert sorted(final) == sorted(legacy)
     for key in legacy:
         assert final[key] == legacy[key], f"{name}.{key}"
@@ -1262,7 +1286,7 @@ def test_skill_context_constants_parity():
     assert FINAL.skill_context._REQUIRED_REPORT_SCHEMA == _SCHEMA
     assert FINAL.skill_context._ABSENT_MESSAGE == LEGACY.skill_context._ABSENT_MESSAGE
     assert FINAL.skill_context._TOO_OLD_MESSAGE == LEGACY.skill_context._TOO_OLD_MESSAGE
-    assert FINAL.skill_context._NO_PYYAML_MESSAGE == LEGACY.skill_context._NO_PYYAML_MESSAGE
+    assert FINAL.skill_context._NO_PYYAML_MESSAGE == to_final(LEGACY.skill_context._NO_PYYAML_MESSAGE)
 
 
 def test_skill_context_plan_parity():

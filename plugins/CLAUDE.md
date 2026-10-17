@@ -459,7 +459,9 @@ the version the symbol first shipped in, and the `claude plugin install` or
 `update` command that fixes it -- never a manifest the consumer cannot edit --
 rather than crash on a raw `AttributeError` deep in a call path. job-kit's
 `select.py` is the worked example of this guard against
-`llm_scripting_kit.completion`. This is the one statement of that rule; the
+`llm_scripting_kit.completion`; the frozen job-kit plugin keeps it, and llm-kit's
+`llm_kit.jobs.select` has no such guard because jobs and completion ship in one
+library. This is the one statement of that rule; the
 optional-dependency section above defers to it.
 
 #### Who talks to an LLM, and through what

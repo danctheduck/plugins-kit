@@ -1,33 +1,28 @@
-"""Join test: the adapters split and the identity rules in ``_copy`` (I5).
+"""Join test: the adapters split and the identity rules between the final names.
 
-- ``harness_adapters`` is a whole shim over ``llm_kit.adapters.harness_adapters``,
-  which re-imports the registry.effort names the copy used to expose, so the
-  copy name, the adapters name and the registry name are one object each.
+- ``harness_adapters`` re-imports the registry.effort names it used to define,
+  so the adapters name and the registry name are one object each.
 - ``HarnessAdapterError``, ``AgentTimeoutError`` and the swapper error classes
-  are each one class across the copy and final names, so an ``except`` clause on
-  either side catches what the other raises.
-- ``usage_budget`` is a whole shim over ``llm_kit.dispatch.usage_budget`` (I6):
-  the pacing policy and the verdict cache are there, the readers are
+  are each one class across the final names, so an ``except`` clause on either
+  side catches what the other raises.
+- ``usage_budget`` lives in ``llm_kit.dispatch.usage_budget``: the pacing policy
+  and the verdict cache are there, the readers are
   ``llm_kit.adapters.usage_sources``. A patch on a reader name, on
-  ``VERDICT_CACHE`` or on ``_load_cache``/``_store_cache`` through the copy name
-  acts on the one module object that runs, and a reader patch also reaches the
-  final codex backend, exactly as when the readers were defined in the copy
-  module.
+  ``VERDICT_CACHE`` or on ``_load_cache``/``_store_cache`` through the dispatch
+  name acts on the module that runs, and a reader patch also reaches the final
+  codex backend.
 """
 
 from __future__ import annotations
 
 import importlib
 import json
-import sys
 import types
 from pathlib import Path
 
 import pytest
 
 _REPO = Path(__file__).resolve().parents[2]
-_COPY = "llm_kit._copy.llm_scripting_kit"
-_MAP = json.loads((_REPO / "tests" / "llm-kit" / "repoint-map.json").read_text(encoding="utf-8"))
 
 NOW = 1_800_000_000
 WEEK = 7 * 24 * 3600
@@ -41,39 +36,30 @@ def _mod(name: str):
 # harness_adapters: whole shim
 # --------------------------------------------------------------------------
 
-_HARNESS_ROW = _MAP["modules"]["plugins/llm-scripting-kit/lib/llm_scripting_kit/harness_adapters.py"]
 
 
-def test_harness_adapters_is_a_whole_shim():
-    assert _HARNESS_ROW["state"] == "shim"
-    assert _HARNESS_ROW["final"] == "llm_kit.adapters.harness_adapters"
-    assert _mod(f"{_COPY}.harness_adapters") is _mod("llm_kit.adapters.harness_adapters")
 
 
 def test_harness_adapters_reexports_the_registry_effort_names_as_the_same_objects():
     effort = _mod("llm_kit.registry.effort")
-    copy = _mod(f"{_COPY}.harness_adapters")
+    adapters = _mod("llm_kit.adapters.harness_adapters")
     names = (
         "CLAUDE_EFFORT_ORDER", "CLAUDE_HARNESS", "CODEX_EFFORT_ORDER", "CODEX_HARNESS",
         "OPENCODE_HARNESS", "_HARNESS_EFFORT_ORDERS", "HarnessAdapterError",
         "harness_effort_order",
     )
     for name in names:
-        assert getattr(copy, name) is getattr(effort, name), name
+        assert getattr(adapters, name) is getattr(effort, name), name
 
 
-def test_the_copy_package_root_exports_the_same_harness_error():
-    effort = _mod("llm_kit.registry.effort")
-    assert _mod(_COPY).HarnessAdapterError is effort.HarnessAdapterError
 
 
 def test_harness_adapter_error_is_one_class():
     effort = _mod("llm_kit.registry.effort")
     adapters = _mod("llm_kit.adapters.harness_adapters")
-    copy = _mod(f"{_COPY}.harness_adapters")
-    assert copy.HarnessAdapterError is adapters.HarnessAdapterError is effort.HarnessAdapterError
-    # Raised by the final resolver, caught through the copy name.
-    with pytest.raises(copy.HarnessAdapterError):
+    assert adapters.HarnessAdapterError is effort.HarnessAdapterError
+    # Raised by the adapters resolver, caught through the registry name.
+    with pytest.raises(effort.HarnessAdapterError):
         adapters.resolve_harness_adapter(types.SimpleNamespace(id="x", kind="transport"))
 
 
@@ -81,16 +67,13 @@ def test_harness_adapter_error_is_one_class():
 # error classes
 # --------------------------------------------------------------------------
 
-def test_agent_timeout_error_is_one_class_across_copy_and_adapters():
+def test_agent_timeout_error_is_one_class_across_the_adapters():
     halt = _mod("llm_kit.completion.halt")
     for name in (
-        f"{_COPY}.completion.claude_runner", f"{_COPY}.completion.backends",
-        f"{_COPY}.completion.opencode_backend", "llm_kit.adapters.claude_runner",
-        "llm_kit.adapters.backends", "llm_kit.adapters.opencode_backend",
-        f"{_COPY}.completion",
+        "llm_kit.adapters.claude_runner", "llm_kit.adapters.backends", "llm_kit.adapters.opencode_backend",
     ):
         assert _mod(name).AgentTimeoutError is halt.AgentTimeoutError, name
-    runner = _mod(f"{_COPY}.completion.claude_runner")
+    runner = _mod("llm_kit.adapters.claude_runner")
     with pytest.raises(halt.AgentTimeoutError):
         raise runner.AgentTimeoutError("t", cmd=["c"], elapsed_s=1, stdout="", stderr="")
 
@@ -99,28 +82,21 @@ _SWAPPER_ERRORS = ("SwapperError", "ProcessNotFound", "InspectionIndeterminate")
 
 
 @pytest.mark.parametrize("name", _SWAPPER_ERRORS)
-def test_swapper_error_classes_are_one_class_across_copy_and_final_names(name):
+def test_swapper_error_classes_are_one_class_across_the_swapper_modules(name):
     leaf = getattr(_mod("llm_kit.adapters._swapper_errors"), name)
-    holders = [f"{_COPY}.swapper", "llm_kit.adapters.swapper"]
+    holders = ["llm_kit.adapters.swapper"]
     if name != "SwapperError":
-        holders += [f"{_COPY}._swapper_process", "llm_kit.adapters._swapper_process"]
+        holders += ["llm_kit.adapters._swapper_process"]
     for module in holders:
         assert getattr(_mod(module), name) is leaf, (module, name)
 
 
-def test_a_copy_swapper_error_is_caught_by_the_final_class():
-    leaf = _mod("llm_kit.adapters._swapper_errors")
-    copy_swapper = _mod(f"{_COPY}.swapper")
-    with pytest.raises(leaf.SwapperError):
-        raise copy_swapper.ProcessNotFound("boom")
-    assert issubclass(copy_swapper.ProcessNotFound, leaf.SwapperError)
 
 
 # --------------------------------------------------------------------------
 # usage_budget: whole shim over dispatch.usage_budget (readers: adapters.usage_sources)
 # --------------------------------------------------------------------------
 
-_USAGE_ROW = _MAP["modules"]["plugins/llm-scripting-kit/lib/llm_scripting_kit/usage_budget.py"]
 _READERS = (
     "_HOUR", "_DAY", "_CLAUDE_WINDOW_SECONDS", "CLAUDE_SNAPSHOT", "CODEX_SESSIONS_DIR",
     "_PACE_EPSILON", "_CODEX_TAIL_BYTES", "_CODEX_EXHAUSTION_LATCH_SECONDS", "_RESET_TEXT_RE",
@@ -133,7 +109,7 @@ _READERS = (
 
 @pytest.fixture
 def ub():
-    return _mod(f"{_COPY}.usage_budget")
+    return _mod("llm_kit.dispatch.usage_budget")
 
 
 @pytest.fixture
@@ -141,18 +117,14 @@ def src():
     return _mod("llm_kit.adapters.usage_sources")
 
 
-def test_usage_budget_is_a_whole_shim_over_dispatch(ub):
-    assert _USAGE_ROW["state"] == "shim"
-    assert _USAGE_ROW["final"] == "llm_kit.dispatch.usage_budget"
-    assert ub is _mod("llm_kit.dispatch.usage_budget")
 
 
 @pytest.mark.parametrize("name", _READERS)
-def test_every_reader_name_of_the_copy_is_the_usage_sources_object(ub, src, name):
+def test_every_reader_name_of_dispatch_is_the_usage_sources_object(ub, src, name):
     assert getattr(ub, name) is getattr(src, name)
 
 
-def test_registry_names_of_the_copy_are_the_conserve_objects(ub):
+def test_registry_names_of_dispatch_are_the_conserve_objects(ub):
     conserve = _mod("llm_kit.registry.conserve")
     for name in (
         "Budget", "ConserveSpec", "ConserveConfigError", "parse_conserve_usage", "POOL_PRIMARY",
@@ -184,7 +156,7 @@ def _rollout(directory: Path, used: float) -> Path:
     return path
 
 
-def test_a_patched_codex_sessions_dir_on_the_copy_reaches_the_policy(ub, src, tmp_path, monkeypatch):
+def test_a_patched_codex_sessions_dir_on_dispatch_reaches_the_policy(ub, src, tmp_path, monkeypatch):
     _rollout(tmp_path, used=80.0)             # 20% left with 50% of the window left: under quota
     spec = ub.ConserveSpec(pool="primary")
     real = src.CODEX_SESSIONS_DIR
@@ -197,7 +169,7 @@ def test_a_patched_codex_sessions_dir_on_the_copy_reaches_the_policy(ub, src, tm
     assert src.CODEX_SESSIONS_DIR == real and ub.CODEX_SESSIONS_DIR == real
 
 
-def test_a_patched_claude_snapshot_on_the_copy_reaches_the_policy(ub, src, tmp_path, monkeypatch):
+def test_a_patched_claude_snapshot_on_dispatch_reaches_the_policy(ub, src, tmp_path, monkeypatch):
     snapshot = tmp_path / "rate-limits.json"
     limits = {"seven_day": {"used_percentage": 10.0, "resets_at": NOW + WEEK // 2}}
     snapshot.write_text(json.dumps({"rate_limits": limits}), encoding="utf-8")
@@ -209,7 +181,7 @@ def test_a_patched_claude_snapshot_on_the_copy_reaches_the_policy(ub, src, tmp_p
     assert src.CLAUDE_SNAPSHOT == real
 
 
-def test_a_patched_read_codex_pool_on_the_copy_reaches_evaluate_and_the_final_backend(ub, src, monkeypatch):
+def test_a_patched_read_codex_pool_on_dispatch_reaches_evaluate_and_the_final_backend(ub, src, monkeypatch):
     seen = []
 
     def fake(spec, *, now=None, sessions_dir=None):
@@ -225,7 +197,7 @@ def test_a_patched_read_codex_pool_on_the_copy_reaches_evaluate_and_the_final_ba
     assert src.read_codex_pool is not fake and ub.read_codex_pool is src.read_codex_pool
 
 
-def test_a_patched_read_claude_pool_on_the_copy_reaches_evaluate(ub, src, monkeypatch):
+def test_a_patched_read_claude_pool_on_dispatch_reaches_evaluate(ub, src, monkeypatch):
     def fake(spec, *, now=None, snapshot=None):
         return ub.Budget(status=ub.STATUS_UNDER_QUOTA, pool=spec.pool, detail="faked")
 
@@ -246,9 +218,9 @@ def _pin_args(ub):
     return ("entry-a", ub.ConserveSpec(pool="seven_day"), "claude")
 
 
-def test_a_patched_verdict_cache_on_the_copy_reaches_pinned_evaluate(ub, tmp_path, monkeypatch):
+def test_a_patched_verdict_cache_on_dispatch_reaches_pinned_evaluate(ub, tmp_path, monkeypatch):
     # Legacy suites isolate the verdict cache by patching VERDICT_CACHE through
-    # the copy name; the pinned verdict must land in that file, not the real one.
+    # the dispatch name; the pinned verdict must land in that file, not the real one.
     cache = tmp_path / "usage-verdicts.json"
     snapshot = tmp_path / "rate-limits.json"
     snapshot.write_text(json.dumps({"rate_limits": {"seven_day": {
@@ -267,7 +239,7 @@ def test_a_patched_verdict_cache_on_the_copy_reaches_pinned_evaluate(ub, tmp_pat
     assert ub.VERDICT_CACHE != cache
 
 
-def test_patched_cache_helpers_on_the_copy_reach_pinned_evaluate(ub, tmp_path, monkeypatch):
+def test_patched_cache_helpers_on_dispatch_reach_pinned_evaluate(ub, tmp_path, monkeypatch):
     loaded, stored = [], []
 
     def fake_load(path, key):
@@ -288,7 +260,7 @@ def test_patched_cache_helpers_on_the_copy_reach_pinned_evaluate(ub, tmp_path, m
     assert loaded == [(cache, "s")] and stored and stored[0][0] == cache
 
 
-def test_other_attributes_still_set_on_the_copy_module_itself(ub, monkeypatch):
+def test_other_attributes_still_set_on_dispatch_module_itself(ub, monkeypatch):
     original = ub.VERDICT_CACHE
     monkeypatch.setattr(ub, "VERDICT_CACHE", Path("elsewhere.json"))
     assert vars(ub)["VERDICT_CACHE"] == Path("elsewhere.json")
@@ -304,9 +276,3 @@ def test_an_unknown_attribute_still_raises_attribute_error(ub):
 def test_dir_lists_the_moved_names(ub):
     assert set(_READERS) <= set(dir(ub))
 
-
-def test_a_from_import_of_a_moved_name_gets_the_usage_sources_object():
-    namespace: dict = {}
-    exec(f"from {_COPY}.usage_budget import read_codex_pool, CODEX_SESSIONS_DIR, _epoch", namespace)
-    assert namespace["read_codex_pool"] is _mod("llm_kit.adapters.usage_sources").read_codex_pool
-    assert _COPY + ".usage_budget" in sys.modules

@@ -1,6 +1,6 @@
 """claudx containment in the launcher shims (CLAUDE_BOOTSTRAP_DATA_ROOT, CLAUDE_PLUGIN_TEST).
 
-job-kit and llm-scripting-kit launch their CLI under the plugin venv at the
+job-kit, llm-scripting-kit and llm-kit launch their CLI under the plugin venv at the
 production path ``~/.claude/plugins/data/plugins-kit/<plugin>/.venv``. A
 claude-plugin-test session sets ``CLAUDE_BOOTSTRAP_DATA_ROOT`` to a separate
 tree that holds its own venvs, so a shim that named the production venv ran the
@@ -11,7 +11,7 @@ launcher shims"):
 * With the variable set, the redirected venv is the ONLY candidate. A missing
   one exits 2 with a message, never a fallback to the production venv. With the
   variable unset the existing chain is unchanged.
-* All four shims (job-kit, llm-scripting-kit, hue-kit, secrets-kit) refuse to
+* All five shims (job-kit, llm-scripting-kit, llm-kit, hue-kit, secrets-kit) refuse to
   run as the CACHED copy, a path under ``plugins/cache/<marketplace>/``, when
   ``CLAUDE_PLUGIN_TEST`` is set. The marketplace is
   ``CLAUDE_PLUGIN_TEST_MARKETPLACE``; with it unset every cache path is refused,
@@ -62,6 +62,7 @@ _BASH = _find_bash()
 _VENV_SHIMS = [
     ("job-kit", "job-kit", "lib/job_kit_entrypoint.py"),
     ("llm-scripting-kit", "llm-scripting-kit", "scripts/llm_scripting_kit_cli.py"),
+    ("llm-kit", "llm-kit", "bin/llm_kit_entrypoint.py"),
 ]
 # hue-kit and secrets-kit choose no plugin venv (the CLI re-execs itself), so only
 # the cached-copy refusal applies to them.
@@ -134,7 +135,8 @@ class _Launch:
         self.shim.parent.mkdir(parents=True)
         shutil.copy2(shim_src, self.shim)
         entry = plugin_root / entrypoint
-        entry.parent.mkdir(parents=True)
+        # exist_ok: llm-kit's entrypoint sits in bin/, beside the shim just copied.
+        entry.parent.mkdir(parents=True, exist_ok=True)
         entry.write_text("import sys\nprint(sys.prefix)\n", encoding="utf-8")
         self.redirect_root = tmp_path / "redirected-data"
 

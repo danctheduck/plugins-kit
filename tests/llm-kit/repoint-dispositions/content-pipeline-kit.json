@@ -4,7 +4,7 @@
     {
       "path": "tests/content-pipeline-kit/test_adaptive_gate.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -16,7 +16,7 @@
     {
       "path": "tests/content-pipeline-kit/test_audit_auditor.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -26,11 +26,12 @@
     {
       "path": "tests/content-pipeline-kit/test_audit_reasoning_chain.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "prose-kept"
       ],
       "collection_count": 10,
       "baseline_failures": []
@@ -38,7 +39,7 @@
     {
       "path": "tests/content-pipeline-kit/test_audit_report.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -48,7 +49,7 @@
     {
       "path": "tests/content-pipeline-kit/test_backpressure_classifier_seam.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Declared differences: the absent-lib and stale-lib classifier tests, removed with the probes (I7).",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, module-name strings; 3 declared difference(s) below.",
       "rewrite_classes": [
         "declared-skip",
         "import",
@@ -74,7 +75,7 @@
     {
       "path": "tests/content-pipeline-kit/test_call_routing.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -84,7 +85,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cl5_convergence_parity.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -94,7 +95,7 @@
     {
       "path": "tests/content-pipeline-kit/test_claude_bg_claudx.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -104,7 +105,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_budget.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -114,7 +115,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; prose mentions left unchanged. Text edits (repoint-map test_text_edits): the import-scope scan and the docstring rule name the final package llm_kit.pipeline.runtime.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, prose mentions left unchanged, test_text_edits rows; 2 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
       "rewrite_classes": [
         "import",
         "module-string",
@@ -127,7 +128,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_scaffold.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -137,7 +138,7 @@
     {
       "path": "tests/content-pipeline-kit/test_cli_unsupported.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -146,8 +147,8 @@
     },
     {
       "path": "tests/content-pipeline-kit/test_consumer_contract_checker.py",
-      "disposition": "deferred-to-I9",
-      "reason": "Imports scripts/check_consumer_contract.py, a script the I1 copy does not carry; re-pointed against llm-kit's scripts in I9.",
+      "disposition": "legacy-only",
+      "reason": "Runs content-pipeline-kit's consumer-contract checker (scripts/check_consumer_contract.py) over content_pipeline names. llm-kit carries the checker adapted to llm_kit public names (plugins/llm-kit/scripts/check_consumer_contract.py); the same four behaviors are asserted natively in tests/llm-kit/test_consumer_contract.py.",
       "rewrite_classes": [],
       "collection_count": 4,
       "baseline_failures": []
@@ -155,7 +156,7 @@
     {
       "path": "tests/content-pipeline-kit/test_deadlines.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -165,7 +166,7 @@
     {
       "path": "tests/content-pipeline-kit/test_deliver_inplace.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -175,7 +176,7 @@
     {
       "path": "tests/content-pipeline-kit/test_deliver_projection.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -185,7 +186,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_adapter.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -195,7 +196,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_b1_exit_criterion.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -205,11 +206,12 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_controller.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 12 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "prose-kept"
       ],
       "collection_count": 33,
       "baseline_failures": []
@@ -217,7 +219,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, plugins/<kit> path to plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -229,7 +231,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg_banner.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -239,7 +241,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg_fixes.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -249,11 +251,12 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_driver_inline.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "prose-kept"
       ],
       "collection_count": 14,
       "baseline_failures": []
@@ -261,31 +264,62 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_events.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "prose-kept"
       ],
       "collection_count": 46,
       "baseline_failures": []
     },
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_docs.py",
-      "disposition": "deferred-to-I9",
-      "reason": "Reads README, CLAUDE.md and skill reference documents that are not copied in I1; re-pointed against llm-kit's documents in I9.",
-      "rewrite_classes": [],
-      "collection_count": 18,
-      "baseline_failures": []
-    },
-    {
-      "path": "tests/content-pipeline-kit/test_execution_interrupts_events.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit. Text edits (repoint-map test_text_edits): The validator the interrupt probe loads is llm_kit.schema.json_schema; the copy path is only an alias of it, and the probe never imports the quarantined package, so the test blocks and checks the module the probe asks for.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged, test_text_edits rows, global wording_edits; 4 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
       "rewrite_classes": [
         "import",
         "module-string",
         "path-plugin-dir",
+        "prose-kept",
+        "text-edit",
+        "wording-edit"
+      ],
+      "collection_count": 18,
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_execution_interrupts_docs.py::test_docs_state_which_lanes_can_ask[readme]": {
+          "mirror_status": "skipped",
+          "reason": "llm-kit's README is the registration and CLI overview; the durable-wait prose lives in building-a-pipeline.md and the skill, which the other parameters check.",
+          "injected": false
+        },
+        "content-pipeline-kit/test_execution_interrupts_docs.py::test_docs_do_not_claim_a_workflow_refusal[CLAUDE.md]": {
+          "mirror_status": "skipped",
+          "reason": "llm-kit ships no plugin CLAUDE.md (maintainer guidance lives in the repository docs), so there is no document for this parameter to check; the other documents are still checked.",
+          "injected": false
+        },
+        "content-pipeline-kit/test_execution_interrupts_docs.py::test_docs_state_the_wait_is_opt_in_and_leaves_roundtrip_alone[README.md]": {
+          "mirror_status": "skipped",
+          "reason": "llm-kit's README is the registration and CLI overview; the durable-wait prose lives in building-a-pipeline.md and the skill, which the other parameters check.",
+          "injected": false
+        },
+        "content-pipeline-kit/test_execution_interrupts_docs.py::test_docs_state_the_wait_is_opt_in_and_leaves_roundtrip_alone[CLAUDE.md]": {
+          "mirror_status": "skipped",
+          "reason": "llm-kit ships no plugin CLAUDE.md (maintainer guidance lives in the repository docs), so there is no document for this parameter to check; the other documents are still checked.",
+          "injected": false
+        }
+      }
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_interrupts_events.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged, test_text_edits rows; 1 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir",
+        "prose-kept",
         "text-edit"
       ],
       "collection_count": 20,
@@ -294,11 +328,12 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_inline.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 12 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "prose-kept"
       ],
       "collection_count": 22,
       "baseline_failures": []
@@ -306,12 +341,12 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_store.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit. Text edits (repoint-map test_text_edits): json_schema lives in llm_kit.schema; the shim at the copy path is the same module object, so its __name__ is the final name.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
         "path-plugin-dir",
-        "text-edit"
+        "prose-kept"
       ],
       "collection_count": 81,
       "baseline_failures": []
@@ -319,7 +354,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; a message string naming the module; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes; prose mentions left unchanged. Text edits (repoint-map test_text_edits): json_schema lives in llm_kit.schema; the shim at the copy path is the same module object, so its __name__ is the final name. The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for. The refusal names the validator module the probe imports, now llm_kit.schema.json_schema. The validator probe's package is llm_kit (the validator lives in llm_kit.schema), so an absent validator package is simulated by blocking llm_kit, the name the probe imports first.",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, module-name strings, a message string naming a module, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged, test_text_edits rows, global wording_edits; 1 test_text_edits row(s) in repoint-map.json adapt the test to the final layout; 1 declared difference(s) below.",
       "rewrite_classes": [
         "declared-skip",
         "import",
@@ -327,21 +362,22 @@
         "named-message",
         "path-plugin-dir",
         "prose-kept",
-        "text-edit"
+        "text-edit",
+        "wording-edit"
       ],
       "collection_count": 56,
       "baseline_failures": [],
       "declared_differences": {
         "content-pipeline-kit/test_execution_interrupts_support.py::test_manifests_gain_no_entry_for_interrupts": {
           "mirror_status": "skipped",
-          "reason": "Reads content-pipeline-kit's bootstrap.json and plugin.json, which the I1 copy does not carry; re-pointed in I9."
+          "reason": "Asserts content-pipeline-kit's manifest shape (a plugins entry for llm-scripting-kit, two shared-lib imports, requires_bootstrap 0.120.0). llm-kit's manifest has one shared library, no plugins entry and a higher bootstrap floor; the same property (interrupts add no manifest entry) is asserted for llm-kit in tests/llm-kit/test_manifest.py."
         }
       }
     },
     {
       "path": "tests/content-pipeline-kit/test_execution_interrupts_unchanged.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -351,7 +387,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_protocol.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 23 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, plugins/<kit> path to plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -363,7 +399,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_status.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -373,7 +409,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_store.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 16 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, plugins/<kit> path to plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -385,7 +421,7 @@
     {
       "path": "tests/content-pipeline-kit/test_execution_wave.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -395,7 +431,7 @@
     {
       "path": "tests/content-pipeline-kit/test_failure_cache.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -405,7 +441,7 @@
     {
       "path": "tests/content-pipeline-kit/test_freshness_classify.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -415,7 +451,7 @@
     {
       "path": "tests/content-pipeline-kit/test_freshness_ensure.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -425,7 +461,7 @@
     {
       "path": "tests/content-pipeline-kit/test_freshness_hashing.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, plugins/<kit> path to plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -437,7 +473,7 @@
     {
       "path": "tests/content-pipeline-kit/test_freshness_seed.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -447,7 +483,7 @@
     {
       "path": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
       "disposition": "rewrite",
-      "reason": "Rewrites \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): These four modules moved to llm_kit.pipeline.core and llm_kit.storage; the vocabulary scan reads the final files, not the shims. Reads the final file for a moved module (see FINAL).",
+      "reason": "Re-pointed at llm-kit's final module names: lib/<pkg> path to the llm_kit tree, plugins/<kit> path to plugins/llm-kit, test_text_edits rows; 1 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
       "rewrite_classes": [
         "path-package-dir",
         "path-plugin-dir",
@@ -459,7 +495,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_attempt_observer.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -469,27 +505,26 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_backends.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 11 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; prose mentions left unchanged. Text edits (repoint-map test_text_edits): delegate classes are injected through ConfiguredBackendFactory(classes=...) and the declaration fake is installed at the named seam backends._declaration_module; the stale-lib tests are declared differences (I7).",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged, test_text_edits rows, global wording_edits; 2 test_text_edits row(s) in repoint-map.json adapt the test to the final layout; 9 declared difference(s) below.",
       "rewrite_classes": [
         "declared-skip",
         "import",
         "module-string",
         "path-plugin-dir",
         "prose-kept",
-        "text-edit"
+        "text-edit",
+        "wording-edit"
       ],
       "collection_count": 82,
       "baseline_failures": [],
       "declared_differences": {
         "content-pipeline-kit/test_llm_backends.py::test_absent_declaration_lib_message_names_the_install_command": {
           "mirror_status": "skipped",
-          "injected": false,
-          "reason": "Needs llm_scripting_kit to be unimportable; the quarantine ships it beside content_pipeline, so the test skips itself until the final layout (I9)."
+          "reason": "Makes llm_scripting_kit unimportable beside content_pipeline to see the absent-declaration-library message. In llm-kit the declaration code is llm_kit.registry/dispatch in the same package; the shared bootstrap_lib refusal wording is asserted in test_registry_parity.py (test_model_declaration_probe_parity)."
         },
         "content-pipeline-kit/test_llm_backends.py::test_resolve_declaration_absent_lib_names_itself": {
           "mirror_status": "skipped",
-          "injected": false,
-          "reason": "Needs llm_scripting_kit to be unimportable; the quarantine ships it beside content_pipeline, so the test skips itself until the final layout (I9)."
+          "reason": "Makes llm_scripting_kit unimportable beside content_pipeline to see the absent-declaration-library message. In llm-kit the declaration code is llm_kit.registry/dispatch in the same package; the shared bootstrap_lib refusal wording is asserted in test_registry_parity.py (test_model_declaration_probe_parity)."
         },
         "content-pipeline-kit/test_llm_backends.py::test_resolve_declaration_stale_lib_names_the_floor": {
           "mirror_status": "skipped",
@@ -514,13 +549,17 @@
         "content-pipeline-kit/test_llm_backends.py::test_route_contract_refuses_a_stale_shared_lib": {
           "mirror_status": "skipped",
           "reason": "shared-lib skew probe removed: neutral types are internal to llm-kit (I7)"
+        },
+        "content-pipeline-kit/test_llm_backends.py::test_opencode_backend_delegates_lazily_without_running_opencode": {
+          "mirror_status": "skipped",
+          "reason": "Asserts the exact keyword set the wrapper hands the delegate constructor. The wrapper now describes the delegate as an immutable BackendSpec for the injected factory; the constructor options (including an omitted runner staying omitted) are asserted in test_pipeline_runtime_parity.py and test_dispatch_parity.py."
         }
       }
     },
     {
       "path": "tests/content-pipeline-kit/test_llm_convergence.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -530,7 +569,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_convergence_ext.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -540,13 +579,12 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit. Text edits (repoint-map test_text_edits): the declaration fake is installed at the named seam and the fake registry module is installed as llm_kit.registry.model_endpoints; the effort-seam skew tests are declared differences (I7).",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, module-name strings, plugins/<kit> path to plugins/llm-kit; 2 declared difference(s) below.",
       "rewrite_classes": [
         "declared-skip",
         "import",
         "module-string",
-        "path-plugin-dir",
-        "text-edit"
+        "path-plugin-dir"
       ],
       "collection_count": 96,
       "baseline_failures": [],
@@ -564,11 +602,11 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_platform.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): the fake halt classifier is installed under llm_kit.completion.halt, the module the pipeline classifier delegates to.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "text-edit"
+        "prose-kept"
       ],
       "collection_count": 79,
       "baseline_failures": []
@@ -576,7 +614,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_platform_spend.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -586,40 +624,50 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; injects skip on declared-difference nodes. Text edits (repoint-map test_text_edits): The duplicate is gone: both ledgers delegate to llm_kit.storage.network, which is the original the spend ledger's copy must match.",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, module-name strings, plugins/<kit> path to plugins/llm-kit; 1 declared difference(s) below.",
       "rewrite_classes": [
         "declared-skip",
         "import",
         "module-string",
-        "path-plugin-dir",
-        "text-edit"
+        "path-plugin-dir"
       ],
       "collection_count": 106,
       "baseline_failures": [],
       "declared_differences": {
         "content-pipeline-kit/test_llm_spend_ledger.py::TestImportHygiene::test_module_imports_only_stdlib_and_platform": {
           "mirror_status": "skipped",
-          "reason": "Classifies imports by their first dotted segment equal to content_pipeline; in the copy every first segment is llm_kit. The import-direction guard (I2) replaces it."
+          "reason": "Classifies imports by a first dotted segment equal to content_pipeline; in llm-kit every first segment is llm_kit. The import-direction guard (tests/llm-kit/test_import_graph.py) replaces it."
         }
       }
     },
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger_concurrency.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit. Text edits (repoint-map test_text_edits): _writer and _reader no longer hold the BEGIN literal; they call llm_kit.storage.transaction, so the guard counts those calls as the BEGIN sites.",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, skips injected on declared-difference tests, import statements, plugins/<kit> path to plugins/llm-kit; 1 declared difference(s) below.",
       "rewrite_classes": [
         "code-string",
+        "declared-skip",
         "import",
-        "path-plugin-dir",
-        "text-edit"
+        "path-plugin-dir"
       ],
       "collection_count": 10,
-      "baseline_failures": []
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_llm_spend_ledger_concurrency.py::TestBeginImmediateSourceGuard::test_exactly_one_plain_begin_and_it_is_the_reader": {
+          "mirror_status": "skipped",
+          "reason": "Counts the BEGIN literals in spend_ledger.py. The literals live in llm_kit.storage.transaction (BEGIN_WRITE and BEGIN_READ) and the ledger opens its transactions through write_transaction and read_transaction; the equivalent source guard is tests/llm-kit/test_spend_ledger_guard.py."
+        }
+      },
+      "flaky_nodes": {
+        "content-pipeline-kit/test_llm_spend_ledger_concurrency.py::TestCapHoldsAcrossProcesses::test_exactly_the_cap_is_granted": "A cross-process contention test with an explicit contention floor: it fails by design when its processes did not actually race (docstring: a green run must not certify an unexercised property). On a loaded machine the floor can miss, in the legacy run as in the re-pointed one, so the differential re-runs a failing node up to twice and counts it only when its own re-run passes.",
+        "content-pipeline-kit/test_llm_spend_ledger_concurrency.py::TestHaltStopsEveryProcess::test_a_halt_committed_elsewhere_grants_nothing_afterwards": "A cross-process contention test with an explicit contention floor: it fails by design when its processes did not actually race (docstring: a green run must not certify an unexercised property). On a loaded machine the floor can miss, in the legacy run as in the re-pointed one, so the differential re-runs a failing node up to twice and counts it only when its own re-run passes.",
+        "content-pipeline-kit/test_llm_spend_ledger_concurrency.py::TestStatusReportsReservedAndSpent::test_reserved_and_spent_are_reported_from_other_processes_rows": "A cross-process contention test with an explicit contention floor: it fails by design when its processes did not actually race (docstring: a green run must not certify an unexercised property). On a loaded machine the floor can miss, in the legacy run as in the re-pointed one, so the differential re-runs a failing node up to twice and counts it only when its own re-run passes."
+      }
     },
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger_halt.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, plugins/<kit> path to plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -631,7 +679,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_spend_ledger_orphans.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, plugins/<kit> path to plugins/llm-kit.",
       "rewrite_classes": [
         "code-string",
         "import",
@@ -643,12 +691,14 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_structured_generation.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit. Declared differences: the contract-probe skew tests, removed with the probes (I7).",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged, global wording_edits; 7 declared difference(s) below.",
       "rewrite_classes": [
         "declared-skip",
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "prose-kept",
+        "wording-edit"
       ],
       "collection_count": 48,
       "baseline_failures": [],
@@ -686,7 +736,7 @@
     {
       "path": "tests/content-pipeline-kit/test_llm_yaml_extract.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -696,7 +746,7 @@
     {
       "path": "tests/content-pipeline-kit/test_loop_stage_result_and_measure_detail.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -706,13 +756,14 @@
     {
       "path": "tests/content-pipeline-kit/test_package_imports.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>; prose mentions left unchanged.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, lib/<pkg> path to the llm_kit tree, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged, test_text_edits rows; 2 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
       "rewrite_classes": [
         "import",
         "module-string",
         "path-package-dir",
         "path-plugin-dir",
-        "prose-kept"
+        "prose-kept",
+        "text-edit"
       ],
       "collection_count": 64,
       "baseline_failures": []
@@ -720,12 +771,13 @@
     {
       "path": "tests/content-pipeline-kit/test_parallel_graph.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 9 import line(s) -> llm_kit._copy.content_pipeline; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): _atomic_json moved to llm_kit.storage.atomic_json; the stdlib-only property is checked on the final file, not on the shim.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, lib/<pkg> path to the llm_kit tree, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged, test_text_edits rows; 3 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
       "rewrite_classes": [
         "import",
         "module-string",
         "path-package-dir",
         "path-plugin-dir",
+        "prose-kept",
         "text-edit"
       ],
       "collection_count": 44,
@@ -734,7 +786,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_cell_policy.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -744,7 +796,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_convergence_loop.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -754,7 +806,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_convergence_loop_ext.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -764,7 +816,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_gate_aliases.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -774,7 +826,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_single_pass.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -784,7 +836,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pipeline_workunit.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -794,7 +846,7 @@
     {
       "path": "tests/content-pipeline-kit/test_pr1_provenance_record.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -804,7 +856,7 @@
     {
       "path": "tests/content-pipeline-kit/test_provenance_call_audit.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -814,7 +866,7 @@
     {
       "path": "tests/content-pipeline-kit/test_provenance_replay.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -824,7 +876,7 @@
     {
       "path": "tests/content-pipeline-kit/test_provenance_snapshot.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -834,7 +886,7 @@
     {
       "path": "tests/content-pipeline-kit/test_providers_assembly.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -844,7 +896,7 @@
     {
       "path": "tests/content-pipeline-kit/test_providers_registry.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -853,8 +905,8 @@
     },
     {
       "path": "tests/content-pipeline-kit/test_public_surface_contract.py",
-      "disposition": "deferred-to-I9",
-      "reason": "Reads contract/public-surface.json, which is not copied in I1; the final public surface is declared in I9.",
+      "disposition": "legacy-only",
+      "reason": "Guards content-pipeline-kit's contract/public-surface.json (493 content_pipeline names) against the legacy code. llm-kit's contract lists llm_kit names; tests/llm-kit/test_consumer_contract.py applies the same guard (entries well formed, listed names resolve, removed names stay removed, every exported name listed) to plugins/llm-kit/contract/public-surface.json.",
       "rewrite_classes": [],
       "collection_count": 496,
       "baseline_failures": []
@@ -862,7 +914,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_a_run_plane.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 10 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -872,7 +924,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_b_apply_status.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -882,7 +934,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_b_worker_verbs.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -892,30 +944,25 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_c_skill_script_paths.py",
       "disposition": "rewrite",
-      "reason": "Rewrites \"plugins\"/<kit> path -> plugins/llm-kit; plugins/<kit>/lib path string -> plugins/llm-kit/lib; injects skip on declared-difference nodes; prose mentions left unchanged.",
+      "reason": "Re-pointed at llm-kit's final module names: plugins/<kit> path to plugins/llm-kit, plugins/<kit>/lib path strings, prose mentions left unchanged.",
       "rewrite_classes": [
-        "declared-skip",
         "path-plugin-dir",
         "path-string",
-        "prose-kept"
+        "prose-kept",
+        "text-edit"
       ],
       "collection_count": 8,
-      "baseline_failures": [],
-      "declared_differences": {
-        "content-pipeline-kit/test_review_fix_c_skill_script_paths.py::test_workflow_skill_documents_the_named_invocation": {
-          "mirror_status": "skipped",
-          "reason": "Reads a SKILL.md that is not copied in I1; re-pointed against llm-kit's migrated skill in I9."
-        }
-      }
+      "baseline_failures": []
     },
     {
       "path": "tests/content-pipeline-kit/test_review_fix_d_cache_key.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit, prose mentions left unchanged.",
       "rewrite_classes": [
         "import",
         "module-string",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "prose-kept"
       ],
       "collection_count": 55,
       "baseline_failures": []
@@ -923,7 +970,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_d_routing.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -933,7 +980,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_h_bg_failure_code.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 8 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -943,7 +990,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_h_bg_followups.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -953,7 +1000,7 @@
     {
       "path": "tests/content-pipeline-kit/test_review_fix_h_inline_reclaim.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -963,7 +1010,7 @@
     {
       "path": "tests/content-pipeline-kit/test_roundtrip_questions.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -973,7 +1020,7 @@
     {
       "path": "tests/content-pipeline-kit/test_roundtrip_returns.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -983,11 +1030,10 @@
     {
       "path": "tests/content-pipeline-kit/test_run_cli.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): the declaration fake is installed at the named seam backends._declaration_module.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings.",
       "rewrite_classes": [
         "import",
-        "module-string",
-        "text-edit"
+        "module-string"
       ],
       "collection_count": 12,
       "baseline_failures": []
@@ -995,7 +1041,7 @@
     {
       "path": "tests/content-pipeline-kit/test_run_cli_protocol.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1005,7 +1051,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_attributed.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1015,7 +1061,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_candidate.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1025,7 +1071,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_candidate_state.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1035,7 +1081,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_intermediary.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1045,7 +1091,7 @@
     {
       "path": "tests/content-pipeline-kit/test_store_projection.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1055,7 +1101,7 @@
     {
       "path": "tests/content-pipeline-kit/test_validate_contract.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 1 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1065,7 +1111,7 @@
     {
       "path": "tests/content-pipeline-kit/test_validate_floor_guard.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1075,7 +1121,7 @@
     {
       "path": "tests/content-pipeline-kit/test_validate_riders.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1085,7 +1131,7 @@
     {
       "path": "tests/content-pipeline-kit/test_vcs_git.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1104,16 +1150,19 @@
     },
     {
       "path": "tests/content-pipeline-kit/test_worker_assets_drift.py",
-      "disposition": "deferred-to-I9",
-      "reason": "Compares skills/execute-work-unit/SKILL.md with the worker pack; the skill migrates in I9.",
-      "rewrite_classes": [],
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, plugins/<kit> path to plugins/llm-kit.",
+      "rewrite_classes": [
+        "import",
+        "path-plugin-dir"
+      ],
       "collection_count": 7,
       "baseline_failures": []
     },
     {
       "path": "tests/content-pipeline-kit/test_worker_generation_fencing.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1123,7 +1172,7 @@
     {
       "path": "tests/content-pipeline-kit/test_worker_invocation_contract.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1133,7 +1182,7 @@
     {
       "path": "tests/content-pipeline-kit/test_worker_invocation_roundtrip.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.content_pipeline.",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
       "rewrite_classes": [
         "import"
       ],
@@ -1143,7 +1192,7 @@
     {
       "path": "tests/content-pipeline-kit/test_workerpack_aliases.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 3 import line(s) -> llm_kit._copy.content_pipeline; module names inside subprocess/exec code strings.",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements.",
       "rewrite_classes": [
         "code-string",
         "import"
@@ -1153,9 +1202,12 @@
     },
     {
       "path": "tests/content-pipeline-kit/test_workflow_contract.py",
-      "disposition": "deferred-to-I9",
-      "reason": "Runs workflows/run-ready-wave.js and reads the pipeline skills; the workflow and skills migrate in I9.",
-      "rewrite_classes": [],
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, plugins/<kit> path to plugins/llm-kit.",
+      "rewrite_classes": [
+        "import",
+        "path-plugin-dir"
+      ],
       "collection_count": 51,
       "baseline_failures": []
     }

@@ -64,11 +64,11 @@ KIND_LIMIT = 64
 #: The largest ``expires_in_s``.
 EXPIRES_IN_S_MAX = 2**31 - 1
 
-#: The llm-scripting-kit release that shipped ``completion.json_schema`` with
-#: the frozen subset selector, ``check_schema(schema, subset=)`` and
+#: The first llm-kit release that ships ``schema.json_schema`` with the frozen
+#: subset selector, ``check_schema(schema, subset=)`` and
 #: ``validate(schema, value, subset=)``. Messages name this constant, never a
 #: value read from a possibly stale module.
-_JSON_SCHEMA_LSK_VERSION = "0.56.0"
+_JSON_SCHEMA_LSK_VERSION = "0.1.2"
 
 #: The bootstrap release that shipped ``bootstrap_lib.interrupt_contract`` with
 #: the call shapes in :data:`_CONTRACT_CALL_SHAPES`. Messages name this
@@ -156,7 +156,7 @@ class InterruptInputError(ValueError):
 
 
 class JsonSchemaSupportError(ImportError):
-    """``llm_scripting_kit.completion.json_schema`` is absent, too old, or stale."""
+    """``llm_kit.schema.json_schema`` is absent, too old, or stale."""
 
 
 class InterruptContractSupportError(ImportError):
@@ -175,7 +175,7 @@ def _render_contract_failure(failure: ProbeFailure) -> str:
             "bootstrap_lib.interrupt_contract, which is not linked into this "
             "environment: install or enable the bootstrap plugin "
             "(`claude plugin install bootstrap@plugins-kit`) and start a new "
-            "session so it links job-kit's shared libs."
+            "session so it links llm-kit's shared libs."
         )
     return (
         "job-kit checks interrupt requests and resolutions with "
@@ -190,18 +190,18 @@ def _render_validator_failure(failure: ProbeFailure) -> str:
     """Word a refused validator probe in job-kit's own terms."""
     if failure.kind in (probe.ABSENT, probe.BROKEN_IMPORT):
         return (
-            "job-kit validates interrupt requests with llm-scripting-kit, which "
-            "is not linked into this environment: install or enable it "
-            "(`claude plugin install llm-scripting-kit@plugins-kit`) and start a "
-            "new session so bootstrap links job-kit's shared libs."
+            "llm-kit validates interrupt requests with llm_kit.schema.json_schema, "
+            "which is not linked into this environment: install or enable "
+            "llm-kit (`claude plugin install llm-kit@plugins-kit`) and start a "
+            "new session so bootstrap links llm-kit's shared libs."
         )
     return (
-        "job-kit validates interrupt requests with "
-        "llm_scripting_kit.completion.json_schema (check_schema and validate "
-        "with the subset= selector), which the linked llm-scripting-kit "
+        "llm-kit validates interrupt requests with "
+        "llm_kit.schema.json_schema (check_schema and validate "
+        "with the subset= selector), which the linked llm-kit "
         "predates or lacks: update "
-        f"llm-scripting-kit to >= {failure.floor} "
-        "(`claude plugin update llm-scripting-kit@plugins-kit`) and restart."
+        f"llm-kit to >= {failure.floor} "
+        "(`claude plugin update llm-kit@plugins-kit`) and restart."
     )
 
 

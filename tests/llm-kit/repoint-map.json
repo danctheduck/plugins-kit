@@ -1,31 +1,5 @@
 {
-  "schema": 1,
-  "packages": {
-    "llm_scripting_kit": {
-      "copy": "llm_kit._copy.llm_scripting_kit",
-      "plugin": "llm-scripting-kit",
-      "plugin_dir": "plugins/llm-scripting-kit",
-      "lib_dir": "plugins/llm-scripting-kit/lib",
-      "source_dir": "plugins/llm-scripting-kit/lib/llm_scripting_kit",
-      "copy_dir": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit"
-    },
-    "content_pipeline": {
-      "copy": "llm_kit._copy.content_pipeline",
-      "plugin": "content-pipeline-kit",
-      "plugin_dir": "plugins/content-pipeline-kit",
-      "lib_dir": "plugins/content-pipeline-kit/lib",
-      "source_dir": "plugins/content-pipeline-kit/lib/content_pipeline",
-      "copy_dir": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline"
-    },
-    "job_kit": {
-      "copy": "llm_kit._copy.job_kit",
-      "plugin": "job-kit",
-      "plugin_dir": "plugins/job-kit",
-      "lib_dir": "plugins/job-kit/lib",
-      "source_dir": "plugins/job-kit/lib/job_kit",
-      "copy_dir": "plugins/llm-kit/lib/llm_kit/_copy/job_kit"
-    }
-  },
+  "schema": 2,
   "guard": {
     "legacy": "bootstrap_guard",
     "module": "llm_kit.bootstrap_guard",
@@ -45,1067 +19,1983 @@
   "data_files": [
     "default_config.yaml"
   ],
-  "string_sites": {
-    "plugins/llm-scripting-kit/lib/llm_scripting_kit/cli.py::1511e15e01::0": {
-      "file": "plugins/llm-scripting-kit/lib/llm_scripting_kit/cli.py",
-      "preview": "llm_scripting_kit.cli",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/skill_context.py::80c108f0fc::0": {
-      "file": "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/skill_context.py",
-      "preview": "options.skill_context must be a SkillContext built by llm_scripting_kit.completi",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; the wording is carried unchanged into llm_kit.completion.skill_context, where the copy path is an alias, and changes only through a named final-interface test"
-    },
-    "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/server.py::371046240e::0": {
-      "file": "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/server.py",
-      "preview": "python -m llm_scripting_kit.frontdoor",
-      "action": "keep-human",
-      "reason": "display-only argparse prog name; no loader consumes it. The final llm_kit.frontdoor.server names its own module path (python -m llm_kit.frontdoor), so the legacy wording is not carried into the shimmed copy (I6 declared difference: frontdoor module path is llm_kit.frontdoor)"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py::dc5cefd299::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py",
-      "preview": "llm_scripting_kit.completion.json_schema",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py::25ccb6d48f::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py",
-      "preview": "llm_scripting_kit",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py::25ccb6d48f::1": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py",
-      "preview": "llm_scripting_kit",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py::431b598fca::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py",
-      "preview": "content-pipeline-kit interrupts validate requests and answers with llm_scripting",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py::76fc47c9ea::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py",
-      "preview": "llm_scripting_kit failed to import (",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/llm/backends.py::ccdb7de03f::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/llm/backends.py",
-      "preview": "needs the 'llm_scripting_kit' shared lib (from llm-scripting-kit). Declare it vi",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/llm/backends.py::d69ceb4e97::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/llm/backends.py",
-      "preview": "needs the 'llm_scripting_kit' shared lib (from llm-scripting-kit) for ",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/llm/backends.py::f234392c79::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/llm/backends.py",
-      "preview": "the linked llm_scripting_kit predates llm_scripting_kit.declaration (describe/ru",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py::48e1a0981d::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py",
-      "preview": "output contracts need the 'llm_scripting_kit' shared lib (from llm-scripting-kit",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py::a05a6026f6::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py",
-      "preview": "the linked llm_scripting_kit predates output contracts (missing: {missing}); out",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py::f6ec43ee63::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py",
-      "preview": "the 'llm_scripting_kit' shared lib is absent, so an overload halt's retry-after ",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py::fc5350df06::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py",
-      "preview": "the linked llm_scripting_kit predates classify_backpressure, so an overload halt",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py::bbe25ce4cf::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py",
-      "preview": "output_contract must be an llm_scripting_kit OutputContract, got ",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/provenance/record.py::5adc5946b9::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/provenance/record.py",
-      "preview": "content_pipeline",
-      "action": "keep-human",
-      "reason": "default recorded module names of start_run (the 'modules' tuple); the copy record.py is a shim of llm_kit.pipeline.analysis.provenance.record, whose default is ('llm_kit',) -- provenance records name the producing package llm_kit (I5 ruling); this legacy literal is not carried into the copy"
-    },
-    "plugins/content-pipeline-kit/lib/content_pipeline/provenance/record.py::25ccb6d48f::0": {
-      "file": "plugins/content-pipeline-kit/lib/content_pipeline/provenance/record.py",
-      "preview": "llm_scripting_kit",
-      "action": "keep-human",
-      "reason": "default recorded module names of start_run (the 'modules' tuple); the copy record.py is a shim of llm_kit.pipeline.analysis.provenance.record, whose default is ('llm_kit',) -- provenance records name the producing package llm_kit (I5 ruling); this legacy literal is not carried into the copy"
-    },
-    "plugins/job-kit/lib/job_kit/__init__.py::25ccb6d48f::0": {
-      "file": "plugins/job-kit/lib/job_kit/__init__.py",
-      "preview": "llm_scripting_kit",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/__init__.py::25ccb6d48f::1": {
-      "file": "plugins/job-kit/lib/job_kit/__init__.py",
-      "preview": "llm_scripting_kit",
-      "action": "keep-human",
-      "reason": "fallback module name in the provisioning message (missing: ...), human-facing"
-    },
-    "plugins/job-kit/lib/job_kit/__init__.py::25ccb6d48f::2": {
-      "file": "plugins/job-kit/lib/job_kit/__init__.py",
-      "preview": "llm_scripting_kit",
-      "action": "keep-human",
-      "reason": "fallback module name in the provisioning message (missing: ...), human-facing"
-    },
-    "plugins/job-kit/lib/job_kit/__init__.py::25ccb6d48f::3": {
-      "file": "plugins/job-kit/lib/job_kit/__init__.py",
-      "preview": "llm_scripting_kit",
-      "action": "keep-human",
-      "reason": "fallback module name in the provisioning message (missing: ...), human-facing"
-    },
-    "plugins/job-kit/lib/job_kit/cli.py::725d161873::0": {
-      "file": "plugins/job-kit/lib/job_kit/cli.py",
-      "preview": "job_kit.cli",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/interrupts.py::25ccb6d48f::0": {
-      "file": "plugins/job-kit/lib/job_kit/interrupts.py",
-      "preview": "llm_scripting_kit",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/interrupts.py::48d4b00dfc::0": {
-      "file": "plugins/job-kit/lib/job_kit/interrupts.py",
-      "preview": "job-kit validates interrupt requests with llm_scripting_kit.completion.json_sche",
-      "action": "keep-human",
-      "reason": "human-facing text or display-only program name; changes only through a named final-interface test"
-    },
-    "plugins/job-kit/lib/job_kit/interrupts.py::dc5cefd299::0": {
-      "file": "plugins/job-kit/lib/job_kit/interrupts.py",
-      "preview": "llm_scripting_kit.completion.json_schema",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/select.py::84cec1f518::0": {
-      "file": "plugins/job-kit/lib/job_kit/select.py",
-      "preview": "llm_scripting_kit.completion",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/select.py::14d429c957::0": {
-      "file": "plugins/job-kit/lib/job_kit/select.py",
-      "preview": "llm_scripting_kit.completion.requirements",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/select.py::84cec1f518::1": {
-      "file": "plugins/job-kit/lib/job_kit/select.py",
-      "preview": "llm_scripting_kit.completion",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/select.py::84cec1f518::2": {
-      "file": "plugins/job-kit/lib/job_kit/select.py",
-      "preview": "llm_scripting_kit.completion",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/select.py::447d17ae98::0": {
-      "file": "plugins/job-kit/lib/job_kit/select.py",
-      "preview": "llm_scripting_kit.declaration",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    },
-    "plugins/job-kit/lib/job_kit/select.py::d742644b82::0": {
-      "file": "plugins/job-kit/lib/job_kit/select.py",
-      "preview": "llm_scripting_kit.usage_budget",
-      "action": "rewrite",
-      "reason": "module loader, classifier or argv target resolved at run time; must name the copy"
-    }
-  },
   "test_site_overrides": {
     "tests/content-pipeline-kit/test_execution_interrupts_support.py::3d2b8f83e5::0": {
       "file": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
       "action": "rewrite",
-      "reason": "Expected message embeds the validator module name that the copy's loader constant renders; the loader now names llm_kit.schema.json_schema, which a test_text_edits row writes into the expected text. Named final-interface test."
+      "reason": "The probe target is the validator module name; it is rewritten to llm_kit.schema.json_schema, the final home, and the expected messages are checked against that name. Forced explicitly so a change to the module-name heuristic cannot leave the site on the legacy name."
+    }
+  },
+  "test_text_edits": [
+    {
+      "file": "tests/job-kit/test_model.py",
+      "old": "from job_kit import SharedLibTooOldError\n",
+      "new": "",
+      "reason": "SharedLibTooOldError is removed with the shared-lib skew probes (neutral types are internal to llm-kit); the import is dropped and the one test that asserts the class is declared skipped."
+    },
+    {
+      "file": "tests/job-kit/test_cli.py",
+      "old": "        max_parallel: int | None = None,\n    ) -> RunSnapshot:",
+      "new": "        max_parallel: int | None = None,\n        backend_factory: object = None,\n    ) -> RunSnapshot:",
+      "reason": "The CLI is the composition root and injects backend_factory into the runner (design: the CLI injects the configured factory into jobs); the fake runner takes the keyword.",
+      "count": 4
+    },
+    {
+      "file": "tests/job-kit/test_cli.py",
+      "old": "run_id: str, store: Path, *, timeout_s: float, max_parallel: int | None = None\n",
+      "new": "run_id: str, store: Path, *, timeout_s: float, max_parallel: int | None = None,\n        backend_factory: object = None,\n",
+      "reason": "The CLI injects backend_factory into the runner; the fake runner takes the keyword."
+    },
+    {
+      "file": "tests/job-kit/test_cli.py",
+      "old": "        lambda endpoint, **_: BackendSelection(endpoint, \"fake\", backend, \"fake-model\"),\n    )\n    return backend\n",
+      "new": "        lambda endpoint, **_: BackendSelection(endpoint, \"fake\", backend, \"fake-model\"),\n    )\n    # the CLI injects its own configured factory, so the hermetic transport is installed at that seam\n    monkeypatch.setattr(\n        cli,\n        \"configured_factory\",\n        lambda: (lambda endpoint, **_: BackendSelection(endpoint, \"fake\", backend, \"fake-model\")),\n    )\n    return backend\n",
+      "reason": "The CLI composes the backend factory (llm_kit.cli.jobs.configured_factory) instead of reading the runner's module-level create_backend, so the fake transport is installed at the composition seam."
+    },
+    {
+      "file": "tests/job-kit/test_cli.py",
+      "old": "assert captured.out == f\"job-kit {__version__}\\n\"",
+      "new": "assert captured.out == f\"llm-kit jobs {__version__}\\n\"",
+      "reason": "The jobs group's argparse prog and --version text name 'llm-kit jobs' (pinned in test_cli_groups.TestUsageTokens)."
+    },
+    {
+      "file": "tests/job-kit/test_interrupts_e2e.py",
+      "old": "            lambda endpoint, **_: BackendSelection(endpoint, \"fake\", self.backend, \"fake-model\"),\n        )\n",
+      "new": "            lambda endpoint, **_: BackendSelection(endpoint, \"fake\", self.backend, \"fake-model\"),\n        )\n        # the CLI injects its own configured factory, so the hermetic transport is installed at that seam\n        monkeypatch.setattr(\n            cli,\n            \"configured_factory\",\n            lambda: (lambda endpoint, **_: BackendSelection(endpoint, \"fake\", self.backend, \"fake-model\")),\n        )\n",
+      "reason": "The CLI composes the backend factory (llm_kit.cli.jobs.configured_factory); the fake transport is installed at that seam."
+    },
+    {
+      "file": "tests/job-kit/test_cli_redirect_jobkit.py",
+      "old": "return data_root / \"plugins-kit\" / \"job-kit\" / \".venv\"",
+      "new": "return data_root / \"plugins-kit\" / \"llm-kit\" / \".venv\"",
+      "reason": "The redirected venv is the llm-kit plugin's (design: the new launchers name the llm-kit venv)."
+    },
+    {
+      "file": "tests/job-kit/test_cli_redirect_jobkit.py",
+      "old": "[str(target), \"-m\", \"legacy_names.job_kit.cli\", \"status\", \"--store\", \"x\"]",
+      "new": "[str(target), \"-m\", \"llm_kit.cli\", \"jobs\", \"status\", \"--store\", \"x\"]",
+      "reason": "The replacement interpreter runs llm-kit's entry module with the jobs group (llm_kit.cli.main re-execs as python -m llm_kit.cli)."
+    },
+    {
+      "file": "tests/job-kit/test_events.py",
+      "old": "LIB / \"events.py\"",
+      "new": "LIB / \"jobs\" / \"events.py\"",
+      "reason": "events.py lives in llm_kit.jobs."
+    },
+    {
+      "file": "tests/job-kit/test_events.py",
+      "old": "LIB / \"store.py\"",
+      "new": "LIB / \"jobs\" / \"store.py\"",
+      "reason": "store.py lives in llm_kit.jobs."
+    },
+    {
+      "file": "tests/job-kit/test_interrupts_contract_probe.py",
+      "old": "    / \"llm_kit\"\n    / \"interrupts.py\"",
+      "new": "    / \"llm_kit\"\n    / \"jobs\"\n    / \"interrupts.py\"",
+      "reason": "interrupts.py lives in llm_kit.jobs."
+    },
+    {
+      "file": "tests/job-kit/test_job_kit_bootstrap_manifest.py",
+      "old": "interrupts._JSON_SCHEMA_LSK_VERSION == \"0.56.0\"",
+      "new": "interrupts._JSON_SCHEMA_LSK_VERSION == \"0.1.2\"",
+      "reason": "The validator floor is the first llm-kit release that ships schema.json_schema (final_wording.FLOORS)."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_cli_json_repair.py",
+      "old": "        monkeypatch.setattr(cli, name, forbidden)",
+      "new": "        monkeypatch.setattr(cli, name, forbidden, raising=False)",
+      "reason": "A name the legacy CLI module bound but no final CLI group binds (resolve_model) cannot be crossed by repair-json; patching what exists keeps the check, and raising=False lets the list stay whole."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_completion_contract.py",
+      "old": "assert relative == {\"json_schema\"}, relative",
+      "new": "assert relative == set(), relative",
+      "reason": "contract_types imports the validator absolutely (llm_kit.schema.json_schema, the signed completion -> schema edge) instead of a sibling module."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_completion_contract.py",
+      "old": "    assert absolute <= stdlib, absolute - stdlib",
+      "new": "    assert absolute <= stdlib | {\"llm_kit\"}, absolute - stdlib",
+      "reason": "The one non-standard-library import is the signed completion -> schema edge (llm_kit.schema.json_schema), enforced by test_import_graph.py."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_declaration_observer.py",
+      "old": "PLUGIN_ROOT / \"lib\" / \"llm_kit\" / \"observer.py\"",
+      "new": "PLUGIN_ROOT / \"lib\" / \"llm_kit\" / \"dispatch\" / \"observer.py\"",
+      "reason": "observer.py lives in llm_kit.dispatch."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_review_lane.py",
+      "old": "/ \"plugins\" / \"llm-kit\" / \"lib\" / \"llm_kit\" / \"review_lane.py\"",
+      "new": "/ \"plugins\" / \"llm-kit\" / \"lib\" / \"llm_kit\" / \"dispatch\" / \"review_lane.py\"",
+      "reason": "review_lane.py lives in llm_kit.dispatch."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_cli_redirect.py",
+      "old": "return data_root / \"plugins-kit\" / \"llm-scripting-kit\" / \".venv\"",
+      "new": "return data_root / \"plugins-kit\" / \"llm-kit\" / \".venv\"",
+      "reason": "The redirected venv is the llm-kit plugin's (design: the new launchers name the llm-kit venv)."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_cli_redirect.py",
+      "old": "[str(target), \"-m\", \"legacy_names.llm_scripting_kit.cli\", \"status\", \"--endpoint\", \"x\"]",
+      "new": "[str(target), \"-m\", \"llm_kit.cli\", \"account\", \"status\", \"--endpoint\", \"x\"]",
+      "reason": "The replacement interpreter runs llm-kit's entry module with the verb in its group (llm_kit.cli.main re-execs as python -m llm_kit.cli)."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_cli_redirect.py",
+      "old": "runpy.run_module('legacy_names.llm_scripting_kit.cli', run_name='__main__')",
+      "new": "runpy.run_module('llm_kit.cli', run_name='__main__')",
+      "reason": "python -m llm_kit.cli is the entry the re-exec itself uses."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_cli_redirect.py",
+      "old": "lib = Path(constants.__file__).resolve().parent.parent\n",
+      "new": "lib = Path(constants.__file__).resolve().parent.parent.parent\n",
+      "reason": "constants lives in llm_kit.registry, so the library root is three levels above it."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_cli_redirect.py",
+      "old": "from legacy_names.llm_scripting_kit.cli import main; sys.exit(main())",
+      "new": "from llm_kit.cli import main; sys.exit(main())",
+      "reason": "The console wrapper runs llm_kit.cli:main."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
+      "old": "module.startswith(\n                \"content_pipeline.llm.\"\n            )",
+      "new": "module.startswith(\n                \"llm_kit.pipeline.runtime.\"\n            )",
+      "reason": "budget.py lives in llm_kit.pipeline.runtime, whose submodules (platform, spend_ledger) are the 'llm' layer it may import."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
+      "old": "\"may import ``llm``\" in doc",
+      "new": "\"may import ``platform``\" in doc",
+      "reason": "The module docstring states the rule in terms of the runtime modules the layer is now made of (platform, spend_ledger)."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_execution_interrupts_docs.py",
+      "old": "    assert \"llm-scripting-kit 0.56.0 or later\" in section\n    assert \"0.56.0 or later\" in _flat(_text(_README))\n    assert \"0.137.0 or later\" in _flat(_text(_README))\n",
+      "new": "    assert \"`llm_kit` schema validator\" in section\n",
+      "reason": "The reference names the schema validator as a library of llm-kit (no legacy plugin version); llm-kit's README does not repeat the floors."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_execution_interrupts_events.py",
+      "old": "        \"legacy_names.llm_scripting_kit\",\n        \"legacy_names.llm_scripting_kit.completion\",\n",
+      "new": "",
+      "reason": "The validator is the single module llm_kit.schema.json_schema; there is no separate llm_scripting_kit package to block."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
+      "old": "        if mode == \"validator_absent\" and name == \"legacy_names.llm_scripting_kit\":\n            raise _missing(\"legacy_names.llm_scripting_kit\")",
+      "new": "        if mode == \"validator_absent\" and name == \"llm_kit\":\n            raise _missing(\"llm_kit\")",
+      "reason": "The shared validator probe imports the package llm_kit before the module llm_kit.schema.json_schema; an absent package is the 'absent' state."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
+      "old": "SCOPED = [\n    \"llm/convergence.py\",\n    \"llm/platform.py\",\n    \"llm/spend_ledger.py\",\n    \"pipeline/convergence_loop.py\",\n    \"pipeline/cell_policy.py\",\n    \"store/candidate.py\",\n    \"provenance/__init__.py\",\n    \"provenance/record.py\",\n    \"provenance/call_audit.py\",\n    \"provenance/snapshot.py\",\n    \"provenance/replay.py\",\n    \"execution/scheduler.py\",\n    \"execution/parallel_graph.py\",\n    \"execution/deadlines.py\",\n    \"execution/failure_cache.py\",\n    \"execution/_atomic_json.py\",\n]\n",
+      "new": "SCOPED = [\n    \"pipeline/core/convergence.py\",\n    \"pipeline/runtime/platform.py\",\n    \"pipeline/runtime/spend_ledger.py\",\n    \"pipeline/core/convergence_loop.py\",\n    \"pipeline/core/cell_policy.py\",\n    \"pipeline/artifacts/store/candidate.py\",\n    \"pipeline/analysis/provenance/__init__.py\",\n    \"pipeline/analysis/provenance/record.py\",\n    \"pipeline/analysis/provenance/call_audit.py\",\n    \"pipeline/analysis/provenance/snapshot.py\",\n    \"pipeline/analysis/provenance/replay.py\",\n    \"pipeline/execution/scheduler.py\",\n    \"pipeline/execution/parallel_graph.py\",\n    \"pipeline/execution/deadlines.py\",\n    \"pipeline/execution/failure_cache.py\",\n    \"storage/atomic_json.py\",\n]\n",
+      "reason": "The scoped library files live at their llm-kit homes (the map's module table: llm -> pipeline.runtime/core, pipeline -> pipeline.core, store -> pipeline.artifacts.store, provenance -> pipeline.analysis, execution -> pipeline.execution, _atomic_json -> storage.atomic_json)."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    pkg = types.ModuleType(\"legacy_names.llm_scripting_kit\")\n    completion = types.ModuleType(\"legacy_names.llm_scripting_kit.completion\")\n    completion.OpenRouterBackend = _Counting\n    completion.ClaudeCliBackend = _Counting\n    pkg.completion = completion\n    monkeypatch.setitem(sys.modules, \"legacy_names.llm_scripting_kit\", pkg)\n    monkeypatch.setitem(sys.modules, \"legacy_names.llm_scripting_kit.completion\", completion)\n",
+      "new": "    from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory\n\n    monkeypatch.setattr(ConfiguredBackendFactory, \"create\", lambda self, spec: _Counting())\n",
+      "reason": "The wrappers build their delegate through the injected BackendFactory (default ConfiguredBackendFactory); the counting delegates are installed at that factory instead of a separate llm_scripting_kit.completion package."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_llm_backends.py",
+      "old": "    class _CompletionOptions:\n        def __init__(self, **kwargs):\n            self.__dict__.update(kwargs)\n\n    package = types.ModuleType(\"legacy_names.llm_scripting_kit\")\n    completion = types.ModuleType(\"legacy_names.llm_scripting_kit.completion\")\n    completion.BackendOptions = _CompletionOptions\n    completion.OpenRouterBackend = _Delegate\n    package.completion = completion\n    monkeypatch.setitem(sys.modules, \"legacy_names.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"legacy_names.llm_scripting_kit.completion\", completion)\n",
+      "new": "    from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory\n\n    monkeypatch.setattr(ConfiguredBackendFactory, \"create\", lambda self, spec: _Delegate())\n",
+      "reason": "The wrapper builds the delegate through the BackendFactory and passes llm_kit.completion.types.BackendOptions; the fake delegate is installed at the factory and records the real options."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_package_imports.py",
+      "old": "/ \"llm_kit\" / \"llm\" / \"__init__.py\"",
+      "new": "/ \"llm_kit\" / \"pipeline\" / \"runtime\" / \"__init__.py\"",
+      "reason": "The legacy llm package is llm_kit.pipeline.runtime."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_package_imports.py",
+      "old": "m.startswith((\"openai\", \"legacy_names.llm_scripting_kit\"))",
+      "new": "m.startswith((\"openai\", \"llm_kit.adapters\", \"llm_kit.dispatch\"))",
+      "reason": "The transport layers a pipeline runtime package must not import at module scope are the concrete adapters and dispatch (the signed edges are enforced by test_import_graph.py)."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_parallel_graph.py",
+      "old": "    / \"llm_kit\"\n    / \"execution\"\n)",
+      "new": "    / \"llm_kit\"\n)",
+      "reason": "The files checked live in several llm_kit packages, so the anchor is the library root."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_parallel_graph.py",
+      "old": "STDLIB_ONLY = [\"scheduler.py\", \"deadlines.py\", \"failure_cache.py\", \"_atomic_json.py\"]",
+      "new": "STDLIB_ONLY = [\n    \"pipeline/execution/scheduler.py\",\n    \"pipeline/execution/deadlines.py\",\n    \"pipeline/execution/failure_cache.py\",\n    \"storage/atomic_json.py\",\n]",
+      "reason": "The checked files live at their llm-kit homes (pipeline.execution and storage.atomic_json)."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_parallel_graph.py",
+      "old": "if item.module == \"llm_kit.pipeline.execution\":\n                names = [f\"content_pipeline.execution.{a.name}\" for a in item.names]",
+      "new": "if item.module in (\"llm_kit.pipeline.execution\", \"llm_kit.storage\"):\n                names = [f\"{item.module}.{a.name}\" for a in item.names]",
+      "reason": "The shared atomic-json helper is imported as 'from llm_kit.storage import atomic_json'; the check names each imported submodule so the allowed-internal set stays exact."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_execution_interrupts_docs.py",
+      "old": "@pytest.mark.parametrize(\"path\", [_REFERENCE, _README], ids=[\"reference\", \"readme\"])\ndef test_docs_state_which_lanes_can_ask(path):",
+      "new": "@pytest.mark.parametrize(\n    \"path\",\n    [_REFERENCE, pytest.param(_README, marks=pytest.mark.skip(reason=\"llm-kit's README is the registration and CLI overview; the durable-wait prose lives in building-a-pipeline.md and the skill, which the other parameters check.\"))],\n    ids=[\"reference\", \"readme\"],\n)\ndef test_docs_state_which_lanes_can_ask(path):",
+      "reason": "The parameter keeps its node id and is skipped, as a declared difference: llm-kit's README is the registration and CLI overview; the durable-wait prose lives in building-a-pipeline.md and the skill, which the other parameters check."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_execution_interrupts_docs.py",
+      "old": "@pytest.mark.parametrize(\n    \"path\", [_REFERENCE, _README, _SKILL, _PLUGIN_CLAUDE], ids=lambda p: p.name\n)\ndef test_docs_do_not_claim_a_workflow_refusal(path):",
+      "new": "@pytest.mark.parametrize(\n    \"path\",\n    [_REFERENCE, _README, _SKILL, pytest.param(_PLUGIN_CLAUDE, marks=pytest.mark.skip(reason='llm-kit ships no plugin CLAUDE.md (maintainer guidance lives in the repository docs), so there is no document for this parameter to check; the other documents are still checked.'))],\n    ids=lambda p: p.name,\n)\ndef test_docs_do_not_claim_a_workflow_refusal(path):",
+      "reason": "The CLAUDE.md parameter keeps its node id and is skipped, as a declared difference: llm-kit ships no plugin CLAUDE.md (maintainer guidance lives in the repository docs), so there is no document for this parameter to check; the other documents are still checked."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_execution_interrupts_docs.py",
+      "old": "@pytest.mark.parametrize(\n    \"path\", [_REFERENCE, _README, _SKILL, _PLUGIN_CLAUDE], ids=lambda p: p.name\n)\ndef test_docs_state_the_wait_is_opt_in_and_leaves_roundtrip_alone(path):",
+      "new": "@pytest.mark.parametrize(\n    \"path\",\n    [_REFERENCE, pytest.param(_README, marks=pytest.mark.skip(reason=\"llm-kit's README is the registration and CLI overview; the durable-wait prose lives in building-a-pipeline.md and the skill, which the other parameters check.\")), _SKILL,\n     pytest.param(_PLUGIN_CLAUDE, marks=pytest.mark.skip(reason='llm-kit ships no plugin CLAUDE.md (maintainer guidance lives in the repository docs), so there is no document for this parameter to check; the other documents are still checked.'))],\n    ids=lambda p: p.name,\n)\ndef test_docs_state_the_wait_is_opt_in_and_leaves_roundtrip_alone(path):",
+      "reason": "The README.md and CLAUDE.md parameters keep their node ids and are skipped, as declared differences."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_parallel_graph.py",
+      "old": "@pytest.mark.parametrize(\"filename\", STDLIB_ONLY)",
+      "new": "@pytest.mark.parametrize(\n    \"filename\", STDLIB_ONLY,\n    ids=[\"scheduler.py\", \"deadlines.py\", \"failure_cache.py\", \"_atomic_json.py\"],\n)",
+      "reason": "The parameter ids stay the file names the legacy test used (the shared helper keeps its legacy name _atomic_json in the ids), so the node ids match."
+    },
+    {
+      "file": "tests/content-pipeline-kit/test_review_fix_c_skill_script_paths.py",
+      "old": "NAMED_INVOCATION = 'name: \"content-pipeline-kit:run-ready-wave\"'",
+      "new": "NAMED_INVOCATION = 'name: \\\\\"llm-kit:run-ready-wave\\\\\"'",
+      "reason": "The workflow is registered as llm-kit:run-ready-wave (architecture: final qualified names); the skill's example sits inside a YAML double-quoted action, so its quotes are escaped."
+    }
+  ],
+  "packages": {
+    "llm_scripting_kit": {
+      "plugin": "llm-scripting-kit",
+      "plugin_dir": "plugins/llm-scripting-kit",
+      "lib_dir": "plugins/llm-scripting-kit/lib",
+      "source_dir": "plugins/llm-scripting-kit/lib/llm_scripting_kit"
+    },
+    "content_pipeline": {
+      "plugin": "content-pipeline-kit",
+      "plugin_dir": "plugins/content-pipeline-kit",
+      "lib_dir": "plugins/content-pipeline-kit/lib",
+      "source_dir": "plugins/content-pipeline-kit/lib/content_pipeline"
+    },
+    "job_kit": {
+      "plugin": "job-kit",
+      "plugin_dir": "plugins/job-kit",
+      "lib_dir": "plugins/job-kit/lib",
+      "source_dir": "plugins/job-kit/lib/job_kit"
     }
   },
   "modules": {
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/__init__.py",
-      "state": "unmoved",
       "legacy_sha256": "5c10598c7bf9b6a61ac124817bb65f6546f0bc3be74db36c6ed60c80f2a3c857",
-      "copy_sha256": "5c10598c7bf9b6a61ac124817bb65f6546f0bc3be74db36c6ed60c80f2a3c857"
+      "kind": "facade-names",
+      "names": {
+        "API_KEY_ENV": [
+          "llm_kit.registry.constants",
+          "API_KEY_ENV"
+        ],
+        "AccountCheckError": [
+          "llm_kit.adapters.account",
+          "AccountCheckError"
+        ],
+        "AccountStatus": [
+          "llm_kit.adapters.account",
+          "AccountStatus"
+        ],
+        "AgentTimeoutError": [
+          "llm_kit.adapters.claude_runner",
+          "AgentTimeoutError"
+        ],
+        "Attempt": [
+          "llm_kit.dispatch.declaration",
+          "Attempt"
+        ],
+        "BASE_URL": [
+          "llm_kit.registry.constants",
+          "BASE_URL"
+        ],
+        "BackendOptions": [
+          "llm_kit.completion.types",
+          "BackendOptions"
+        ],
+        "Budget": [
+          "llm_kit.dispatch.usage_budget",
+          "Budget"
+        ],
+        "CALLER_PROCESS": [
+          "llm_kit.dispatch.declaration",
+          "CALLER_PROCESS"
+        ],
+        "CALLER_SESSION": [
+          "llm_kit.dispatch.declaration",
+          "CALLER_SESSION"
+        ],
+        "CODEX_EFFORT_MENU": [
+          "llm_kit.adapters.harness_adapters",
+          "CODEX_EFFORT_MENU"
+        ],
+        "ClaudeCliBackend": [
+          "llm_kit.adapters.backends",
+          "ClaudeCliBackend"
+        ],
+        "CodexAdapter": [
+          "llm_kit.adapters.harness_adapters",
+          "CodexAdapter"
+        ],
+        "CodexCliBackend": [
+          "llm_kit.adapters.codex_backend",
+          "CodexCliBackend"
+        ],
+        "CodexRunError": [
+          "llm_kit.adapters.codex_backend",
+          "CodexRunError"
+        ],
+        "ConserveConfigError": [
+          "llm_kit.dispatch.usage_budget",
+          "ConserveConfigError"
+        ],
+        "ConserveSpec": [
+          "llm_kit.dispatch.usage_budget",
+          "ConserveSpec"
+        ],
+        "DEFAULT_ENDPOINT_NAME": [
+          "llm_kit.registry.models",
+          "DEFAULT_ENDPOINT_NAME"
+        ],
+        "DEFAULT_MODEL_CONFIG": [
+          "llm_kit.registry.models",
+          "DEFAULT_MODEL_CONFIG"
+        ],
+        "DEFAULT_VERIFY_TIMEOUT_S": [
+          "llm_kit.dispatch.reachability",
+          "DEFAULT_VERIFY_TIMEOUT_S"
+        ],
+        "DeclarationSupportError": [
+          "llm_kit.dispatch.declaration",
+          "DeclarationSupportError"
+        ],
+        "Disposition": [
+          "llm_kit.dispatch.declaration",
+          "Disposition"
+        ],
+        "EmptyCompletionError": [
+          "llm_kit.completion.types",
+          "EmptyCompletionError"
+        ],
+        "EndpointEntry": [
+          "llm_kit.registry.model_endpoints",
+          "EndpointEntry"
+        ],
+        "EndpointMetadataError": [
+          "llm_kit.registry.model_endpoints",
+          "EndpointMetadataError"
+        ],
+        "EndpointProbe": [
+          "llm_kit.adapters.account",
+          "EndpointProbe"
+        ],
+        "EndpointRegistry": [
+          "llm_kit.registry.model_endpoints",
+          "EndpointRegistry"
+        ],
+        "EndpointRegistryError": [
+          "llm_kit.registry.model_endpoints",
+          "EndpointRegistryError"
+        ],
+        "EndpointResolveError": [
+          "llm_kit.registry.models",
+          "EndpointResolveError"
+        ],
+        "EntryState": [
+          "llm_kit.dispatch.declaration",
+          "EntryState"
+        ],
+        "ExecutionObserver": [
+          "llm_kit.dispatch.declaration",
+          "ExecutionObserver"
+        ],
+        "HALT_AUTH": [
+          "llm_kit.completion.halt",
+          "HALT_AUTH"
+        ],
+        "HALT_BACKPRESSURE": [
+          "llm_kit.completion.halt",
+          "HALT_BACKPRESSURE"
+        ],
+        "HALT_INSUFFICIENT_CREDIT": [
+          "llm_kit.completion.halt",
+          "HALT_INSUFFICIENT_CREDIT"
+        ],
+        "HALT_QUOTA": [
+          "llm_kit.completion.halt",
+          "HALT_QUOTA"
+        ],
+        "HALT_RATE_LIMIT": [
+          "llm_kit.completion.halt",
+          "HALT_RATE_LIMIT"
+        ],
+        "HARNESS_KIND": [
+          "llm_kit.registry.model_endpoints",
+          "HARNESS_KIND"
+        ],
+        "HaltError": [
+          "llm_kit.completion.halt",
+          "HaltError"
+        ],
+        "HarnessAdapter": [
+          "llm_kit.adapters.harness_adapters",
+          "HarnessAdapter"
+        ],
+        "HarnessAdapterError": [
+          "llm_kit.adapters.harness_adapters",
+          "HarnessAdapterError"
+        ],
+        "HarnessInvocation": [
+          "llm_kit.adapters.harness_adapters",
+          "HarnessInvocation"
+        ],
+        "KEYLESS_API_KEY": [
+          "llm_kit.adapters.client",
+          "KEYLESS_API_KEY"
+        ],
+        "KeyLookupResult": [
+          "llm_kit.registry.api_key",
+          "KeyLookupResult"
+        ],
+        "LLMBackend": [
+          "llm_kit.completion.types",
+          "LLMBackend"
+        ],
+        "LLMResponse": [
+          "llm_kit.completion.types",
+          "LLMResponse"
+        ],
+        "ModelDiscovery": [
+          "llm_kit.registry.models",
+          "ModelDiscovery"
+        ],
+        "ModelResolveError": [
+          "llm_kit.registry.models",
+          "ModelResolveError"
+        ],
+        "NoUsableRoutingTarget": [
+          "llm_kit.dispatch.declaration",
+          "NoUsableRoutingTarget"
+        ],
+        "OpenRouterBackend": [
+          "llm_kit.adapters.backends",
+          "OpenRouterBackend"
+        ],
+        "OpencodeAdapter": [
+          "llm_kit.adapters.harness_adapters",
+          "OpencodeAdapter"
+        ],
+        "OpencodeCliBackend": [
+          "llm_kit.adapters.opencode_backend",
+          "OpencodeCliBackend"
+        ],
+        "OpencodeRunError": [
+          "llm_kit.adapters.opencode_backend",
+          "OpencodeRunError"
+        ],
+        "POOL_MODEL_SCOPED": [
+          "llm_kit.dispatch.usage_budget",
+          "POOL_MODEL_SCOPED"
+        ],
+        "POOL_PRIMARY": [
+          "llm_kit.dispatch.usage_budget",
+          "POOL_PRIMARY"
+        ],
+        "POOL_SEVEN_DAY": [
+          "llm_kit.dispatch.usage_budget",
+          "POOL_SEVEN_DAY"
+        ],
+        "REGISTRY_ENV": [
+          "llm_kit.registry.model_endpoints",
+          "REGISTRY_ENV"
+        ],
+        "Ranking": [
+          "llm_kit.dispatch.declaration",
+          "Ranking"
+        ],
+        "Reachability": [
+          "llm_kit.dispatch.reachability",
+          "Reachability"
+        ],
+        "RunRequest": [
+          "llm_kit.dispatch.declaration",
+          "RunRequest"
+        ],
+        "RunResult": [
+          "llm_kit.dispatch.declaration",
+          "RunResult"
+        ],
+        "STATUS_AVAILABLE": [
+          "llm_kit.dispatch.usage_budget",
+          "STATUS_AVAILABLE"
+        ],
+        "STATUS_NO_DATA": [
+          "llm_kit.dispatch.usage_budget",
+          "STATUS_NO_DATA"
+        ],
+        "STATUS_OUT_OF_QUOTA": [
+          "llm_kit.dispatch.usage_budget",
+          "STATUS_OUT_OF_QUOTA"
+        ],
+        "STATUS_REACHABLE": [
+          "llm_kit.dispatch.reachability",
+          "STATUS_REACHABLE"
+        ],
+        "STATUS_UNDER_QUOTA": [
+          "llm_kit.dispatch.usage_budget",
+          "STATUS_UNDER_QUOTA"
+        ],
+        "STATUS_UNKNOWN": [
+          "llm_kit.dispatch.reachability",
+          "STATUS_UNKNOWN"
+        ],
+        "STATUS_UNREACHABLE": [
+          "llm_kit.dispatch.reachability",
+          "STATUS_UNREACHABLE"
+        ],
+        "Seat": [
+          "llm_kit.dispatch.seats",
+          "Seat"
+        ],
+        "SeatResolutionError": [
+          "llm_kit.dispatch.seats",
+          "SeatResolutionError"
+        ],
+        "SeatSelf": [
+          "llm_kit.dispatch.seats",
+          "SeatSelf"
+        ],
+        "SeatsResult": [
+          "llm_kit.dispatch.seats",
+          "SeatsResult"
+        ],
+        "TRANSPORT_KIND": [
+          "llm_kit.registry.model_endpoints",
+          "TRANSPORT_KIND"
+        ],
+        "USER_ENV_FILE": [
+          "llm_kit.registry.constants",
+          "USER_ENV_FILE"
+        ],
+        "UnclassifiedEntry": [
+          "llm_kit.dispatch.seats",
+          "UnclassifiedEntry"
+        ],
+        "check_account": [
+          "llm_kit.adapters.account",
+          "check_account"
+        ],
+        "check_entry": [
+          "llm_kit.dispatch.reachability",
+          "check_entry"
+        ],
+        "check_harness": [
+          "llm_kit.dispatch.reachability",
+          "check_harness"
+        ],
+        "check_many": [
+          "llm_kit.dispatch.reachability",
+          "check_many"
+        ],
+        "check_models_probe": [
+          "llm_kit.adapters.account",
+          "check_models_probe"
+        ],
+        "check_registry_entry": [
+          "llm_kit.dispatch.declaration",
+          "check_registry_entry"
+        ],
+        "check_transport": [
+          "llm_kit.dispatch.reachability",
+          "check_transport"
+        ],
+        "classify_backpressure": [
+          "llm_kit.completion.halt",
+          "classify_backpressure"
+        ],
+        "classify_claude_exception": [
+          "llm_kit.completion.halt",
+          "classify_claude_exception"
+        ],
+        "classify_codex_exception": [
+          "llm_kit.completion.halt",
+          "classify_codex_exception"
+        ],
+        "classify_codex_text": [
+          "llm_kit.completion.halt",
+          "classify_codex_text"
+        ],
+        "classify_halt_text": [
+          "llm_kit.completion.halt",
+          "classify_halt_text"
+        ],
+        "classify_openai_exception": [
+          "llm_kit.completion.halt",
+          "classify_openai_exception"
+        ],
+        "classify_opencode_exception": [
+          "llm_kit.completion.halt",
+          "classify_opencode_exception"
+        ],
+        "default_declaration": [
+          "llm_kit.registry.models",
+          "default_declaration"
+        ],
+        "default_endpoint_name": [
+          "llm_kit.registry.models",
+          "default_endpoint_name"
+        ],
+        "default_registry_path": [
+          "llm_kit.registry.model_endpoints",
+          "default_registry_path"
+        ],
+        "describe": [
+          "llm_kit.dispatch.declaration",
+          "describe"
+        ],
+        "discover_model_entries": [
+          "llm_kit.registry.models",
+          "discover_model_entries"
+        ],
+        "discover_seats": [
+          "llm_kit.dispatch.seats",
+          "discover_seats"
+        ],
+        "evaluate_usage_budget": [
+          "llm_kit.dispatch.usage_budget",
+          "evaluate_usage_budget"
+        ],
+        "get_api_key": [
+          "llm_kit.registry.api_key",
+          "get_api_key"
+        ],
+        "is_model_alias": [
+          "llm_kit.registry.models",
+          "is_model_alias"
+        ],
+        "load_endpoint_registry": [
+          "llm_kit.registry.model_endpoints",
+          "load_endpoint_registry"
+        ],
+        "load_model_config": [
+          "llm_kit.registry.models",
+          "load_model_config"
+        ],
+        "make_openai_client": [
+          "llm_kit.adapters.client",
+          "make_openai_client"
+        ],
+        "match_capabilities": [
+          "llm_kit.completion.requirements",
+          "match_capabilities"
+        ],
+        "order_by_pace": [
+          "llm_kit.dispatch.declaration",
+          "order_by_pace"
+        ],
+        "parse_conserve_usage": [
+          "llm_kit.dispatch.usage_budget",
+          "parse_conserve_usage"
+        ],
+        "pinned_evaluate": [
+          "llm_kit.dispatch.usage_budget",
+          "pinned_evaluate"
+        ],
+        "probe_endpoint": [
+          "llm_kit.adapters.account",
+          "probe_endpoint"
+        ],
+        "project_env_file": [
+          "llm_kit.registry.constants",
+          "project_env_file"
+        ],
+        "quota_pool_key": [
+          "llm_kit.dispatch.usage_budget",
+          "quota_pool_key"
+        ],
+        "read_env_file": [
+          "llm_kit.registry.env_file",
+          "read_env_file"
+        ],
+        "record_observed_halt": [
+          "llm_kit.dispatch.usage_budget",
+          "record_observed_halt"
+        ],
+        "resolve_endpoint": [
+          "llm_kit.registry.models",
+          "resolve_endpoint"
+        ],
+        "resolve_harness_adapter": [
+          "llm_kit.adapters.harness_adapters",
+          "resolve_harness_adapter"
+        ],
+        "resolve_model": [
+          "llm_kit.registry.models",
+          "resolve_model"
+        ],
+        "resolve_registry_entry": [
+          "llm_kit.registry.model_endpoints",
+          "resolve_registry_entry"
+        ],
+        "run": [
+          "llm_kit.dispatch.declaration",
+          "run"
+        ],
+        "validate_endpoint": [
+          "llm_kit.adapters.account",
+          "validate_endpoint"
+        ],
+        "write_env_file": [
+          "llm_kit.registry.env_file",
+          "write_env_file"
+        ]
+      },
+      "constants": {
+        "__all__": [
+          "API_KEY_ENV",
+          "BASE_URL",
+          "USER_ENV_FILE",
+          "project_env_file",
+          "get_api_key",
+          "KeyLookupResult",
+          "check_account",
+          "check_models_probe",
+          "probe_endpoint",
+          "validate_endpoint",
+          "AccountStatus",
+          "AccountCheckError",
+          "EndpointProbe",
+          "DEFAULT_VERIFY_TIMEOUT_S",
+          "STATUS_REACHABLE",
+          "STATUS_UNREACHABLE",
+          "STATUS_UNKNOWN",
+          "Reachability",
+          "check_entry",
+          "check_harness",
+          "check_many",
+          "check_transport",
+          "make_openai_client",
+          "KEYLESS_API_KEY",
+          "read_env_file",
+          "write_env_file",
+          "DEFAULT_ENDPOINT_NAME",
+          "DEFAULT_MODEL_CONFIG",
+          "EndpointResolveError",
+          "ModelDiscovery",
+          "ModelResolveError",
+          "default_declaration",
+          "default_endpoint_name",
+          "discover_model_entries",
+          "is_model_alias",
+          "load_model_config",
+          "resolve_endpoint",
+          "resolve_model",
+          "REGISTRY_ENV",
+          "TRANSPORT_KIND",
+          "HARNESS_KIND",
+          "EndpointEntry",
+          "EndpointMetadataError",
+          "EndpointRegistry",
+          "EndpointRegistryError",
+          "default_registry_path",
+          "load_endpoint_registry",
+          "resolve_registry_entry",
+          "Seat",
+          "SeatResolutionError",
+          "SeatSelf",
+          "SeatsResult",
+          "UnclassifiedEntry",
+          "discover_seats",
+          "STATUS_AVAILABLE",
+          "STATUS_UNDER_QUOTA",
+          "STATUS_OUT_OF_QUOTA",
+          "STATUS_NO_DATA",
+          "POOL_SEVEN_DAY",
+          "POOL_MODEL_SCOPED",
+          "POOL_PRIMARY",
+          "Budget",
+          "ConserveConfigError",
+          "ConserveSpec",
+          "parse_conserve_usage",
+          "evaluate_usage_budget",
+          "pinned_evaluate",
+          "quota_pool_key",
+          "record_observed_halt",
+          "CALLER_PROCESS",
+          "CALLER_SESSION",
+          "Attempt",
+          "DeclarationSupportError",
+          "Disposition",
+          "EntryState",
+          "ExecutionObserver",
+          "NoUsableRoutingTarget",
+          "Ranking",
+          "RunRequest",
+          "RunResult",
+          "check_registry_entry",
+          "describe",
+          "order_by_pace",
+          "run",
+          "CODEX_EFFORT_MENU",
+          "HarnessAdapter",
+          "HarnessAdapterError",
+          "HarnessInvocation",
+          "CodexAdapter",
+          "OpencodeAdapter",
+          "resolve_harness_adapter",
+          "LLMResponse",
+          "EmptyCompletionError",
+          "BackendOptions",
+          "LLMBackend",
+          "OpenRouterBackend",
+          "ClaudeCliBackend",
+          "CodexCliBackend",
+          "CodexRunError",
+          "OpencodeCliBackend",
+          "OpencodeRunError",
+          "HaltError",
+          "HALT_AUTH",
+          "HALT_RATE_LIMIT",
+          "HALT_INSUFFICIENT_CREDIT",
+          "HALT_QUOTA",
+          "HALT_BACKPRESSURE",
+          "classify_backpressure",
+          "classify_halt_text",
+          "classify_openai_exception",
+          "classify_claude_exception",
+          "classify_codex_text",
+          "classify_codex_exception",
+          "classify_opencode_exception",
+          "AgentTimeoutError",
+          "match_capabilities"
+        ]
+      }
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/_swapper_process.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/_swapper_process.py",
-      "state": "shim",
       "legacy_sha256": "81ea31ea7ea49118b0a56110ee758cb524fd76f6006490cc50806ace0479722c",
-      "copy_sha256": "7ff26ea94b28d23bf073208f551a60de783aae9e88681d01804ee2d225fdeef9",
+      "kind": "module",
       "final": "llm_kit.adapters._swapper_process"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/account.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/account.py",
-      "state": "shim",
       "legacy_sha256": "f28225c59b2b54781cf58dd5ed0a7557680a1de21102303570c155cf4388daa7",
-      "copy_sha256": "b0ac86945e31e4609f7545e5a8d3852b5f153ecd8882eea8a46b8eec413d234a",
+      "kind": "module",
       "final": "llm_kit.adapters.account"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/api_key.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/api_key.py",
-      "state": "shim",
       "legacy_sha256": "4603d615b785ee53f46bbebd946453d870290364069ed0537bacc4d91b546768",
-      "copy_sha256": "a12280ff3e91ccdf16b2d5a6fcd845a04ea3861ff0c59f8662cc375e7833c76d",
+      "kind": "module",
       "final": "llm_kit.registry.api_key"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/cli.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/cli.py",
-      "state": "unmoved",
+      "kind": "forwarded",
       "legacy_sha256": "001ee857069b26a4e08586856fed0653ba24fb94f681b3f2ddf5412564e9d862",
-      "copy_sha256": "4c9cf4d67750b6df7f2d3cc2359bfcd87298fa7038ee67ac13b47c34e219ea89"
+      "homes": [
+        "llm_kit.cli.account",
+        "llm_kit.cli.completion",
+        "llm_kit.cli.models",
+        "llm_kit.cli.local",
+        "llm_kit.cli._common"
+      ],
+      "verbs": {
+        "status": [
+          "account",
+          "status"
+        ],
+        "which": [
+          "account",
+          "which"
+        ],
+        "set-key": [
+          "account",
+          "set-key"
+        ],
+        "complete": [
+          "completion",
+          "complete"
+        ],
+        "request-schema": [
+          "completion",
+          "request-schema"
+        ],
+        "repair-json": [
+          "completion",
+          "repair-json"
+        ],
+        "endpoints": [
+          "models",
+          "endpoints"
+        ],
+        "probe": [
+          "models",
+          "probe"
+        ],
+        "usage": [
+          "models",
+          "usage"
+        ],
+        "record-halt": [
+          "models",
+          "record-halt"
+        ],
+        "describe": [
+          "models",
+          "describe"
+        ],
+        "seats": [
+          "models",
+          "seats"
+        ],
+        "models": [
+          "models",
+          "list"
+        ],
+        "resolve": [
+          "models",
+          "resolve"
+        ],
+        "swapper": [
+          "local",
+          "swapper"
+        ],
+        "acceptance": [
+          "local",
+          "acceptance"
+        ]
+      },
+      "passthrough": [
+        "frontdoor"
+      ]
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/client.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/client.py",
-      "state": "shim",
       "legacy_sha256": "b041a1f080b6f2ef859aec71e590a748323858b8f9f78e55ea926085088bcfd1",
-      "copy_sha256": "000fbe2f0f73e2b3c2fe93fefac4b3244125b7f8dad634042f7797f197599d94",
+      "kind": "module",
       "final": "llm_kit.adapters.client"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/__init__.py",
-      "state": "slice",
       "legacy_sha256": "4cb9ac46654a6532dc70b53e1b068ce4da530eaed24d6efb14c3c82730161730",
-      "copy_sha256": "917b2e8ad1a236d6247e0cd1dc40184f626647b760f53b6cbcedea83e416b821",
-      "final": "llm_kit.completion"
+      "kind": "facade-names",
+      "names": {
+        "ADAPTER_CAPABILITIES": [
+          "llm_kit.adapters.capabilities",
+          "ADAPTER_CAPABILITIES"
+        ],
+        "AgentTimeoutError": [
+          "llm_kit.adapters.claude_runner",
+          "AgentTimeoutError"
+        ],
+        "BackendOptions": [
+          "llm_kit.completion.types",
+          "BackendOptions"
+        ],
+        "BackendSelection": [
+          "llm_kit.dispatch.factory",
+          "BackendSelection"
+        ],
+        "CODEX_EXTRA_KEYS": [
+          "llm_kit.adapters.codex_backend",
+          "CODEX_EXTRA_KEYS"
+        ],
+        "COMPLETED": [
+          "llm_kit.completion.types",
+          "COMPLETED"
+        ],
+        "Capabilities": [
+          "llm_kit.completion.capabilities",
+          "Capabilities"
+        ],
+        "ClaudeCliBackend": [
+          "llm_kit.adapters.backends",
+          "ClaudeCliBackend"
+        ],
+        "CodexCliBackend": [
+          "llm_kit.adapters.codex_backend",
+          "CodexCliBackend"
+        ],
+        "CodexRunError": [
+          "llm_kit.adapters.codex_backend",
+          "CodexRunError"
+        ],
+        "DEFAULT_OPENCODE_TIMEOUT_S": [
+          "llm_kit.adapters.opencode_backend",
+          "DEFAULT_OPENCODE_TIMEOUT_S"
+        ],
+        "ERROR": [
+          "llm_kit.completion.types",
+          "ERROR"
+        ],
+        "EffortDelivery": [
+          "llm_kit.registry.effort",
+          "EffortDelivery"
+        ],
+        "EffortPlan": [
+          "llm_kit.registry.effort",
+          "EffortPlan"
+        ],
+        "EmptyCompletionError": [
+          "llm_kit.completion.types",
+          "EmptyCompletionError"
+        ],
+        "EndpointProfile": [
+          "llm_kit.adapters.endpoint_profile",
+          "EndpointProfile"
+        ],
+        "ExecutionControl": [
+          "llm_kit.completion.capabilities",
+          "ExecutionControl"
+        ],
+        "FILESYSTEM_WRITE": [
+          "llm_kit.completion.capabilities",
+          "FILESYSTEM_WRITE"
+        ],
+        "HALT_AUTH": [
+          "llm_kit.completion.halt",
+          "HALT_AUTH"
+        ],
+        "HALT_BACKPRESSURE": [
+          "llm_kit.completion.halt",
+          "HALT_BACKPRESSURE"
+        ],
+        "HALT_INSUFFICIENT_CREDIT": [
+          "llm_kit.completion.halt",
+          "HALT_INSUFFICIENT_CREDIT"
+        ],
+        "HALT_QUOTA": [
+          "llm_kit.completion.halt",
+          "HALT_QUOTA"
+        ],
+        "HALT_RATE_LIMIT": [
+          "llm_kit.completion.halt",
+          "HALT_RATE_LIMIT"
+        ],
+        "HARD_STOP_STDERR_MARKERS": [
+          "llm_kit.adapters.claude_runner",
+          "HARD_STOP_STDERR_MARKERS"
+        ],
+        "HaltError": [
+          "llm_kit.completion.halt",
+          "HaltError"
+        ],
+        "LLMBackend": [
+          "llm_kit.completion.types",
+          "LLMBackend"
+        ],
+        "LLMResponse": [
+          "llm_kit.completion.types",
+          "LLMResponse"
+        ],
+        "OPENCODE_FILESYSTEM_POSTURE": [
+          "llm_kit.adapters.opencode_backend",
+          "OPENCODE_FILESYSTEM_POSTURE"
+        ],
+        "OPENCODE_PROMPT_SEPARATOR": [
+          "llm_kit.adapters.opencode_backend",
+          "OPENCODE_PROMPT_SEPARATOR"
+        ],
+        "OpenRouterBackend": [
+          "llm_kit.adapters.backends",
+          "OpenRouterBackend"
+        ],
+        "OpencodeCliBackend": [
+          "llm_kit.adapters.opencode_backend",
+          "OpencodeCliBackend"
+        ],
+        "OpencodeRunError": [
+          "llm_kit.adapters.opencode_backend",
+          "OpencodeRunError"
+        ],
+        "OutputContract": [
+          "llm_kit.completion.contract",
+          "OutputContract"
+        ],
+        "OutputContractViolation": [
+          "llm_kit.completion.contract",
+          "OutputContractViolation"
+        ],
+        "POLICY_NATIVE_REQUIRED": [
+          "llm_kit.completion.contract",
+          "POLICY_NATIVE_REQUIRED"
+        ],
+        "POLICY_TEXT_ONLY": [
+          "llm_kit.completion.contract",
+          "POLICY_TEXT_ONLY"
+        ],
+        "POLICY_VALIDATED_RESULT": [
+          "llm_kit.completion.contract",
+          "POLICY_VALIDATED_RESULT"
+        ],
+        "PROMPT_SEPARATOR": [
+          "llm_kit.adapters.codex_backend",
+          "PROMPT_SEPARATOR"
+        ],
+        "ParamCapability": [
+          "llm_kit.completion.capabilities",
+          "ParamCapability"
+        ],
+        "ResponseError": [
+          "llm_kit.completion.types",
+          "ResponseError"
+        ],
+        "SHELL_EXEC": [
+          "llm_kit.completion.capabilities",
+          "SHELL_EXEC"
+        ],
+        "SKILL_MATERIAL_BOOTSTRAP": [
+          "llm_kit.completion.skill_context",
+          "SKILL_MATERIAL_BOOTSTRAP"
+        ],
+        "SUBAGENT_SPAWN": [
+          "llm_kit.completion.capabilities",
+          "SUBAGENT_SPAWN"
+        ],
+        "SkillContext": [
+          "llm_kit.completion.skill_context_types",
+          "SkillContext"
+        ],
+        "SkillContextCapability": [
+          "llm_kit.completion.capabilities",
+          "SkillContextCapability"
+        ],
+        "SkillContextError": [
+          "llm_kit.completion.skill_context_types",
+          "SkillContextError"
+        ],
+        "SkillContextReport": [
+          "llm_kit.completion.skill_context_types",
+          "SkillContextReport"
+        ],
+        "SkillContextSupportError": [
+          "llm_kit.completion.skill_context_types",
+          "SkillContextSupportError"
+        ],
+        "SkillContextUnsatisfiable": [
+          "llm_kit.completion.skill_context_types",
+          "SkillContextUnsatisfiable"
+        ],
+        "StructuredOutputCapability": [
+          "llm_kit.completion.capabilities",
+          "StructuredOutputCapability"
+        ],
+        "SystemPromptCapability": [
+          "llm_kit.completion.capabilities",
+          "SystemPromptCapability"
+        ],
+        "TIMEOUT": [
+          "llm_kit.completion.types",
+          "TIMEOUT"
+        ],
+        "adapter_capabilities": [
+          "llm_kit.adapters.capabilities",
+          "adapter_capabilities"
+        ],
+        "caller_set_params": [
+          "llm_kit.completion.results",
+          "caller_set_params"
+        ],
+        "check_applied_controls": [
+          "llm_kit.completion.results",
+          "check_applied_controls"
+        ],
+        "classify_backpressure": [
+          "llm_kit.completion.halt",
+          "classify_backpressure"
+        ],
+        "classify_claude_exception": [
+          "llm_kit.completion.halt",
+          "classify_claude_exception"
+        ],
+        "classify_codex_exception": [
+          "llm_kit.completion.halt",
+          "classify_codex_exception"
+        ],
+        "classify_codex_text": [
+          "llm_kit.completion.halt",
+          "classify_codex_text"
+        ],
+        "classify_halt_text": [
+          "llm_kit.completion.halt",
+          "classify_halt_text"
+        ],
+        "classify_openai_exception": [
+          "llm_kit.completion.halt",
+          "classify_openai_exception"
+        ],
+        "classify_opencode_exception": [
+          "llm_kit.completion.halt",
+          "classify_opencode_exception"
+        ],
+        "compose_prompt": [
+          "llm_kit.adapters.codex_backend",
+          "compose_prompt"
+        ],
+        "contract_requirements": [
+          "llm_kit.completion.contract",
+          "contract_requirements"
+        ],
+        "create_backend": [
+          "llm_kit.dispatch.factory",
+          "create_backend"
+        ],
+        "create_transport_backend": [
+          "llm_kit.dispatch.factory",
+          "create_transport_backend"
+        ],
+        "derive_dropped_params": [
+          "llm_kit.completion.results",
+          "derive_dropped_params"
+        ],
+        "derive_extras_report": [
+          "llm_kit.completion.results",
+          "derive_extras_report"
+        ],
+        "derive_forwarded_params": [
+          "llm_kit.completion.results",
+          "derive_forwarded_params"
+        ],
+        "endpoint_capabilities": [
+          "llm_kit.adapters.endpoint_profile",
+          "endpoint_capabilities"
+        ],
+        "evaluate_output": [
+          "llm_kit.completion.contract",
+          "evaluate_output"
+        ],
+        "fixed_control_ids": [
+          "llm_kit.completion.results",
+          "fixed_control_ids"
+        ],
+        "looks_like_hard_stop": [
+          "llm_kit.adapters.claude_runner",
+          "looks_like_hard_stop"
+        ],
+        "match_capabilities": [
+          "llm_kit.completion.requirements",
+          "match_capabilities"
+        ],
+        "materialize_skill_context": [
+          "llm_kit.completion.skill_context",
+          "materialize_skill_context"
+        ],
+        "plan_effort": [
+          "llm_kit.registry.effort",
+          "plan_effort"
+        ],
+        "profile_from_entry": [
+          "llm_kit.adapters.endpoint_profile",
+          "profile_from_entry"
+        ],
+        "profile_from_resolved": [
+          "llm_kit.adapters.endpoint_profile",
+          "profile_from_resolved"
+        ],
+        "resolve_endpoint_profile": [
+          "llm_kit.adapters.endpoint_profile",
+          "resolve_endpoint_profile"
+        ],
+        "run_claude_streaming": [
+          "llm_kit.adapters.claude_runner",
+          "run_claude_streaming"
+        ],
+        "run_cli_streaming": [
+          "llm_kit.adapters.claude_runner",
+          "run_cli_streaming"
+        ],
+        "skill_context_requirements": [
+          "llm_kit.completion.skill_context",
+          "skill_context_requirements"
+        ],
+        "subjects_for_disallowed_tools": [
+          "llm_kit.completion.capabilities",
+          "subjects_for_disallowed_tools"
+        ],
+        "utc_now_iso": [
+          "llm_kit.completion.results",
+          "utc_now_iso"
+        ]
+      },
+      "constants": {
+        "__all__": [
+          "LLMResponse",
+          "EmptyCompletionError",
+          "ResponseError",
+          "COMPLETED",
+          "TIMEOUT",
+          "ERROR",
+          "utc_now_iso",
+          "caller_set_params",
+          "derive_dropped_params",
+          "derive_extras_report",
+          "derive_forwarded_params",
+          "fixed_control_ids",
+          "check_applied_controls",
+          "FILESYSTEM_WRITE",
+          "SHELL_EXEC",
+          "SUBAGENT_SPAWN",
+          "Capabilities",
+          "ParamCapability",
+          "ExecutionControl",
+          "StructuredOutputCapability",
+          "SystemPromptCapability",
+          "SkillContextCapability",
+          "ADAPTER_CAPABILITIES",
+          "adapter_capabilities",
+          "match_capabilities",
+          "subjects_for_disallowed_tools",
+          "OutputContract",
+          "OutputContractViolation",
+          "contract_requirements",
+          "evaluate_output",
+          "POLICY_NATIVE_REQUIRED",
+          "POLICY_VALIDATED_RESULT",
+          "POLICY_TEXT_ONLY",
+          "SkillContext",
+          "SkillContextReport",
+          "SkillContextError",
+          "SkillContextUnsatisfiable",
+          "SkillContextSupportError",
+          "SKILL_MATERIAL_BOOTSTRAP",
+          "materialize_skill_context",
+          "skill_context_requirements",
+          "BackendOptions",
+          "LLMBackend",
+          "BackendSelection",
+          "create_backend",
+          "create_transport_backend",
+          "EndpointProfile",
+          "endpoint_capabilities",
+          "profile_from_entry",
+          "profile_from_resolved",
+          "resolve_endpoint_profile",
+          "EffortDelivery",
+          "EffortPlan",
+          "plan_effort",
+          "HALT_AUTH",
+          "HALT_RATE_LIMIT",
+          "HALT_INSUFFICIENT_CREDIT",
+          "HALT_QUOTA",
+          "HALT_BACKPRESSURE",
+          "classify_backpressure",
+          "HaltError",
+          "classify_halt_text",
+          "classify_openai_exception",
+          "classify_claude_exception",
+          "classify_codex_text",
+          "classify_codex_exception",
+          "classify_opencode_exception",
+          "AgentTimeoutError",
+          "HARD_STOP_STDERR_MARKERS",
+          "looks_like_hard_stop",
+          "run_cli_streaming",
+          "run_claude_streaming",
+          "OpenRouterBackend",
+          "ClaudeCliBackend",
+          "CodexCliBackend",
+          "CodexRunError",
+          "OpencodeCliBackend",
+          "OpencodeRunError",
+          "DEFAULT_OPENCODE_TIMEOUT_S",
+          "OPENCODE_FILESYSTEM_POSTURE",
+          "OPENCODE_PROMPT_SEPARATOR",
+          "CODEX_EXTRA_KEYS",
+          "PROMPT_SEPARATOR",
+          "compose_prompt"
+        ]
+      }
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/adapter_capabilities.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/adapter_capabilities.py",
-      "state": "shim",
       "legacy_sha256": "ebc6ae192b6dc70a76675efcc69a968e51492bf14d4e33b36989336f6c7f6569",
-      "copy_sha256": "742f8aa84fae6c209a9d2faa90659c787eb95bea8fdc6791a55017073c572750",
+      "kind": "module",
       "final": "llm_kit.adapters.capabilities"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/backends.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/backends.py",
-      "state": "shim",
       "legacy_sha256": "fb95fecf2d114480be671556e20a8942cd3b77c67a9e26169c894eb9a9829157",
-      "copy_sha256": "79d718aacc9167abd2d2d07738d59943ec8bd5c8c8eaeae199c7a3b5cc2dd4a6",
+      "kind": "module",
       "final": "llm_kit.adapters.backends"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/capabilities.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/capabilities.py",
-      "state": "shim",
       "legacy_sha256": "77e103f444ca1349ffb71f048e1a810b78a2a4a29fde833de6422f451f21f24b",
-      "copy_sha256": "d6d13471c63117512293548363edbc75a304ef433a994c7f7c50d4b133a8fc7c",
+      "kind": "module",
       "final": "llm_kit.completion.capabilities"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/claude_runner.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/claude_runner.py",
-      "state": "shim",
       "legacy_sha256": "88042ef76a475aabbbbe326dffac325a010fa770134399ede44da0e5cabd1e50",
-      "copy_sha256": "9a27873a739242fcabf57bef891bb65ad3409f4ba5133de211e4efedae3458cc",
+      "kind": "module",
       "final": "llm_kit.adapters.claude_runner"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/codex_backend.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/codex_backend.py",
-      "state": "shim",
       "legacy_sha256": "819054e1997781a4fc319fb04fec0ce5f91358ab81171a8f6d9ea32bbd9b8299",
-      "copy_sha256": "1ad07ed5c499e101dd1fd78d6fdc613d18a06828d9e3fd0d527cee9bdc0ac4da",
+      "kind": "module",
       "final": "llm_kit.adapters.codex_backend"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/contract.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/contract.py",
-      "state": "shim",
       "legacy_sha256": "dfdab58260c94cc2c8b5c7dcef5ba9c65ad254c2b7475fb916b90fd1084c054a",
-      "copy_sha256": "850c9e89f12f7cdad21c20fd62e0f6aa51c1bff692b4a4a49a588b390476ec72",
+      "kind": "module",
       "final": "llm_kit.completion.contract"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/contract_types.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/contract_types.py",
-      "state": "shim",
       "legacy_sha256": "08febbe6c0acabd866142e803f26d23186710c6c56fe68337b928d2248153180",
-      "copy_sha256": "40eea0b79478b7c45c51b951fb4326c81f711dce55ef8a131610dc22fbf83f23",
+      "kind": "module",
       "final": "llm_kit.completion.contract_types"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/endpoint_profile.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/endpoint_profile.py",
-      "state": "shim",
       "legacy_sha256": "9e00a5efd9b05928502f9e90a4c3b57574964730af5ad0b7136d6ef96006a89d",
-      "copy_sha256": "d6e355b67c63e0b7b9672e497a7bf17380bdbdfa1e7af6c5e80593e5be6ca4aa",
+      "kind": "module",
       "final": "llm_kit.adapters.endpoint_profile"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/factory.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/factory.py",
-      "state": "shim",
       "legacy_sha256": "91c58dc7261edb661e4577b7680e352463f733d03acb7598611d789c32bd070e",
-      "copy_sha256": "85b9a098be9d9acaf41bc6ac7dce1939367873c714aec84b75daa8b8d5b98ff5",
+      "kind": "module",
       "final": "llm_kit.dispatch.factory"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/halt.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/halt.py",
-      "state": "shim",
       "legacy_sha256": "39efc7ec5b8f25d8a4c2724c6b0c642dc83be98127ce32edafad4a7cf6b0e212",
-      "copy_sha256": "b6fe67d55be346c78987ab1c10a27f4c572e6795802c112a89f12676d2386d58",
+      "kind": "module",
       "final": "llm_kit.completion.halt"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/json_repair.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/json_repair.py",
-      "state": "shim",
       "legacy_sha256": "1593023b18b00846db4f50bcb0a3493cbe622a4e2649de99ed0137de53457248",
-      "copy_sha256": "0128df226a1e6a53ce5e26439d86a1f06e68ee0260b1b4698a5f9b03a720d03e",
+      "kind": "module",
       "final": "llm_kit.schema.json_repair"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/json_schema.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/json_schema.py",
-      "state": "shim",
       "legacy_sha256": "b73f63d5c897453c43b561e1ebaa1ccf5a754778201029ca86af592f54d0ed92",
-      "copy_sha256": "56cc4844e9298865140bd78962326d9b256af731a2ee8eea2622043366bf8cde",
+      "kind": "module",
       "final": "llm_kit.schema.json_schema"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/opencode_backend.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/opencode_backend.py",
-      "state": "shim",
       "legacy_sha256": "a42cdc7d8f06aa2b3ae4ab814f0e31f7d158a41f987e84c11bddd15fa0b7cd80",
-      "copy_sha256": "076bf29fcd566368f2c8832158b3c0f04fcde2f19001838f5366dbbf37503575",
+      "kind": "module",
       "final": "llm_kit.adapters.opencode_backend"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/prompt_fold.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/prompt_fold.py",
-      "state": "shim",
       "legacy_sha256": "10babc11be85e9db97d4655149b40d0a63054db54f91732adadaa599f32618cb",
-      "copy_sha256": "4602b5312cd9021c2df709fb5e68185bc498558977dedde5dd5f39e5316166ea",
+      "kind": "module",
       "final": "llm_kit.completion.prompt_fold"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/requirements.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/requirements.py",
-      "state": "shim",
       "legacy_sha256": "623fee170d261f49fa55ac9428e5b3c1d68ebb399ceca7092a969387d7c188ef",
-      "copy_sha256": "45523165a5dffb06428c15bfca11f3e0b90f2f1f139da54c3e231931ad46005b",
+      "kind": "module",
       "final": "llm_kit.completion.requirements"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/results.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/results.py",
-      "state": "shim",
       "legacy_sha256": "9c811c858e4c2f493d263b8ba421a020a5d4bf8d01513f0d29afcb744e832fc7",
-      "copy_sha256": "dc705535d86964585e8d6061181fa550f43b8d35644e48e26bde1e7c81f7a80e",
+      "kind": "module",
       "final": "llm_kit.completion.results"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/skill_context.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/skill_context.py",
-      "state": "shim",
       "legacy_sha256": "b5c0e28dcc425af4d53f12366128101e6e6fa27559f995d06cedb17830d26bfa",
-      "copy_sha256": "803c3eed53b466d5678687c43a5b8b5e367d8382469760c0e17ce72a6ee9efdf",
+      "kind": "module",
       "final": "llm_kit.completion.skill_context"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/skill_context_types.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/skill_context_types.py",
-      "state": "shim",
       "legacy_sha256": "be1b6f44710e838607e379b1cef3cb32f09948ae7ec58f5ce19b273f90dd8364",
-      "copy_sha256": "4dc5edcb2a72a9c10ed1f3a99bf19997f17a4ba28415c02d6863c2cb611cfc13",
+      "kind": "module",
       "final": "llm_kit.completion.skill_context_types"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/types.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/types.py",
-      "state": "shim",
       "legacy_sha256": "fe8b40998a74e9922754c1598098a446c385d730517cd6d2b8cf488882ea95ca",
-      "copy_sha256": "24ad14c8cc778f3feb8274af5ae420b2a2cbd08aef40f6634ff881519a0fc7a5",
+      "kind": "module",
       "final": "llm_kit.completion.types"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/constants.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/constants.py",
-      "state": "shim",
       "legacy_sha256": "9ba53d62f468880d3788a5d2b48e323a1cbaa423735873f77bd2aa4339860c04",
-      "copy_sha256": "7613e0d86517627f21ee22350ddf5b35adba7c2773342b6fad640caf1ff3162d",
+      "kind": "module",
       "final": "llm_kit.registry.constants"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/declaration.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/declaration.py",
-      "state": "shim",
       "legacy_sha256": "c35bdeb2091aa489e26fcbcae228eda16881ed1eeb05b76f02b31b51fcba4ea9",
-      "copy_sha256": "5c0c7260e086fd2aaa39302a0c9195e80f27daa65a216c4189b3416a365f35ca",
+      "kind": "module",
       "final": "llm_kit.dispatch.declaration"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/default_config.yaml": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/default_config.yaml",
-      "state": "unmoved",
-      "legacy_sha256": "290e67b8c3cfc318f5fb95d98f52b3dfb61eea608f7b605124da402cb39feb9e",
-      "copy_sha256": "290e67b8c3cfc318f5fb95d98f52b3dfb61eea608f7b605124da402cb39feb9e"
+      "kind": "data",
+      "final": null,
+      "legacy_sha256": "290e67b8c3cfc318f5fb95d98f52b3dfb61eea608f7b605124da402cb39feb9e"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/effort.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/effort.py",
-      "state": "shim",
       "legacy_sha256": "a60b8a6bacf1ad904722bcec03df87332c6465c297a0cc363e965fadcc310eed",
-      "copy_sha256": "af2e7e7ad17a1a1a4ebde6d4073c897f7129742c39c65b7079b8258605a02844",
+      "kind": "module",
       "final": "llm_kit.registry.effort"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/env_file.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/env_file.py",
-      "state": "shim",
       "legacy_sha256": "9a14a1c1e3c0c13c73a9074867cbd6d67d4e6067f5459589b57a2d176e1fcf91",
-      "copy_sha256": "d76bd2c56f6df06d20d8d3f459a49127f5dc56a9fd85438aa0b964bb3aa7edc3",
+      "kind": "module",
       "final": "llm_kit.registry.env_file"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/__init__.py",
-      "state": "shim",
       "legacy_sha256": "d069d722508785b2048d38f6eb05fc6a349154dd4300917522c97badb4e368fa",
-      "copy_sha256": "2dc3a224dd8f74b182e98f882e2ac3e40722ccbad6d0d417776c0ad981370382",
+      "kind": "facade-package",
       "final": "llm_kit.frontdoor"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/__main__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/__main__.py",
-      "state": "shim",
       "legacy_sha256": "0d56a8285f3d7898c7d24b53f2ce08e7ccc9dbd01a93f334952b101125e17903",
-      "copy_sha256": "e86c01862a53588c10248a36ea0146bafc0b66dfe9bc04f1c9ae1acb8e6cbc57",
+      "kind": "module",
       "final": "llm_kit.frontdoor.__main__"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/acceptance.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/acceptance.py",
-      "state": "shim",
       "legacy_sha256": "544037bce7647e5f36467f4fcce8a74242e3b3ce8f1896a2e4460f9061d9f6ae",
-      "copy_sha256": "5aa45dd5f29daf7ce26fcbe9691c61be1eff3656a3a9f6fddfb0e0e3624090fe",
+      "kind": "module",
       "final": "llm_kit.frontdoor.acceptance"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/server.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/server.py",
-      "state": "shim",
       "legacy_sha256": "c604b734a522d32c766e1f08792a7e8388b8e51f16e05fe8d82e6f3fe9afb018",
-      "copy_sha256": "299db65dbbc114745eff5a5c9069d750aa331f47614b50c51cb59d013b4eeea4",
+      "kind": "module",
       "final": "llm_kit.frontdoor.server"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/harness_adapters.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/harness_adapters.py",
-      "state": "shim",
       "legacy_sha256": "779f1493863d1d84accd3e1892d96c3a9ec07c27c4cb17f943e5fc814ff51b5a",
-      "copy_sha256": "75b1eac0603bda126429cf6a0036bead7a7c1ba0cc2de4700b28e8d320279aea",
+      "kind": "module",
       "final": "llm_kit.adapters.harness_adapters"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/model_endpoints.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/model_endpoints.py",
-      "state": "shim",
       "legacy_sha256": "fb39f7c4bc2617c81ffb18e2da9c93eb9db282284c9b0bfd8c3f18522c4f8e6e",
-      "copy_sha256": "92cbf5ae1469a247ea2af900ae8e867ae45b35e51e54f7bb700c6ffb9da9cd3e",
+      "kind": "module",
       "final": "llm_kit.registry.model_endpoints"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/models.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/models.py",
-      "state": "shim",
       "legacy_sha256": "09fecee516ba3fcd94586f58a1fec5dae9e95ab7388b2f087c5815313fb2bd9c",
-      "copy_sha256": "88a10851b8c2d40024b56374546daee620a30870f3d03a3e182b5aa7f6a0dde3",
+      "kind": "module",
       "final": "llm_kit.registry.models"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/observer.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/observer.py",
-      "state": "shim",
       "legacy_sha256": "05e6b5a69b9f81ba9b8e86835c3581de41b10197500a48360553b92c5c842bc6",
-      "copy_sha256": "c77fff4788cffc90e866f33dcf50a6d168e5a37efe07e1ddaa0b807b81529da7",
+      "kind": "module",
       "final": "llm_kit.dispatch.observer"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/reachability.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/reachability.py",
-      "state": "shim",
       "legacy_sha256": "f8aa7223c95497a014097c3c4e5802f57a13e192daef0fca757115779514f264",
-      "copy_sha256": "7f1007c582ed57b6b55ef3ebcfe15270e71647ef2a53dfa3ac34e82a3117c2b1",
+      "kind": "module",
       "final": "llm_kit.dispatch.reachability"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/request_protocol.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/request_protocol.py",
-      "state": "shim",
       "legacy_sha256": "12a70d2cada7aa1b22652b7b4553f9bbda12fec082706ecbf687fd32c0df3e48",
-      "copy_sha256": "e1948b15637f000057f7885104a8b032882ff0f9d84a9918ada2e87214f9885a",
+      "kind": "module",
       "final": "llm_kit.completion.request_protocol"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/review_lane.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/review_lane.py",
-      "state": "shim",
       "legacy_sha256": "149918cad0e9a1c52a062caee9b9bb4858461db0d00b325b7260da16c8a2dbba",
-      "copy_sha256": "609b9591703888f6dc8363fbe4d8e8c54b2b8f9cd6ee1752c72c8cdf99a82c3e",
+      "kind": "module",
       "final": "llm_kit.dispatch.review_lane"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/seats.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/seats.py",
-      "state": "shim",
       "legacy_sha256": "6986ef7a6f699172281c07548e418e2e41ef1fd5077b4b9d612079b3b96c1aa4",
-      "copy_sha256": "93624c1c33fb8ceb425d89b40a71e0de3a2b00112e3e42d8a7e135a2d1928d06",
+      "kind": "module",
       "final": "llm_kit.dispatch.seats"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/swapper.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/swapper.py",
-      "state": "shim",
       "legacy_sha256": "477127b7bc324584930e7f2adf1504b43550aa750eefac273da802844493711a",
-      "copy_sha256": "a837b23c439804fd39792604704851391af096d2a1edc3798f658a346d9ef54d",
+      "kind": "module",
       "final": "llm_kit.adapters.swapper"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/swapper_acceptance.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/swapper_acceptance.py",
-      "state": "shim",
       "legacy_sha256": "9d62e4c8c993f449e93be4cb024bfc7c34dc5d905b46daa9e7073a3dc8f99d97",
-      "copy_sha256": "3f46fb18f8406be63b9f145dce893d2b3556d7a94ef46c2fedd50ec637743866",
+      "kind": "module",
       "final": "llm_kit.adapters.swapper_acceptance"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/usage_budget.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/usage_budget.py",
-      "state": "shim",
       "legacy_sha256": "89e2203f4a9da882a950b213a858705c26f755511bb21f7afaf6b73aeeb6e161",
-      "copy_sha256": "ead161da1f6c2c3cc9577b44cec1ee168e204490d85ae29c35f85617b4c4e383",
+      "kind": "module",
       "final": "llm_kit.dispatch.usage_budget"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/__init__.py",
-      "state": "unmoved",
       "legacy_sha256": "1f7c319bc701bd627d18a52a9923b7cd7c561efc92a7edae1bf84230bad79b03",
-      "copy_sha256": "1f7c319bc701bd627d18a52a9923b7cd7c561efc92a7edae1bf84230bad79b03"
+      "kind": "facade-names",
+      "names": {},
+      "constants": {
+        "__version__": "0.36.0"
+      }
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/audit/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/audit/__init__.py",
-      "state": "shim",
       "legacy_sha256": "2f071c98da2f715ba30e54f47d9b5bd045cb2e0f86cafc55190a199d4db1da38",
-      "copy_sha256": "9f3448ae31afb351b3e5da085ac2178fae979516706607d6b6624e4cd3851218",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.analysis.audit"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/audit/auditor.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/audit/auditor.py",
-      "state": "shim",
       "legacy_sha256": "228ec1b40b36c2e8ae8fc7b1313bffe0053037704e70eb3fb19624dcbcb3c60d",
-      "copy_sha256": "eb58b66aea945bc23d9859c1ecfb562ea8a3ac781a9273d14987d4c624da3c84",
+      "kind": "module",
       "final": "llm_kit.pipeline.analysis.audit.auditor"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/audit/reasoning_chain.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/audit/reasoning_chain.py",
-      "state": "shim",
       "legacy_sha256": "a15fa34db4035c61af6b88e48d9a6716b63c57b12a1b7e157152dccd8aa719e9",
-      "copy_sha256": "e590604c8582bf55eb77c24e71ec30d3d93423dea10ddcc67ab9a01bcdbb4b0d",
+      "kind": "module",
       "final": "llm_kit.pipeline.analysis.audit.reasoning_chain"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/audit/report.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/audit/report.py",
-      "state": "shim",
       "legacy_sha256": "e5e587179c2d4047e7c85063b3b978754ccf07ee81a251468a32facf119a5b1b",
-      "copy_sha256": "3efd492d6f431513157ad13f4f37f9613dc1cafaa9ed6a8ccf9d8c74f3553f7a",
+      "kind": "module",
       "final": "llm_kit.pipeline.analysis.audit.report"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/__init__.py",
-      "state": "unmoved",
       "legacy_sha256": "7d767ec08763bf97324627244ed1653ae919d4bfbf49b6904c70a730393c1aa4",
-      "copy_sha256": "7d767ec08763bf97324627244ed1653ae919d4bfbf49b6904c70a730393c1aa4"
+      "kind": "facade-names",
+      "names": {}
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/budget.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/budget.py",
-      "state": "shim",
       "legacy_sha256": "1f2100340466ca53e0ecb74b9cb854663c8e5603e7ec028ef21a77cf80790e8c",
-      "copy_sha256": "af63e52f48a2ec44fdfee7738c0ba0060cec2f786ee854e733a894a78bbe9748",
+      "kind": "module",
       "final": "llm_kit.pipeline.runtime.budget"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/run.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/run.py",
-      "state": "unmoved",
       "legacy_sha256": "c5c86545b083db18ebc60fb257ab71c5d62d5623daf7a508947327049e4dd44e",
-      "copy_sha256": "f35de0d15564f5c0999ac8afc066ffc7619fddf57102e56bb8dfe4b243cb0fbc"
+      "kind": "module",
+      "final": "llm_kit.cli.run"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/scaffold.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/scaffold.py",
-      "state": "shim",
       "legacy_sha256": "f5edde0b85e374a0e2010f15d7176fc3051e44ed2d7f61656afe80eb9d5baa5b",
-      "copy_sha256": "6a14dcb39f103d0513225b1be6077b4d778b8a92e0569e97d5a51d2df9bafa8a",
+      "kind": "module",
       "final": "llm_kit.scaffold"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/cli/unsupported.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/cli/unsupported.py",
-      "state": "shim",
       "legacy_sha256": "afd6274c3cb4de537b2eedcaea0cd05e9de55feec895ba855a09065c2558fdc8",
-      "copy_sha256": "47d554412c99302ed58f7ae31060d89c5d575697c4559dfd2b3b7da700ecf571",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.cli.unsupported"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/default_config.yaml": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/default_config.yaml",
-      "state": "unmoved",
-      "legacy_sha256": "964f37c95295f1e07667f9e320f145e4f41e2640d9eb469d900b7f25d0a9512a",
-      "copy_sha256": "964f37c95295f1e07667f9e320f145e4f41e2640d9eb469d900b7f25d0a9512a"
+      "kind": "data",
+      "final": null,
+      "legacy_sha256": "964f37c95295f1e07667f9e320f145e4f41e2640d9eb469d900b7f25d0a9512a"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/deliver/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/deliver/__init__.py",
-      "state": "shim",
       "legacy_sha256": "034b3fd5047052d293ac497aa71d9d8424175a8ed4fcd40314c45da3c388a4ac",
-      "copy_sha256": "9e58daa660cc4639f543148b0f33b9c123e16f3e0b4a32e950d115defbe5152b",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.artifacts.deliver"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/deliver/inplace.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/deliver/inplace.py",
-      "state": "shim",
       "legacy_sha256": "cff527d22f186bb45d7cf8d6ba828fef9a866708bb8081299687f4423ea35cd6",
-      "copy_sha256": "d54cf4d1615976da40600d089c20b913e03779c8f67a84be3a9d410fa0ea0d93",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.deliver.inplace"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/deliver/projection.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/deliver/projection.py",
-      "state": "shim",
       "legacy_sha256": "691e328e6473049b10dedaaa0731453c7c701e3d61a51de108c6fc425e93a293",
-      "copy_sha256": "4f2121f24c1a9dcd01cb64310b48f0b3c44c08b81cb6d717a94c11cf09739f9b",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.deliver.projection"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/__init__.py",
-      "state": "shim",
       "legacy_sha256": "a32ac8d8c87ebfca4b520eb56274132ac1afccd098c534327bf06b5ca0e1695b",
-      "copy_sha256": "e308892b536be3c80917e58a48c6d59e0978090ab3105b80706cd5df26e16b75",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.execution"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/_atomic_json.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/_atomic_json.py",
-      "state": "shim",
       "legacy_sha256": "62b467142109577080eb3bcf07dbf55cc4e1071ad95b05d582b05138d7abda09",
-      "copy_sha256": "bcf4bd765fdbacff838bc4ec77a8311d7705eed4c638e1d2b8225439506e469b",
+      "kind": "module",
       "final": "llm_kit.storage.atomic_json"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/adapter.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/adapter.py",
-      "state": "shim",
       "legacy_sha256": "aba6d9b639d1b46afabb26a73cc8756e38cff0becf56ecf503aedfdf2cf206f3",
-      "copy_sha256": "6096132f41ce6359c1619c023cbd4a017f96034cab8644a12ef7c179ec7eafc1",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.adapter"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/controller.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/controller.py",
-      "state": "shim",
       "legacy_sha256": "8b788fc4dd3c1a7205714a2007b6fbf92cfc8afa870692c123d07150964aa98d",
-      "copy_sha256": "1250953b317d1d5bf52eefc72546d598a850bb6abcf2d2265ebd25685dd0f018",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.controller"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/deadlines.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/deadlines.py",
-      "state": "shim",
       "legacy_sha256": "f2b618ce0ffc9d506db2067c057f0c059d9c7650010ff0b7d44245341a2dfbfe",
-      "copy_sha256": "a7ebd9371db8112eaa2cd1f826f64de5da70301a2533103eb892c6b6bea5ec34",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.deadlines"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/drivers/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/drivers/__init__.py",
-      "state": "shim",
       "legacy_sha256": "ffdc87e1951771b60e0dad6a22e4eea983d75f317a0f06d099b784b90bfaf1eb",
-      "copy_sha256": "fa489368b163b12807cf0dfb386b53c6e7ec52cf37f8d8a9d2c69249a8116daf",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.execution.drivers"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/drivers/claude_bg.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/drivers/claude_bg.py",
-      "state": "shim",
       "legacy_sha256": "60e56afbff4f5ac9e426a05251f048bc394c28d9c4a979f124fdd70eb757cefd",
-      "copy_sha256": "bed947b30fca55708812c04fb83470b78b632704e337ab974e296859083ca8db",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.drivers.claude_bg"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/drivers/inline.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/drivers/inline.py",
-      "state": "shim",
       "legacy_sha256": "850bd2f473c2b8da55a3970937b473e9a7180387a8e472ce1199e5cdb15c850f",
-      "copy_sha256": "223c8dc0753613200d482e43c2d2934c8b111b4c86db56884f8d26f9d7849ce4",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.drivers.inline"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/events.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/events.py",
-      "state": "shim",
       "legacy_sha256": "1dc46d9a7bf45fad1dc2dd523ab68dbf4c5cc48b47a9b561548cf7e9652e0aae",
-      "copy_sha256": "1e13d924589b127dc7c729247ccb6e692071fd7c70b1aaa3372298372ed86eff",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.events"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/failure_cache.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/failure_cache.py",
-      "state": "shim",
       "legacy_sha256": "7b58880c51a5e7f8ed2ad26ae579caffe655bcf8c3a36ab9c18d91c862639310",
-      "copy_sha256": "0299e5ca2b315a8d1d965a010aaa18defdf18535d9f39915eb90e732813631d1",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.failure_cache"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/interrupts.py",
-      "state": "shim",
       "legacy_sha256": "969b4999fddcecd848a22d9c149d40bfb3a9a03d3d712582a09d6e720111444d",
-      "copy_sha256": "e933329c0daf053c4a64a7af33f69fe4eb9b2b2c9ae5913b60729954de328cad",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.interrupts"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/model.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/model.py",
-      "state": "shim",
       "legacy_sha256": "207cbf59e54cd2b12cc5ff0aa9d84ab200e3fee4b802d3f496254d5cab4a4b77",
-      "copy_sha256": "d24bdac2d69e6dcfcf612b99e7feacacf9de0a9f2e8ac7920d03cad974a3decc",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.model"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/parallel_graph.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/parallel_graph.py",
-      "state": "shim",
       "legacy_sha256": "6f6ca471b86261e655e8ed537b2b3d037d3bb964ad6964e2339b20ed286b687d",
-      "copy_sha256": "e58f12051ade8f6e875f36ff953372bded4b823496a711f2584351b1d0595a7d",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.parallel_graph"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/protocol.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/protocol.py",
-      "state": "shim",
       "legacy_sha256": "0109f389b37a6a27ee69e113f3ab89fa69f2a56132d80725a7e5b27471d3d102",
-      "copy_sha256": "d301db5429f4bac028c858e896550ddfaf187b0152efa9fbeca5178c2e9d589c",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.protocol"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/scheduler.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/scheduler.py",
-      "state": "shim",
       "legacy_sha256": "72d1a5770016777113a996921aedf56fc177eb248b3c7ff28d0fcd86b40c692d",
-      "copy_sha256": "abe77d9b7b86550b8195f84a8925e6b996bbe067fc6c28d2ffae7c3314ced1b7",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.scheduler"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/status.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/status.py",
-      "state": "shim",
       "legacy_sha256": "1c9126fcdfbb2342dff903c2fe4f80f8d880385ac93f3964944cae124346bfd9",
-      "copy_sha256": "db0f2e08a72c7a69390b696c28ed4dc7dc716090f38bd39693f4c068bde3cdde",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.status"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/store.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/store.py",
-      "state": "shim",
       "legacy_sha256": "f5f4869ad3e88794b001cb742e2e68c8f8dfe9b9c7fdfec00ef4a5cb1b4a846c",
-      "copy_sha256": "817556de82ae5e9d5839c4ac16ad0df67779fd6e523bcbd5da084a029429694f",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.store"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/wave.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/wave.py",
-      "state": "shim",
       "legacy_sha256": "ff0b1589b867a7aa9be131dabd43deb6ab01b87547a30465b63dc5855c24eed4",
-      "copy_sha256": "ad528a1b0e07109bb4fbda85ab82390f4c85d29b02c72b056adb085e28a5394d",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.wave"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/workerpack.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/execution/workerpack.py",
-      "state": "shim",
       "legacy_sha256": "c0a5a964f252ffd0b4857bc1a122c770a8b4f74f3bc4ff071f41e9a123b728d0",
-      "copy_sha256": "0bb819c214074051eaed7824ebb4c6feb1fdd242ccf56eef2f73326cbbf9006b",
+      "kind": "module",
       "final": "llm_kit.pipeline.execution.workerpack"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/__init__.py",
-      "state": "shim",
       "legacy_sha256": "42cc25041907d04214d738d008e14e696dd685bf2ac559162bf332ac70250c56",
-      "copy_sha256": "ca72fa5478b7ccf6892ada50a3c0263944f670e0c3d1a4746d14f107f7313b90",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.artifacts.freshness"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/classify.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/classify.py",
-      "state": "shim",
       "legacy_sha256": "bb2a7716959a913d2abff7e12d6db687b15e3f63a06e6b51312c376d04865242",
-      "copy_sha256": "718f7e690a684a2e5b12f39a70468a37f583bd7aa5343b61311a3a02953cdfb9",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.freshness.classify"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/ensure.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/ensure.py",
-      "state": "shim",
       "legacy_sha256": "ac685adf7b6d2f5bb29e06e5d46586d99ebfa263ee2d8347c1b95dd9f230b848",
-      "copy_sha256": "fbd81e9a993e0cd66d2994cdaf60ff0703ffbd9dae6cd7c825c9d17f5ca08c72",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.freshness.ensure"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/hashing.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/hashing.py",
-      "state": "shim",
       "legacy_sha256": "9e258cff796dac005e5c8d52e8a47aa934f8d00cefcd187770e9845f0993bd82",
-      "copy_sha256": "e5ff8ff7233dfa6dc540df6ccb745716421fab49f7e56e58b9895b7c57c9e0d6",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.freshness.hashing"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/seed.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/seed.py",
-      "state": "shim",
       "legacy_sha256": "10e725d491a794058aae973d5e4cbf558484e90023e2aabe469530270b755287",
-      "copy_sha256": "65113cf92067253fbc4bf9555c40d3079342a4747dccd31c522270e882050ac9",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.seed"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/freshness/tier.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/freshness/tier.py",
-      "state": "shim",
       "legacy_sha256": "a60bfc84c942d1e489a14b30a7dc3749265c936396d3170213198aedf7b03d11",
-      "copy_sha256": "77325b252318a18a38cf9cd0ab9c56814592e79f46ec4febf87ecd5deb7532ed",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.freshness.tier"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/__init__.py",
-      "state": "shim",
       "legacy_sha256": "b87c4e11712aaee2049610c79dec4304e929e44be1fcd6111f5cfa4c1df885df",
-      "copy_sha256": "bdb48ecf920848f7c6cc486b58656a2a1d9be76936f6d21bfb894749af5d1ebf",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.runtime"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/backends.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/backends.py",
-      "state": "shim",
       "legacy_sha256": "4634758c4a479f57c6abaefd0cfe91073211c12acf151a4b4aafdfe289b7f265",
-      "copy_sha256": "072363090925187f14aa1f98d24b5463eee46a597dafc77175f171af78cb4df7",
+      "kind": "module",
       "final": "llm_kit.pipeline.runtime.backends"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/convergence.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/convergence.py",
-      "state": "shim",
       "legacy_sha256": "5fb0724ed9be27ae9c199c8a077089799e5662a4469d09ba4789594199cd4745",
-      "copy_sha256": "24f692b536d5acd8515e5b5eda4f7e277885d2653d836f3d57a1154e64eaae47",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.convergence"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/gate.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/gate.py",
-      "state": "shim",
       "legacy_sha256": "e2d74163248edefeeb127c84335a444f1eaccd8eba4aefe5f1c98906b7232628",
-      "copy_sha256": "2ca24d86be794ccbaeeaa917168a1b700ebd9bf4246af1c0cde4902c9aca9590",
+      "kind": "module",
       "final": "llm_kit.pipeline.runtime.gate"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/platform.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/platform.py",
-      "state": "shim",
       "legacy_sha256": "ca0ce0f762d3303373836b6bb2a9d085f8dbd2892ec8ceac1d4494951d9cc184",
-      "copy_sha256": "5046b0aa0f77a5640ab110dd8f88ff1ebf8800ca2a21d47db0b6a6a9eb220ac3",
+      "kind": "module",
       "final": "llm_kit.pipeline.runtime.platform"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/spend_ledger.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/spend_ledger.py",
-      "state": "shim",
       "legacy_sha256": "05e3570a84a001528f13308718791ca2fe432139a60ccfa478b2aa3b899dca9b",
-      "copy_sha256": "117e2327214d2cd504ca3ede2cf73ac9ecd548000107c7d0dfd512a6706474b2",
+      "kind": "module",
       "final": "llm_kit.pipeline.runtime.spend_ledger"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/llm/yaml_extract.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/llm/yaml_extract.py",
-      "state": "shim",
       "legacy_sha256": "7dcf97fb9e02642676b109c7615e80fdda1b3a4324a0ae33563a8655bcf8160a",
-      "copy_sha256": "bf96d74881007e3a3e0620e6b7aef2760475eb40bb73deacc4bb6a8567e09b87",
+      "kind": "module",
       "final": "llm_kit.pipeline.runtime.yaml_extract"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/__init__.py",
-      "state": "shim",
       "legacy_sha256": "afc33d59ee0e6896959cbcc2ee3759a1700f347bd1ff41c69845816e26185deb",
-      "copy_sha256": "b0a7908a3fb8d979d2d28eef75be1706e2663625745e7390df87da73c03cdbb2",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.core"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/cell_policy.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/cell_policy.py",
-      "state": "shim",
       "legacy_sha256": "8f287baef590539ffb39615d446432b929a37a528222e1dd0700ab1ea20a790f",
-      "copy_sha256": "e54ee768313185b9f52aaf811e7dcd0bad29802b006e2082be456abe0524d7af",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.cell_policy"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/convergence_loop.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/convergence_loop.py",
-      "state": "shim",
       "legacy_sha256": "96b219ce2afa82676904131b0fb14ca39f2bbef8406eb1bcad2d5fc521ef175b",
-      "copy_sha256": "af900ae12c2556fe53ffa680548a6ecc061b668cdb83306d97a4a34015292476",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.convergence_loop"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/gate.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/gate.py",
-      "state": "shim",
       "legacy_sha256": "0b45e5b01e833c02290c1ec96fb77eba4ef2be17c4fcd6c64edd88400c22ed16",
-      "copy_sha256": "ef304348a0ee87b692dff94aee2a0d22dd540efe0943f8230deaca2b3f8d138b",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.gate"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/single_pass.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/single_pass.py",
-      "state": "shim",
       "legacy_sha256": "126133b03378a793528ab4b35316c92fb73205630cdfaefb33a91f40268ec719",
-      "copy_sha256": "39bedf74db6467038ef1ebc228c454774ae66912f197466a04a51bf9e474f79d",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.single_pass"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/stage.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/stage.py",
-      "state": "shim",
       "legacy_sha256": "662da0ec462c940f446c35289f5e66b70296a6cc5e7a5e349000749b7cbb7cb7",
-      "copy_sha256": "57c193adbdd0321abefc15959433693a76a97274ac4410841d846b0e862e1350",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.stage"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/pipeline/workunit.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/pipeline/workunit.py",
-      "state": "shim",
       "legacy_sha256": "61261ba6c96d34ce7416d1167206ca0b2f3edc60a5c4d6cf4a0e122a5c525620",
-      "copy_sha256": "e4951326eb8a2b26196dfbd1be71a30e62dff5e4cd8b4a8bc7d3694a6d428e5e",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.workunit"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/provenance/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/provenance/__init__.py",
-      "state": "shim",
       "legacy_sha256": "24433a7aae395e7bd53365be2898407bb0e92ae6559769b73418ab99177f23ac",
-      "copy_sha256": "db7baa5aa8fac7ce867538801d83caa45b6cde881655ee8784afa8eef8872723",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.analysis.provenance"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/provenance/call_audit.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/provenance/call_audit.py",
-      "state": "shim",
       "legacy_sha256": "8b768e1fb0e6037f039e8d1d236d404134f04b033183ae5e6c83d74fd1d9ae52",
-      "copy_sha256": "fb3778b43687135bb0ac439aa54b6166012b9ac514f095f5fc102498fb716afb",
+      "kind": "module",
       "final": "llm_kit.pipeline.analysis.provenance.call_audit"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/provenance/record.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/provenance/record.py",
-      "state": "shim",
       "legacy_sha256": "a896239c14a72121238f16107505fe62bc1c0e81a148e7b0ba3dcbdd7b87f1d4",
-      "copy_sha256": "03b733f6283eaf66a3536514f9497a4402cd3c18afefe05b6306b1bd3cadc420",
+      "kind": "module",
       "final": "llm_kit.pipeline.analysis.provenance.record"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/provenance/replay.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/provenance/replay.py",
-      "state": "shim",
       "legacy_sha256": "2d3ada4d8bb1daa1cd8985ffd841c0c4cde795341b241f88d25685644e5f8b24",
-      "copy_sha256": "8327489ac06f0805160fd1d349288f46c5f78c88fcf3f8caf750beeab7e0956b",
+      "kind": "module",
       "final": "llm_kit.pipeline.analysis.provenance.replay"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/provenance/snapshot.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/provenance/snapshot.py",
-      "state": "shim",
       "legacy_sha256": "a5c341a67734e9e721dfcda29244316f139fae7518d75d4d6414d45395abb0c5",
-      "copy_sha256": "62700679a030c348473f8f5c7eb1cb56e7fca875b2be87699ad674e0e85feb32",
+      "kind": "module",
       "final": "llm_kit.pipeline.analysis.provenance.snapshot"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/providers/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/providers/__init__.py",
-      "state": "shim",
       "legacy_sha256": "f6bb62d47c90e9cb1b247c354ccf3e9c420c1a42243615b8817d7a1378f103ea",
-      "copy_sha256": "0d38c96a7112a1fdacc57b00990adde2a9e289c0ba0730a32706d9b25e6f182c",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.artifacts.providers"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/providers/assembly.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/providers/assembly.py",
-      "state": "shim",
       "legacy_sha256": "f534d45cbd7658cc2e357d5ed0316257044917ec46353967e92e6b76ec5d096e",
-      "copy_sha256": "9a95d4a05fce5cde5be84dc5897ed016dfacf083fb9befc7040f5f318b34b453",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.providers.assembly"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/providers/registry.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/providers/registry.py",
-      "state": "shim",
       "legacy_sha256": "02980bf45728896a893175512d36e8334d4c634637c8b03baefd5714266d3f83",
-      "copy_sha256": "daf9e2139086ee5b9cce1aec14dbb0c92a48dae8123923cf3b9260a4f03f8a14",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.providers.registry"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/roundtrip/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/roundtrip/__init__.py",
-      "state": "shim",
       "legacy_sha256": "0f2151e4058d50ce9f1695a8ae1575fa0066c42d8cb566037d4b629582ee63bc",
-      "copy_sha256": "90b47a548a6aa9bf2524964970d93a8068b7c30abf14262dcde18867d652aad1",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.artifacts.roundtrip"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/roundtrip/questions.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/roundtrip/questions.py",
-      "state": "shim",
       "legacy_sha256": "a99a27fad8575d1b1a76e78609966899c843c88fbe2d21275fa83e25781f1872",
-      "copy_sha256": "9f6ab5632bf6bfcad91a81ba88b8c58f98df7f0b8dfb0844d1bd3e47129c1258",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.roundtrip.questions"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/roundtrip/returns.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/roundtrip/returns.py",
-      "state": "shim",
       "legacy_sha256": "12d2f06f582133115402ad4b38ab9ea82db24e07bdd02180b9ddb59283429d86",
-      "copy_sha256": "7ccf9c2f801b6c83619ae3a1c39aa8742bf5c18e36e40f616a586ddac9c0adc5",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.roundtrip.returns"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/store/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/store/__init__.py",
-      "state": "shim",
       "legacy_sha256": "3bd2f5033b09e8cae9923d495814575c022b12f77589bee4bf085f13088794b1",
-      "copy_sha256": "504e139b42b9ebc72d23c585741857255048f3442468161734601672af107737",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.artifacts.store"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/store/attributed.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/store/attributed.py",
-      "state": "shim",
       "legacy_sha256": "812afab4368f51c5523a43a3fd312defc4ff9baa654df85a8fc7e6ac687b08bd",
-      "copy_sha256": "065e93068ceea9cf96c60de3f3f9bd9eb41092a81d2382f62534f683706bfbdf",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.store.attributed"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/store/candidate.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/store/candidate.py",
-      "state": "shim",
       "legacy_sha256": "7968c9b182470f956ee708bb33dacf6801cbfed15611eed5183c77c81fd7dde8",
-      "copy_sha256": "77649818d7786f378ddd029ebfd5fc7d430a63daf3c0b0740db69804611abfd1",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.store.candidate"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/store/intermediary.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/store/intermediary.py",
-      "state": "shim",
       "legacy_sha256": "c1e8ca2cdc543392b23fd412d873d031d6b15f60a786f4ec40a2dfbe0f595957",
-      "copy_sha256": "aa687575fda23ced49c4006a64cad5c947ff9f18e835f641e8a6b2b978f0c5b9",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.store.intermediary"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/store/projection.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/store/projection.py",
-      "state": "shim",
       "legacy_sha256": "44d4f815d6cdf805b51c7e3546e17297b012fe0560352d7f53f0ff6167eed6cf",
-      "copy_sha256": "6ad1d39bd80652e6525e7d11880b862b25ff7a08f37f340017ad62113b47d741",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.store.projection"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/validate/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/validate/__init__.py",
-      "state": "shim",
       "legacy_sha256": "b3b08073d315a1ede33e343173da0c78b5aec371fbc0bd6fce7472627554028f",
-      "copy_sha256": "66ae3db3eeb6bd519d088a250130b762e15d34541824d4de9aac40215d380e93",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.core.validate"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/validate/contract.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/validate/contract.py",
-      "state": "shim",
       "legacy_sha256": "c3c77ba7f098ef605994973c7df6c5ca0ad4d86130b5ed948e23c4434362aac4",
-      "copy_sha256": "01aceed20050689b151ea88fafd1979b66c18eb25dc5d1b082c1da59167071f1",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.validate.contract"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/validate/floor_guard.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/validate/floor_guard.py",
-      "state": "shim",
       "legacy_sha256": "96968bad9bc6b515cfb02ef4515c540371a22fe638e4c4c652fd19ef3bdffc18",
-      "copy_sha256": "7011c25a4b67f7360a54dd90a9d32bcc98906245549893fdf5721b720cfa385a",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.validate.floor_guard"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/validate/riders.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/validate/riders.py",
-      "state": "shim",
       "legacy_sha256": "7f0f08ef4ba72b190a59d1716f538effcb3fd436fc6f79fabc40172b177ecafa",
-      "copy_sha256": "f0e254b090ce6ebd58d815302ceaddf2f74022726eeada01bdcdd90217737452",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.validate.riders"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/vcs/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/vcs/__init__.py",
-      "state": "shim",
       "legacy_sha256": "af76e50c493d767ce5bd5f903ec9614c3d312ea08e78ec68ba9c95c770379406",
-      "copy_sha256": "21d30b6221d14251e341153403948e2270d1a0628757b1a3035231121d793ac4",
+      "kind": "facade-package",
       "final": "llm_kit.pipeline.artifacts.vcs"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/vcs/git_vcs.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/vcs/git_vcs.py",
-      "state": "shim",
       "legacy_sha256": "461d320ed29a85f7c37d3ae123b91dba225def0d24d23a7e241661d1226ad808",
-      "copy_sha256": "198a5d7bd7c02f2ad7343b54546caf572a7759f4d575b39238cbc8fb7973f0ac",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.vcs.git_vcs"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/vcs/null_vcs.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/vcs/null_vcs.py",
-      "state": "shim",
       "legacy_sha256": "5c104890e8c36c9ac7e70e2404bcbb0aeefdc599a0f2e65c6374a18ea8d66768",
-      "copy_sha256": "4a15c973bcd888f55c9e46c1490fa13f62278fa7815b8573372fa7f460093936",
+      "kind": "module",
       "final": "llm_kit.pipeline.artifacts.vcs.null_vcs"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/vcs/seam.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/vcs/seam.py",
-      "state": "shim",
       "legacy_sha256": "a9d7d904edef3e1a2c750042a91a4cd6242d7cb153e5f9d7ea8471d2d08c0a9a",
-      "copy_sha256": "c9434676c3042baad8cfa0cdf5ce33454e35dde9776642c623c95a59be680c28",
+      "kind": "module",
       "final": "llm_kit.pipeline.core.vcs_seam"
     },
     "plugins/job-kit/lib/job_kit/__init__.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/__init__.py",
-      "state": "shim",
       "legacy_sha256": "d50e7df642480a3ff62cdf03bbd15bfbde7b03b0ec8c5d63f20307ab52654b1d",
-      "copy_sha256": "67c6e2985a511d99ef981dd3995c918d7d60416afd5bffdf9120593570bb5dc4",
+      "kind": "facade-package",
       "final": "llm_kit.jobs",
       "dropped_names": [
         "EXIT_BOOTSTRAP_MISSING",
@@ -1118,328 +2008,138 @@
       ]
     },
     "plugins/job-kit/lib/job_kit/cli.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/cli.py",
-      "state": "unmoved",
+      "kind": "forwarded",
       "legacy_sha256": "5aa9ec89c96fb3e9a84395999dd6764b99190e891c702fd349aae6af12eb1baa",
-      "copy_sha256": "fabb90f589ca1699b3a73f0bd55c823eee893e6dc00d091fc301fe18e8fbc188"
+      "homes": [
+        "llm_kit.cli.jobs"
+      ],
+      "group": "jobs"
     },
     "plugins/job-kit/lib/job_kit/events.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/events.py",
-      "state": "shim",
       "legacy_sha256": "8dc175a8eba9558e35238a201f1d93317e275cea82744065022133ab2d443ae0",
-      "copy_sha256": "fe1410c8f1990e0c5b7f0a63eb115791ffd78a6fd8caa8f49631121cbaeb556c",
+      "kind": "module",
       "final": "llm_kit.jobs.events"
     },
     "plugins/job-kit/lib/job_kit/interrupts.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/interrupts.py",
-      "state": "shim",
       "legacy_sha256": "21e9d117c2e1c6a3b69d0e167f5992c7101f5352c10e4e77ab19871b91ba4d74",
-      "copy_sha256": "08daf9385fd999ef08d0cfe372e893362b1dbed7e95b3f730f3332536342607f",
+      "kind": "module",
       "final": "llm_kit.jobs.interrupts"
     },
     "plugins/job-kit/lib/job_kit/model.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/model.py",
-      "state": "shim",
       "legacy_sha256": "6dd4268d7a781966bfc0752f1416cee138628ea06a6a543003345242f947a483",
-      "copy_sha256": "92c487db15c0f67313b3b65f9433bc9e67168b09118397dcfe6bf3259dc846de",
+      "kind": "module",
       "final": "llm_kit.jobs.model"
     },
     "plugins/job-kit/lib/job_kit/run.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/run.py",
-      "state": "shim",
       "legacy_sha256": "6c9bffe3809f5bc0792031a8edfe0b3725f6d6b8dd5ec362e0fb10b4dcda03ff",
-      "copy_sha256": "d4cda7b6a858392b2c89d086ca7cf49a8867e6f2085b175058fc4de7bf7da483",
+      "kind": "module",
       "final": "llm_kit.jobs.run"
     },
     "plugins/job-kit/lib/job_kit/select.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/select.py",
-      "state": "shim",
       "legacy_sha256": "7f2bb0a839ce7acc284e53ea1ba2b51cfb1cb967768825f5171d56020806b008",
-      "copy_sha256": "86cf8a90a05b10bf4dd529375840c9f843725dc84605edf6ee10f2bdf422ab73",
+      "kind": "module",
       "final": "llm_kit.jobs.select"
     },
     "plugins/job-kit/lib/job_kit/store.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/store.py",
-      "state": "shim",
       "legacy_sha256": "9e5b04c8057f007c178f4bee98a7c22da2c3f6a70de4ff66ace3961849770795",
-      "copy_sha256": "fca14c751b92fc0b8553a8908b9974382aadd8488fd883de8ebdf4bd52462a69",
+      "kind": "module",
       "final": "llm_kit.jobs.store"
     },
     "plugins/job-kit/lib/job_kit/workspace.py": {
-      "copy": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/workspace.py",
-      "state": "shim",
       "legacy_sha256": "ec89f6ab102b8c374bdecb32bef1e0dfdac452b32a975a8b37f2e8a80b9bedb1",
-      "copy_sha256": "055d28116ffd0d980d436ebd01a49db1b736becd7bb8694ce9f9d2796b7c09d3",
+      "kind": "module",
       "final": "llm_kit.jobs.workspace"
     }
   },
-  "test_text_edits": [
-    {
-      "file": "tests/content-pipeline-kit/test_execution_interrupts_store.py",
-      "old": "seen[\"validator\"].__name__ == \"llm_kit._copy.llm_scripting_kit.completion.json_schema\"",
-      "new": "seen[\"validator\"].__name__ == \"llm_kit.schema.json_schema\"",
-      "reason": "json_schema lives in llm_kit.schema; the shim at the copy path is the same module object, so its __name__ is the final name."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
-      "old": "assert found_validator.__name__ == VALIDATOR_MODULE",
-      "new": "assert found_validator.__name__ == \"llm_kit.schema.json_schema\"",
-      "reason": "json_schema lives in llm_kit.schema; the shim at the copy path is the same module object, so its __name__ is the final name."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_parallel_graph.py",
-      "old": "    tree = ast.parse((EXECUTION / filename).read_text(encoding=\"utf-8\"))",
-      "new": "    source = (EXECUTION.parents[2] / \"storage\" / \"atomic_json.py\"\n              if filename == \"_atomic_json.py\"\n              else EXECUTION.parents[2] / \"pipeline\" / \"execution\" / filename)\n    tree = ast.parse(source.read_text(encoding=\"utf-8\"))",
-      "reason": "_atomic_json moved to llm_kit.storage.atomic_json and scheduler, deadlines and failure_cache to llm_kit.pipeline.execution; the stdlib-only property is checked on the final files, not on the shims."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_parallel_graph.py",
-      "old": "            names = [item.module or \"\"]\n",
-      "new": "            names = [item.module or \"\"]\n            if item.module == \"llm_kit.storage\":\n                # the one internal edge of the stdlib-only modules: the atomic-JSON writer\n                names = [f\"llm_kit.storage.{a.name}\" for a in item.names if a.name != \"atomic_json\"]\n",
-      "reason": "deadlines and failure_cache import the atomic-JSON writer from llm_kit.storage (it moved there); that import stays the one allowed internal edge, any other storage name is still refused."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
-      "old": "TERMS = re.compile(",
-      "new": "FINAL = {\n    \"llm/convergence.py\": LIB.parents[1] / \"pipeline\" / \"core\" / \"convergence.py\",\n    \"pipeline/convergence_loop.py\": LIB.parents[1] / \"pipeline\" / \"core\" / \"convergence_loop.py\",\n    \"pipeline/cell_policy.py\": LIB.parents[1] / \"pipeline\" / \"core\" / \"cell_policy.py\",\n    \"execution/_atomic_json.py\": LIB.parents[1] / \"storage\" / \"atomic_json.py\",\n}\nTERMS = re.compile(",
-      "reason": "These four modules moved to llm_kit.pipeline.core and llm_kit.storage; the vocabulary scan reads the final files, not the shims."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
-      "old": "        text = (LIB / rel).read_text(encoding=\"utf-8\")",
-      "new": "        text = FINAL.get(rel, LIB / rel).read_text(encoding=\"utf-8\")",
-      "reason": "Reads the final file for a moved module (see FINAL)."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_llm_spend_ledger_concurrency.py",
-      "old": "        sites = _string_constants(tree, owners, (\"BEGIN\",))\n",
-      "new": "        sites = _string_constants(tree, owners, (\"BEGIN\",))\n        # The BEGIN verb is carried by llm_kit.storage.transaction; the ledger names it\n        # by calling write_transaction (BEGIN IMMEDIATE) or read_transaction (plain BEGIN).\n        sites += [\n            (owners.get(id(call), \"<module>\"),\n             \"BEGIN IMMEDIATE\" if call.func.attr == \"write_transaction\" else \"BEGIN\")\n            for call in ast.walk(tree)\n            if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)\n            and call.func.attr in (\"write_transaction\", \"read_transaction\")\n        ]\n",
-      "reason": "_writer and _reader no longer hold the BEGIN literal; they call llm_kit.storage.transaction, so the guard counts those calls as the BEGIN sites."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_llm_spend_ledger.py",
-      "old": "from llm_kit._copy.content_pipeline.execution.store import looks_like_network_path as original",
-      "new": "from llm_kit.storage.network import looks_like_network_path as original",
-      "reason": "The duplicate is gone: both ledgers delegate to llm_kit.storage.network, which is the original the spend ledger's copy must match."
-    },
-    {
-      "file": "tests/llm-scripting-kit/test_endpoints.py",
-      "old": "types.ModuleType(\"llm_kit._copy.llm_scripting_kit.model_endpoints\")",
-      "new": "types.ModuleType(\"llm_kit.registry.model_endpoints\")",
-      "count": 2,
-      "reason": "models now lives in llm_kit.registry and imports its sibling by the final name, so the fake registry module is installed under that name."
-    },
-    {
-      "file": "tests/llm-scripting-kit/test_endpoints.py",
-      "old": "monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.model_endpoints\", fake)",
-      "new": "monkeypatch.setitem(sys.modules, \"llm_kit.registry.model_endpoints\", fake)",
-      "count": 2,
-      "reason": "models now lives in llm_kit.registry and imports its sibling by the final name, so the fake registry module is installed under that name."
-    },
-    {
-      "file": "tests/llm-scripting-kit/test_model_resolve.py",
-      "old": "yaml_path = Path(models_mod.__file__).parent / \"default_config.yaml\"",
-      "new": "yaml_path = Path(__import__(\"llm_kit._copy.llm_scripting_kit\", fromlist=[\"x\"]).__file__).parent / \"default_config.yaml\"",
-      "reason": "models lives in llm_kit.registry; the bootstrap seed file default_config.yaml stays beside the quarantined copy until the seeding surface moves."
-    },
-    {
-      "file": "tests/llm-scripting-kit/test_completion_contract.py",
-      "old": "    assert relative == {\"json_schema\"}, relative\n    assert \"llm_kit._copy.llm_scripting_kit\" not in absolute\n    import sys\n\n    stdlib = set(sys.stdlib_module_names) | {\"__future__\"}\n    assert absolute <= stdlib, absolute - stdlib\n",
-      "new": "    assert relative == set(), relative\n    assert \"llm_kit._copy.llm_scripting_kit\" not in absolute\n    import sys\n\n    stdlib = set(sys.stdlib_module_names) | {\"__future__\"}\n    assert absolute - stdlib == {\"llm_kit\"}, absolute - stdlib\n    assert {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)\n            and n.module.split(\".\")[0] == \"llm_kit\"} == {\"llm_kit.schema.json_schema\"}\n",
-      "reason": "contract_types moved to llm_kit.completion.contract_types, where json_schema is the absolute import from llm_kit.schema; the leaf-module property is checked on the final file (inspect reads it through the alias), with the one non-stdlib import pinned to the validator."
-    },
-    {
-      "file": "tests/job-kit/test_interrupts_contract_parity.py",
-      "old": "\"llm_kit._copy.llm_scripting_kit.completion.json_schema\"",
-      "new": "\"llm_kit.schema.json_schema\"",
-      "reason": "The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for."
-    },
-    {
-      "file": "tests/job-kit/test_interrupts_contract_probe.py",
-      "old": "\"llm_kit._copy.llm_scripting_kit.completion.json_schema\"",
-      "new": "\"llm_kit.schema.json_schema\"",
-      "reason": "The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for.",
-      "count": 2
-    },
-    {
-      "file": "tests/job-kit/test_interrupts_envelope.py",
-      "old": "\"llm_kit._copy.llm_scripting_kit.completion.json_schema\"",
-      "new": "\"llm_kit.schema.json_schema\"",
-      "reason": "The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for.",
-      "count": 4
-    },
-    {
-      "file": "tests/job-kit/test_interrupts_runner.py",
-      "old": "\"llm_kit._copy.llm_scripting_kit.completion.json_schema\"",
-      "new": "\"llm_kit.schema.json_schema\"",
-      "reason": "The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for."
-    },
-    {
-      "file": "tests/job-kit/test_interrupts_store.py",
-      "old": "\"llm_kit._copy.llm_scripting_kit.completion.json_schema\"",
-      "new": "\"llm_kit.schema.json_schema\"",
-      "reason": "The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for."
-    },
-    {
-      "file": "tests/job-kit/test_interrupts_envelope.py",
-      "old": "monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", None)",
-      "new": "monkeypatch.setitem(sys.modules, \"llm_kit\", None)",
-      "reason": "The validator probe's package is llm_kit (the validator lives in llm_kit.schema), so an absent validator package is simulated by blocking llm_kit, the name the probe imports first.",
-      "count": 2
-    },
-    {
-      "file": "tests/job-kit/test_interrupts_contract_probe.py",
-      "old": "owner.func.id == \"_interrupt_contract\"",
-      "new": "owner.func.id == \"_adapter\"",
-      "reason": "job-kit now reaches the contract through the shared adapter (_adapter().<call>); the probe table must still name every call job-kit makes."
-    },
-    {
-      "file": "tests/job-kit/test_events.py",
-      "old": "assert non_stdlib <= {\"bootstrap_lib\"}, non_stdlib",
-      "new": "assert {n for n in non_stdlib if not n.startswith(\"llm_kit.execution\")} <= {\"bootstrap_lib\"}, non_stdlib",
-      "reason": "events.py now delegates its probe and make_event call to llm_kit.execution; that is the one llm_kit edge it may hold besides bootstrap_lib."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
-      "old": "VALIDATOR_MODULE = \"llm_kit._copy.llm_scripting_kit.completion.json_schema\"",
-      "new": "VALIDATOR_MODULE = \"llm_kit.schema.json_schema\"",
-      "reason": "The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
-      "old": "\"llm_kit._copy.llm_scripting_kit.completion.json_schema does not import. Run \"",
-      "new": "\"llm_kit.schema.json_schema does not import. Run \"",
-      "reason": "The refusal names the validator module the probe imports, now llm_kit.schema.json_schema."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
-      "old": "if mode == \"validator_absent\" and name == \"llm_kit._copy.llm_scripting_kit\":\n            raise _missing(\"llm_kit._copy.llm_scripting_kit\")",
-      "new": "if mode == \"validator_absent\" and name == \"llm_kit\":\n            raise _missing(\"llm_kit\")",
-      "reason": "The validator probe's package is llm_kit (the validator lives in llm_kit.schema), so an absent validator package is simulated by blocking llm_kit, the name the probe imports first."
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_execution_interrupts_events.py",
-      "old": "        \"llm_kit._copy.llm_scripting_kit\",\n        \"llm_kit._copy.llm_scripting_kit.completion\",\n        \"llm_kit._copy.llm_scripting_kit.completion.json_schema\",\n    )\n    saved =",
-      "new": "        \"llm_kit.schema.json_schema\",\n    )\n    saved =",
-      "reason": "The validator the interrupt probe loads is llm_kit.schema.json_schema; the copy path is only an alias of it, and the probe never imports the quarantined package, so the test blocks and checks the module the probe asks for."
-    },
-    {
-      "file": "tests/llm-scripting-kit/test_declaration_observer.py",
-      "old": "path = PLUGIN_ROOT / \"lib\" / \"llm_kit\" / \"_copy\" / \"llm_scripting_kit\" / \"observer.py\"",
-      "new": "path = PLUGIN_ROOT / \"lib\" / \"llm_kit\" / \"dispatch\" / \"observer.py\"",
-      "reason": "observer moved to llm_kit.dispatch.observer; the leaf-import property is checked on the final file, not on the one-line shim at the copy path."
-    },
-    {
-      "file": "tests/llm-scripting-kit/test_review_lane.py",
-      "old": "/ \"plugins\" / \"llm-kit\" / \"lib\" / \"llm_kit\" / \"_copy\" / \"llm_scripting_kit\" / \"review_lane.py\"",
-      "new": "/ \"plugins\" / \"llm-kit\" / \"lib\" / \"llm_kit\" / \"dispatch\" / \"review_lane.py\"",
-      "reason": "review_lane moved to llm_kit.dispatch.review_lane; the no-silent-fallback source scan reads the final file, not the shim at the copy path."
-    },
+  "path_overrides": {
+    "plugins/content-pipeline-kit/lib/content_pipeline/x.py": {
+      "to": "plugins/llm-kit/lib/llm_kit/x.py",
+      "reason": "a made-up module path the test feeds a path-shape check; no module exists at either name"
+    }
+  },
+  "name_overrides": {
+    "llm_scripting_kit.quota_selection": {
+      "to": "legacy_names.llm_scripting_kit.quota_selection",
+      "reason": "a module removed before the consolidation; the alias tree has none, so importing it fails as the legacy import did"
+    }
+  },
+  "accepted_unmapped": [
     {
       "file": "tests/job-kit/test_model.py",
-      "old": "from llm_kit._copy.job_kit import SharedLibTooOldError\n",
-      "new": "",
-      "reason": "SharedLibTooOldError is removed with the shared-lib skew probes (neutral types are internal to llm-kit); the import is dropped and the one test that asserts the class is declared skipped."
+      "name": "job_kit.SharedLibTooOldError",
+      "reason": "the shared-lib skew probes are removed (neutral types are internal to llm-kit); a test_text_edits row drops the import"
+    }
+  ],
+  "wording_edits": [
+    {
+      "old": "claude plugin update llm-scripting-kit@plugins-kit",
+      "new": "claude plugin update llm-kit@plugins-kit",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     },
     {
-      "file": "tests/job-kit/test_events.py",
-      "old": "/ \"llm_kit\" / \"_copy\" / \"job_kit\"",
-      "new": "/ \"llm_kit\" / \"jobs\"",
-      "reason": "The job-kit modules moved to llm_kit.jobs; the import-surface scans read the final events.py and store.py, not the one-line shims at the copy path."
+      "old": "claude plugin install llm-scripting-kit@plugins-kit",
+      "new": "claude plugin install llm-kit@plugins-kit",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     },
     {
-      "file": "tests/job-kit/test_interrupts_contract_probe.py",
-      "old": "    / \"_copy\"\n    / \"job_kit\"\n    / \"interrupts.py\"",
-      "new": "    / \"jobs\"\n    / \"interrupts.py\"",
-      "reason": "interrupts moved to llm_kit.jobs.interrupts; the probe-table source scan reads the final file, not the shim at the copy path."
+      "old": "\">= 0.56.0\"",
+      "new": "\">= 0.1.2\"",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py). The validator floor is the first llm-kit release that ships schema.json_schema."
     },
     {
-      "file": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
-      "old": "elif module == \"llm_kit._copy.content_pipeline.llm\" or module.startswith(\n                \"llm_kit._copy.content_pipeline.llm.\"\n            ):",
-      "new": "elif module == \"llm_kit.pipeline.runtime\" or module.startswith(\n                \"llm_kit.pipeline.runtime.\"\n            ):",
-      "reason": "The llm package moved to llm_kit.pipeline.runtime; the import-scope scan reads the final budget.py, so the allowed sibling prefix is the final package."
+      "old": "match=\"0.56.0\"",
+      "new": "match=\"0.1.2\"",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py). The validator floor is the first llm-kit release that ships schema.json_schema."
     },
     {
-      "file": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
-      "old": "assert \"may import ``llm``\" in doc",
-      "new": "assert \"may import ``platform``\" in doc\n        assert \"``spend_ledger``\" in doc",
-      "reason": "The final budget.py states the same one-way rule in terms of the modules it imports (platform and spend_ledger), because the llm package is now llm_kit.pipeline.runtime."
+      "old": "\"update job-kit\" in message",
+      "new": "\"update llm-kit\" in message",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_platform.py",
-      "old": "    pkg = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    completion = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion\")\n    halt_mod = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion.halt\")\n    halt_mod.classify_openai_exception = classify_openai_exception\n    completion.halt = halt_mod\n    pkg.completion = completion\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", pkg)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion\", completion)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion.halt\", halt_mod)\n",
-      "new": "    halt_mod = types.ModuleType(\"llm_kit.completion.halt\")\n    halt_mod.classify_openai_exception = classify_openai_exception\n    monkeypatch.setitem(sys.modules, \"llm_kit.completion.halt\", halt_mod)\n",
-      "reason": "The pipeline classifier delegates to llm_kit.completion.halt; the fake classifier is installed under that module name, not under a shared-lib package that no longer sits between them."
+      "old": "\"job-kit resume <run-id>\" in message",
+      "new": "\"llm-kit jobs resume <run-id>\" in message",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_backends.py",
-      "old": "    class _CompletionOptions:\n        def __init__(self, **kwargs):\n            self.__dict__.update(kwargs)\n\n    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    completion = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion\")\n    completion.BackendOptions = _CompletionOptions\n    completion.OpenRouterBackend = _Delegate\n    package.completion = completion\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion\", completion)\n\n    response = OpenRouterBackend().complete(\"s\", \"u\", model=\"m\")\n",
-      "new": "    from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory\n\n    factory = ConfiguredBackendFactory(classes={\"openrouter\": _Delegate})\n\n    response = OpenRouterBackend(factory=factory).complete(\"s\", \"u\", model=\"m\")\n",
-      "reason": "The wrapper builds its delegate through an injected BackendFactory; the test injects the delegate class there instead of faking a shared-lib completion package in sys.modules."
+      "old": "} record-halt <entry>",
+      "new": "} models record-halt <entry>",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py). The halt write-back verb lives in the models group."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_backends.py",
-      "old": "    pkg = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    completion = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion\")\n    completion.OpenRouterBackend = _Counting\n    completion.ClaudeCliBackend = _Counting\n    pkg.completion = completion\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", pkg)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion\", completion)\n",
-      "new": "    from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory\n\n    factory = ConfiguredBackendFactory(\n        classes={\"openrouter\": _Counting, \"claude-cli\": _Counting}\n    )\n    # A wrapper given no factory (route() builds such wrappers) takes the\n    # default one; point its class lookup at the counting classes so the\n    # routing test still observes a build.\n    monkeypatch.setattr(\"llm_kit.dispatch.pipeline_backends._default_class\", factory._class_for)\n    return factory\n",
-      "reason": "Delegate classes are injected through ConfiguredBackendFactory(classes=...) and returned to the tests that pass it to a wrapper; the default class lookup is pointed at the same table for the routing test, which builds wrappers without a factory."
+      "old": "content-pipeline-kit interrupts need bootstrap",
+      "new": "llm-kit pipeline interrupts need bootstrap",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_backends.py",
-      "old": "    _install_counting_completion(monkeypatch, built, built_lock)\n\n    n_threads = 24\n    backend = backend_cls()\n",
-      "new": "    factory = _install_counting_completion(monkeypatch, built, built_lock)\n\n    n_threads = 24\n    backend = backend_cls(factory=factory)\n",
-      "reason": "The wrapper under test receives the counting factory."
+      "old": "content-pipeline-kit interrupts need llm-scripting-kit 0.56.0 or newer",
+      "new": "llm-kit pipeline interrupts need llm-kit 0.1.2 or newer",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py). The validator floor is the first llm-kit release that ships schema.json_schema."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_backends.py",
-      "old": "    _install_counting_completion(monkeypatch, built, threading.Lock())\n    backend = OpenRouterBackend()\n",
-      "new": "    factory = _install_counting_completion(monkeypatch, built, threading.Lock())\n    backend = OpenRouterBackend(factory=factory)\n",
-      "reason": "The wrapper under test receives the counting factory."
+      "old": "llm_scripting_kit.completion.json_schema does not import",
+      "new": "llm_kit.schema.json_schema does not import",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_backends.py",
-      "old": "    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    completion = types.ModuleType(\"llm_kit._copy.llm_scripting_kit.completion\")\n    completion.OpencodeCliBackend = _Delegate\n    package.completion = completion\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.completion\", completion)\n\n    runner = object()\n    backend = OpencodeCliBackend(\n        default_timeout_s=17.0, argv_prefix=(\"opencode\",), runner=runner\n    )\n",
-      "new": "    from llm_kit.dispatch.pipeline_backends import ConfiguredBackendFactory\n\n    runner = object()\n    backend = OpencodeCliBackend(\n        default_timeout_s=17.0, argv_prefix=(\"opencode\",), runner=runner,\n        factory=ConfiguredBackendFactory(classes={\"opencode-cli\": _Delegate}),\n    )\n",
-      "reason": "The delegate class is injected through the wrapper's factory; the constructor arguments it receives are asserted unchanged."
+      "old": "\"llm-scripting-kit@plugins-kit\"",
+      "new": "\"llm-kit@plugins-kit\"",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_backends.py",
-      "old": "    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    package.declaration = declaration\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.declaration\", declaration)\n    return declaration\n",
-      "new": "    monkeypatch.setattr(\"llm_kit.pipeline.runtime.backends._declaration_module\", lambda: declaration)\n    return declaration\n",
-      "reason": "The runtime reaches the declaration module only through the named seam backends._declaration_module (as the contract-aware fake in this file already does); the fake is installed there."
+      "old": "LSK_VERSION == \"0.56.0\"",
+      "new": "LSK_VERSION == \"0.1.2\"",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py). The validator floor is the first llm-kit release that ships schema.json_schema."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_backends.py",
-      "old": "    import sys\n    import types as _types\n\n    declaration = _types.ModuleType(\"llm_kit._copy.llm_scripting_kit.declaration\")\n    declaration.describe = _describe\n    declaration.run = lambda *a, **kw: None\n    declaration.RunRequest = object\n    declaration.NoUsableRoutingTarget = RuntimeError\n    declaration.CALLER_PROCESS = \"process\"\n    package = _types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    package.declaration = declaration\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.declaration\", declaration)\n",
-      "new": "    import types as _types\n\n    declaration = _types.ModuleType(\"llm_kit.dispatch.declaration\")\n    declaration.describe = _describe\n    declaration.run = lambda *a, **kw: None\n    declaration.RunRequest = object\n    declaration.NoUsableRoutingTarget = RuntimeError\n    declaration.CALLER_PROCESS = \"process\"\n    monkeypatch.setattr(\"llm_kit.pipeline.runtime.backends._declaration_module\", lambda: declaration)\n",
-      "reason": "The runtime reaches the declaration module only through the named seam backends._declaration_module (as the contract-aware fake in this file already does); the fake is installed there."
+      "old": "content-pipeline-kit interrupts validate requests and answers with",
+      "new": "llm-kit pipeline interrupts validate requests and answers with",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     },
     {
-      "file": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
-      "old": "    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    package.declaration = declaration\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.declaration\", declaration)\n",
-      "new": "    monkeypatch.setattr(\"llm_kit.pipeline.runtime.backends._declaration_module\", lambda: declaration)\n",
-      "reason": "The runtime reaches the declaration module only through the named seam backends._declaration_module (as the contract-aware fake in this file already does); the fake is installed there.",
-      "count": 2
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
-      "old": "types.ModuleType(\"llm_kit._copy.llm_scripting_kit.model_endpoints\")",
-      "new": "types.ModuleType(\"llm_kit.registry.model_endpoints\")",
-      "reason": "The runtime resolves the registry entry from llm_kit.registry.model_endpoints; the fake registry module carries that name.",
-      "count": 2
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
-      "old": "monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.model_endpoints\", fake)",
-      "new": "monkeypatch.setitem(sys.modules, \"llm_kit.registry.model_endpoints\", fake)",
-      "reason": "The fake registry module is installed under llm_kit.registry.model_endpoints.",
-      "count": 2
-    },
-    {
-      "file": "tests/content-pipeline-kit/test_run_cli.py",
-      "old": "    package = types.ModuleType(\"llm_kit._copy.llm_scripting_kit\")\n    package.declaration = declaration\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit\", package)\n    monkeypatch.setitem(sys.modules, \"llm_kit._copy.llm_scripting_kit.declaration\", declaration)\n",
-      "new": "    monkeypatch.setattr(\"llm_kit.pipeline.runtime.backends._declaration_module\", lambda: declaration)\n",
-      "reason": "The runtime reaches the declaration module only through the named seam backends._declaration_module (as the contract-aware fake in this file already does); the fake is installed there.",
-      "count": 2
+      "old": "llm_scripting_kit, which this interpreter cannot import",
+      "new": "llm_kit.schema.json_schema, which this interpreter cannot import",
+      "reason": "Message wording the final package states for llm-kit (tests/llm-kit/final_wording.py RENAMES, each proved against the live sources by test_final_messages.py)."
     }
   ]
 }

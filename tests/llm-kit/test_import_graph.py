@@ -17,12 +17,10 @@ Rules beyond the edge set:
   nothing and import no llm_kit module;
 * no other top-level module or directory is classified, so any unclassified
   module (or an import of one) is a violation;
-* final components never import the ``_copy`` quarantine;
-* a ``_copy`` module may import a final component only when it is a declared
-  re-export shim (a ``modules`` row of ``repoint-map.json`` whose ``state`` is not
-  ``unmoved`` and which names its ``final`` module), and only that module;
+* there is no ``_copy`` quarantine: a ``_copy`` directory under the package, a
+  module that sits in it or an import of ``llm_kit._copy`` is a violation;
 * ``llm_kit.bootstrap_guard`` is CLI-owned startup support: it imports no llm_kit
-  module, and only ``cli`` and ``jobs`` (and the ``_copy`` quarantine) import it;
+  module, and only ``cli`` and ``jobs`` import it;
 * jobs and pipeline.execution never import each other (neither edge is in the
   signed set).
 
@@ -125,8 +123,6 @@ def classify_module(dotted: str) -> Optional[str]:
     if len(parts) == 1:
         return ROOT
     head = parts[1]
-    if head == COPY:
-        return COPY
     if head == GUARD:
         return GUARD
     if head == "pipeline":
@@ -156,8 +152,6 @@ def classify_file(root: Path, path: Path) -> tuple[Optional[str], str]:
         return GUARD, dotted
     if len(parts) == 1 and not is_init:
         return None, dotted                       # flat top-level module
-    if parts[0] == COPY:
-        return COPY, dotted
     if parts[0] == "pipeline":
         if len(parts) == 2 and not is_init:
             return None, dotted                   # flat module inside pipeline/
@@ -257,24 +251,7 @@ def _targets(ref: ImportRef) -> list[str]:
 # rules
 # --------------------------------------------------------------------------
 
-def _shim_allows(final: "str | list[str]", ref: ImportRef) -> bool:
-    """True when the import reaches exactly one of the shim's mapped final modules.
-
-    A slice that delegates to more than one final module names them as a list.
-    """
-    module = ref.module
-    for target in ([final] if isinstance(final, str) else final):
-        if module == target or module.startswith(target + "."):
-            return True
-        if ref.names and all(
-                target == f"{module}.{n}" or target.startswith(f"{module}.{n}.")
-                for n in ref.names):
-            return True
-    return False
-
-
-def check_file(root: Path, path: Path, tree: ast.AST,
-               shims: Mapping[str, str]) -> list[Violation]:
+def check_file(root: Path, path: Path, tree: ast.AST) -> list[Violation]:
     source, dotted = classify_file(root, path)
     rel = path.relative_to(root).as_posix()
     shown = f"llm_kit/{rel}"
@@ -288,9 +265,11 @@ def check_file(root: Path, path: Path, tree: ast.AST,
 
     if source is None:
         add("unclassified-source", dotted, None,
-            "not in a final component, _copy, or the bootstrap_guard module")
+            "not in a final component or the bootstrap_guard module")
 
     refs = collect_imports(tree, dotted, is_init)
+    if COPY in rel.split("/"):
+        add("quarantine-present", dotted, None, "the _copy quarantine is removed; no module may sit in it")
 
     if source in (ROOT, PIPELINE_ROOT):
         for node in ast.walk(tree):
@@ -311,6 +290,9 @@ def check_file(root: Path, path: Path, tree: ast.AST,
     for ref in refs:
         if ref.module.split(".")[0] != "llm_kit":
             continue                                  # stdlib or third party
+        if ref.module == f"llm_kit.{COPY}" or ref.module.startswith(f"llm_kit.{COPY}."):
+            add("imports-copy", ref.module, ref, "the _copy quarantine is removed; nothing may import it")
+            continue
         if source == GUARD:
             add("guard-imports-llm-kit", ref.module, ref, "bootstrap_guard is stdlib-only")
             continue
@@ -327,22 +309,9 @@ def check_file(root: Path, path: Path, tree: ast.AST,
             if target == source:
                 continue                              # same-component imports are unrestricted
             if target == GUARD:
-                if source not in GUARD_CONSUMERS and source != COPY:
+                if source not in GUARD_CONSUMERS:
                     add("guard-consumer", target, ref,
                         "llm_kit.bootstrap_guard is imported only by cli and jobs")
-                continue
-            if source == COPY:
-                if target == COPY:
-                    continue
-                final = shims.get(rel)
-                if final is None:
-                    add("copy-undeclared-shim", module, ref,
-                        "a _copy module imports a final component without being a declared shim")
-                elif not _shim_allows(final, ref):
-                    add("copy-shim-target", module, ref, f"a shim may import only its final module {final}")
-                continue
-            if target == COPY:
-                add("final-imports-copy", module, ref, "final components never import _copy")
                 continue
             if target not in ALLOWED[source]:
                 add("edge", target, ref,
@@ -352,36 +321,18 @@ def check_file(root: Path, path: Path, tree: ast.AST,
     return found
 
 
-def scan(root: Path, shims: Optional[Mapping[str, str]] = None) -> list[Violation]:
+def scan(root: Path) -> list[Violation]:
     """Every violation under the package root, ordered by path and line."""
     found: list[Violation] = []
+    if (root / COPY).exists():
+        found.append(Violation("quarantine-present", COPY, COPY, "file", f"llm_kit/{COPY}", 1,
+                               "the _copy quarantine directory must not exist"))
     for path in sorted(root.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        found.extend(check_file(root, path, tree, shims or {}))
+        found.extend(check_file(root, path, tree))
     return sorted(found, key=lambda v: (v.path, v.line, v.rule, v.target))
-
-
-def load_declared_shims(map_path: Path = MAP_PATH) -> dict[str, str]:
-    """Moved ``_copy`` modules (path relative to llm_kit/) -> their final module."""
-    mapping = json.loads(map_path.read_text(encoding="utf-8"))
-    prefix = "plugins/llm-kit/lib/llm_kit/"
-    shims: dict[str, str] = {}
-    for legacy, row in mapping["modules"].items():
-        if row["state"] == "unmoved":
-            continue
-        copy = row["copy"]
-        assert copy.startswith(prefix + "_copy/"), f"{legacy}: copy path outside _copy: {copy}"
-        final = row.get("final")
-        names = [final] if isinstance(final, str) else final
-        assert isinstance(names, list) and names and all(
-            isinstance(n, str) and classify_module(n) in COMPONENTS for n in names), (
-            f"{legacy}: a moved module must name a final component module (or a list of "
-            f"them, for a slice that delegates to several) in its map row ('final'), "
-            f"got {final!r}")
-        shims[copy[len(prefix):]] = final
-    return shims
 
 
 def report(violations: Iterable[Violation]) -> str:
@@ -394,17 +345,22 @@ def report(violations: Iterable[Violation]) -> str:
 
 def test_package_root_exists():
     assert (PACKAGE_ROOT / "__init__.py").is_file(), PACKAGE_ROOT
-    assert any((PACKAGE_ROOT / COPY).rglob("*.py")), "the quarantined copy is the vacuity witness"
+    # the vacuity witness: the scan reads the whole final tree
+    assert len(list(PACKAGE_ROOT.rglob("*.py"))) >= 150
+
+
+def test_the_quarantined_copy_is_gone():
+    assert not (PACKAGE_ROOT / COPY).exists()
 
 
 def test_tree_obeys_the_signed_import_graph():
-    violations = scan(PACKAGE_ROOT, load_declared_shims())
+    violations = scan(PACKAGE_ROOT)
     assert not violations, "import-direction violations:\n" + report(violations)
 
 
 def test_bootstrap_guard_consumers_are_only_cli_and_jobs():
     refs = [
-        v for v in scan(PACKAGE_ROOT, load_declared_shims()) if v.rule == "guard-consumer"
+        v for v in scan(PACKAGE_ROOT) if v.rule == "guard-consumer"
     ]
     assert not refs, report(refs)
 
@@ -602,78 +558,30 @@ def test_importing_the_root_package_itself_is_caught(tmp_path):
 
 
 def test_final_component_importing_copy_is_caught(tmp_path):
-    root = _tree(tmp_path, {
-        "schema/mod.py": "from llm_kit._copy.job_kit import x\n",
-        "_copy/__init__.py": "",
-        "_copy/job_kit/__init__.py": "",
-    })
-    assert [(v.rule, v.source) for v in scan(root)] == [("final-imports-copy", "schema")]
+    root = _tree(tmp_path, {"schema/mod.py": "from llm_kit._copy.job_kit import x\nimport llm_kit._copy\n"})
+    found = scan(root)
+    assert [(v.rule, v.source) for v in found] == [("imports-copy", "schema")] * 2, report(found)
 
 
-def test_copy_to_copy_and_copy_to_guard_are_allowed(tmp_path):
-    root = _tree(tmp_path, {
-        "_copy/__init__.py": "",
-        "_copy/a.py": "from llm_kit._copy import b\nfrom llm_kit.bootstrap_guard import g\n",
-        "_copy/b.py": "from . import a\n",
-        "bootstrap_guard.py": "",
-    })
-    assert scan(root) == []
-
-
-def test_undeclared_copy_import_of_a_final_target_is_caught(tmp_path):
+def test_a_copy_directory_and_the_modules_in_it_are_caught(tmp_path):
     root = _tree(tmp_path, {
         "_copy/__init__.py": "",
         "_copy/mod.py": "from llm_kit.schema.json_repair import x\n",
         "schema/__init__.py": "",
     })
-    assert [v.rule for v in scan(root)] == ["copy-undeclared-shim"]
+    rules = sorted({v.rule for v in scan(root)})
+    assert rules == ["quarantine-present", "unclassified-source"], rules
+    assert any(v.path == "llm_kit/_copy" for v in scan(root))
 
 
-def test_declared_shim_may_import_only_its_final_target(tmp_path):
-    root = _tree(tmp_path, {
-        "_copy/__init__.py": "",
-        "_copy/shim.py": "from llm_kit.schema.json_repair import x\n",
-        "_copy/shim2.py": "from llm_kit.schema import json_repair\n",
-        "_copy/wrong.py": "from llm_kit.schema.other import x\n",
-        "_copy/wrong2.py": "from llm_kit.registry import x\n",
-        "schema/__init__.py": "",
-    })
-    shims = {"_copy/shim.py": "llm_kit.schema.json_repair",
-             "_copy/shim2.py": "llm_kit.schema.json_repair",
-             "_copy/wrong.py": "llm_kit.schema.json_repair",
-             "_copy/wrong2.py": "llm_kit.schema.json_repair"}
-    found = scan(root, shims)
-    assert sorted((v.path, v.rule) for v in found) == [
-        ("llm_kit/_copy/wrong.py", "copy-shim-target"),
-        ("llm_kit/_copy/wrong2.py", "copy-shim-target"),
-    ], report(found)
 
 
-def test_a_slice_with_a_list_of_finals_may_import_each_but_no_third(tmp_path):
-    root = _tree(tmp_path, {
-        "_copy/__init__.py": "",
-        "_copy/slice.py": (
-            "from llm_kit.schema.json_repair import x" + chr(10) +
-            "from llm_kit.registry import conserve" + chr(10)
-        ),
-        "_copy/third.py": "from llm_kit.completion.halt import y",
-        "schema/__init__.py": "",
-    })
-    finals = ["llm_kit.schema.json_repair", "llm_kit.registry.conserve"]
-    found = scan(root, {"_copy/slice.py": finals, "_copy/third.py": finals})
-    assert [(v.path, v.rule) for v in found] == [("llm_kit/_copy/third.py", "copy-shim-target")], report(found)
 
 
-def test_declared_shims_accept_a_list_of_finals_and_reject_a_bad_one(tmp_path):
-    path = tmp_path / "map.json"
-    row = {"copy": "plugins/llm-kit/lib/llm_kit/_copy/a/b.py", "state": "slice",
-           "final": ["llm_kit.registry.conserve", "llm_kit.adapters.usage_sources"]}
-    path.write_text(json.dumps({"modules": {"legacy.py": row}}), encoding="utf-8")
-    assert load_declared_shims(path) == {"_copy/a/b.py": row["final"]}
-    row["final"] = ["llm_kit.registry.conserve", "llm_kit.nowhere.x"]
-    path.write_text(json.dumps({"modules": {"legacy.py": row}}), encoding="utf-8")
-    with pytest.raises(AssertionError, match="must name a final component module"):
-        load_declared_shims(path)
+
+
+
+
 
 
 def test_jobs_and_pipeline_execution_cross_imports_are_caught(tmp_path):
@@ -712,28 +620,4 @@ def test_bootstrap_guard_importing_llm_kit_is_caught(tmp_path):
     assert [v.rule for v in scan(root)] == ["guard-imports-llm-kit"]
 
 
-def test_declared_shims_require_a_final_module(tmp_path):
-    path = tmp_path / "map.json"
-    base = {"modules": {"legacy.py": {
-        "copy": "plugins/llm-kit/lib/llm_kit/_copy/a/b.py", "state": "moved"}}}
-    path.write_text(json.dumps(base), encoding="utf-8")
-    with pytest.raises(AssertionError, match="must name a final component module"):
-        load_declared_shims(path)
-    base["modules"]["legacy.py"]["final"] = "llm_kit.schema.json_repair"
-    path.write_text(json.dumps(base), encoding="utf-8")
-    assert load_declared_shims(path) == {"_copy/a/b.py": "llm_kit.schema.json_repair"}
 
-
-def test_declared_shim_mixed_from_import_is_caught(tmp_path):
-    root = _tree(tmp_path, {
-        "_copy/__init__.py": "",
-        "_copy/mixed.py": "from llm_kit.schema import json_repair, other\n",
-        "_copy/star.py": "from llm_kit.schema import *\n",
-        "schema/__init__.py": "",
-    })
-    final = "llm_kit.schema.json_repair"
-    found = scan(root, {"_copy/mixed.py": final, "_copy/star.py": final})
-    assert sorted((v.path, v.rule) for v in found) == [
-        ("llm_kit/_copy/mixed.py", "copy-shim-target"),
-        ("llm_kit/_copy/star.py", "copy-shim-target"),
-    ], report(found)

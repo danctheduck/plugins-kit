@@ -54,6 +54,8 @@ from unittest import mock
 
 import pytest
 
+from final_wording import to_final
+
 _REPO = Path(__file__).resolve().parents[2]
 _LEGACY_LIB = _REPO / "plugins" / "llm-scripting-kit" / "lib"
 _PIPELINE_LIB = _REPO / "plugins" / "content-pipeline-kit" / "lib"
@@ -135,7 +137,8 @@ _TEXT_SUBS: list[str] = []
 def _text(value: str) -> str:
     for sub in _TEXT_SUBS:
         value = value.replace(sub, "<CLI>")
-    return value
+    # named deliberate wording differences (final_wording.RENAMES); idempotent
+    return to_final(value)
 
 
 class _Out(tuple):
@@ -155,7 +158,8 @@ def norm(value):
             out[f.name] = "<masked>" if f.name in _MASKED_FIELDS else norm(item)
         return out
     if isinstance(value, Mapping):
-        return ("map", type(value).__name__, [(norm(k), norm(v)) for k, v in value.items()])
+        return ("map", type(value).__name__,
+                [(norm(k), "<masked>" if k in _MASKED_FIELDS else norm(v)) for k, v in value.items()])
     if isinstance(value, (list, tuple)):
         return (type(value).__name__, [norm(v) for v in value])
     if isinstance(value, (set, frozenset)):

@@ -333,4 +333,11 @@ scope decision from the I4 join is recorded here:
   against 5 of 60 for `run_graph`. Unifying would need a scheduler protocol
   in `llm_kit.execution` and would tighten the jobs failure stop. `llm_kit.jobs`
   keeps its own pool and the pipeline keeps `run_graph`.
+- The architecture says the CLI injects the configured factory into jobs, pipeline
+  runtime and frontdoor. The frontdoor is transport-only: it selects endpoints
+  through the registry and `adapters.account` and builds no completion backend,
+  so it takes no factory, and `llm-kit frontdoor` hands every argument to
+  `llm_kit.frontdoor.main` unchanged. Only jobs and the pipeline runtime receive
+  the injected factory. Recorded at the I9 join; the signed edge set is
+  unchanged (`frontdoor -> {completion, registry, adapters}`).
 

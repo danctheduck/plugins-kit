@@ -79,7 +79,7 @@ def make_openai_client(
         if result.key is None:
             raise RuntimeError(
                 f"No API key found for endpoint '{endpoint or 'openrouter'}'. "
-                f"Set {key_env_hint} or run `{cli_command()} set-key"
+                f"Set {key_env_hint} or run `{cli_command()} account set-key"
                 + ("`." if endpoint is None else f" --endpoint {endpoint}`.")
             )
         api_key = result.key
@@ -92,7 +92,7 @@ def make_openai_client(
     except ImportError as e:
         raise ImportError(
             "The 'openai' package is required for make_openai_client. "
-            "Use the bootstrap-provisioned llm-scripting-kit CLI environment "
+            "Use the bootstrap-provisioned llm-kit CLI environment "
             "or declare the 'sdk' extra in the consuming project."
         ) from e
 

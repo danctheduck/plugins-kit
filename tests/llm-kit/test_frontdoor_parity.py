@@ -21,6 +21,7 @@ plugin-name namespace and is asserted equal.
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import importlib
 import json
@@ -79,6 +80,45 @@ def F():
         endpoints=importlib.import_module("llm_kit.registry.model_endpoints"),
         account=importlib.import_module("llm_kit.adapters.account"),
     )
+
+
+_REAL_ACCESS_LOG = (Path.home() / ".claude" / "plugins" / "data" / "plugins-kit"
+                    / "llm-scripting-kit" / "frontdoor-access.jsonl")
+
+
+def _stat_sig(path: Path):
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        return None
+    return (st.st_size, st.st_mtime_ns)
+
+
+_REAL_LOG_AT_START = _stat_sig(_REAL_ACCESS_LOG)
+
+
+_WATCHED_LOG = _REAL_ACCESS_LOG  # the guard's watched path
+_TMP_LOG = []  # per-test tmp access log, the explicit default for apps built without one
+
+
+@pytest.fixture(autouse=True)
+def _isolated_home(tmp_path, monkeypatch):
+    """Both front doors resolve their default log from Path.home() inside create_app (call
+    time, not import time), so HOME/USERPROFILE reach it; apps built here ALSO get an explicit
+    tmp access_log, so no single mechanism is load-bearing."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+    _TMP_LOG[:] = [tmp_path / "default-access.jsonl"]
+    yield
+    _TMP_LOG[:] = []
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _real_log_guard_session():
+    """Session-wide guard: the watched log must be unchanged when the session ends."""
+    before = _stat_sig(_WATCHED_LOG)
+    yield
+    assert _stat_sig(_WATCHED_LOG) == before, "real front-door access log was written"
 
 
 def _write_registry(tmp_path: Path, text: str, name: str = "models.yaml") -> Path:
@@ -384,6 +424,7 @@ _TIERS = (
 async def _concurrent(mod, registry, monkeypatch, n, **app_kw):
     release = asyncio.Event()
     upstream = _Upstream(release=release)
+    app_kw.setdefault("access_log", _TMP_LOG[0])
     app = mod.server.create_app(registry, **app_kw)
     async with _REAL_CLIENT(transport=httpx.ASGITransport(app=app), base_url="http://frontdoor") as c:
         monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: upstream)
@@ -478,14 +519,32 @@ SPILL = [("loc-a", 1, 4), ("loc-b", 2, 1), ("cloud-c", 3, None)]
 QUEUE = [("q-a", 1, 1), ("q-b", 2, 1)]
 
 
+_GUARD = 15.0  # hang guard only; never a sequencing delay
+
+# Burst sizes each group receives, in order (spill: fill 4+1, paid spill 4+1+2; queue:
+# fill 1+1, overfull 1+1+1). A case that skips a leg only leaves a trailing entry unused.
+_BURSTS = {"spill": [5, 7], "queue": [2, 3]}
+
+
 class _FakeFrontdoor:
-    def __init__(self, hold=0.05, reject_when_full=False, wrong_answers=False,
+    """Fake front door whose completion barrier is causal, not timed.
+
+    A burst is the next entry of _BURSTS for the request's group. No request of a burst
+    completes until every request of that burst has ARRIVED (so tier choice depends only
+    on caps, never on how the host spread the arrivals), and the held requests then
+    finish in tier order (so a request queued behind a full tier lands deterministically).
+    """
+
+    def __init__(self, reject_when_full=False, wrong_answers=False,
                  unreachable=(), omit=()):
         self.groups = {"spill": SPILL, "queue": QUEUE}
-        self.hold, self.reject, self.wrong = hold, reject_when_full, wrong_answers
+        self.reject, self.wrong = reject_when_full, wrong_answers
         self.unreachable, self.omit = set(unreachable), set(omit)
         self.cond = threading.Condition()
-        self.last_arrival = time.monotonic()
+        self.errors = []
+        self.bursts = {g: [{"size": n, "arrived": 0, "holders": []} for n in sizes]
+                       for g, sizes in _BURSTS.items()}
+        self.cursor = {g: 0 for g in _BURSTS}
         self.in_flight = {d[0]: 0 for g in self.groups.values() for d in g}
         owner = self
 
@@ -521,23 +580,33 @@ class _FakeFrontdoor:
                 text = body["messages"][0]["content"]
                 x, y = map(int, re.search(r"product of (\d+) and (\d+)", text).groups())
                 with owner.cond:
-                    owner.last_arrival = time.monotonic()
-                    while True:
-                        pick = next((t for t in tiers
+                    burst = owner.bursts[body["model"]][owner.cursor[body["model"]]]
+                    burst["arrived"] += 1
+                    if burst["arrived"] == burst["size"]:
+                        owner.cursor[body["model"]] += 1
+                    owner.cond.notify_all()
+
+                    def free():
+                        return next((t for t in tiers
                                      if t[2] is None or owner.in_flight[t[0]] < t[2]), None)
-                        if pick or owner.reject:
-                            break
-                        owner.cond.wait(0.02)
+
+                    if not owner.cond.wait_for(lambda: free() or owner.reject, _GUARD):
+                        owner.errors.append("slot wait timed out")
+                    pick = free()
                     if pick is None:
                         return self._send(503, {"error": "full"})
                     owner.in_flight[pick[0]] += 1
-                time.sleep(owner.hold)
-                while time.monotonic() - owner.last_arrival < 3 * owner.hold:
-                    time.sleep(0.02)
+                    mine = (pick[1], pick[0])
+                    burst["holders"].append(mine)
+                    if not owner.cond.wait_for(
+                            lambda: burst["arrived"] == burst["size"]
+                            and not any(h < mine for h in burst["holders"]), _GUARD):
+                        owner.errors.append("completion barrier timed out")
                 answer = x * y + (1 if owner.wrong else 0)
                 content = " ".join(str(i) for i in range(1, 201)) + "\nANSWER=%d" % answer
                 with owner.cond:
                     owner.in_flight[pick[0]] -= 1
+                    burst["holders"].remove(mine)
                     owner.cond.notify_all()
                 self._send(200, {"choices": [{"message": {"content": content},
                                               "finish_reason": "stop"}]},
@@ -578,19 +647,20 @@ def _verdict(mod, fake_kw, registry, run_kw):
                 fake.url, registry, spill_group="spill", queue_group="queue",
                 request_timeout=20.0, **run_kw)
             data = json.loads(json.dumps(report.to_json()).replace(fake.url, "<url>"))
-            # The overfull leg's tier tally is a thread race in the fake (the
-            # legacy side differs from itself run to run); its verdict is not.
+            # The tally dict is printed in response-arrival order, which is client-thread
+            # scheduling and not a fake or library property; its COUNTS are pinned by the fake.
             for check in data["checks"]:
-                if check["name"].startswith("queue overfull"):
-                    check["detail"] = "<race>"
-            data["notes"] = [n for n in data["notes"] if not n.startswith("queue overfull tally")]
+                check["detail"] = re.sub(
+                    r"tally (\{.*\})",
+                    lambda m: "tally %s" % sorted(ast.literal_eval(m.group(1)).items()),
+                    check["detail"])
             return data, report.exit_code
-        return _outcome(go)
+        result = _outcome(go)
+        assert not fake.errors, fake.errors
+        return result
     finally:
         fake.close()
 
-
-_ACC_ATTEMPTS = 3
 
 _ACC_CASES = [
     ("quick", {}, {}, {"quick": True}),
@@ -609,17 +679,10 @@ _ACC_CASES = [
 @pytest.mark.parametrize("label,fake_kw,reg_kw,run_kw", _ACC_CASES, ids=[c[0] for c in _ACC_CASES])
 def test_acceptance_verdict_parity(L, F, tmp_path, label, fake_kw, reg_kw, run_kw):
     registry = _acc_registry(tmp_path, **reg_kw)
-    # The fake's completion barrier is time-based (a request finishes once no new one has
-    # arrived for 3 * hold), so on a loaded host a burst's tier counts can flip on EITHER
-    # side (seen on the legacy side too: "spill paid spill N=7: loc-a count expected 4, got
-    # 5"). A real divergence repeats on every attempt; a timing race does not.
-    for _attempt in range(_ACC_ATTEMPTS):
-        with ThreadPoolExecutor(max_workers=2) as pool:  # independent fakes; halves wall time
-            fl = pool.submit(_verdict, L, fake_kw, registry, run_kw)
-            ff = pool.submit(_verdict, F, fake_kw, registry, run_kw)
-            legacy, final = fl.result(), ff.result()
-        if legacy == final:
-            break
+    with ThreadPoolExecutor(max_workers=2) as pool:  # independent fakes; halves wall time
+        fl = pool.submit(_verdict, L, fake_kw, registry, run_kw)
+        ff = pool.submit(_verdict, F, fake_kw, registry, run_kw)
+        legacy, final = fl.result(), ff.result()
     assert legacy == final
     assert (legacy[0] == "err") == (label == "negative_cap")
 
@@ -661,3 +724,8 @@ def test_acceptance_planning_helpers_parity(L, F, tmp_path):
             r = [getattr(mod.acceptance, fn)(mod.acceptance.load_levels(registry, group)[0])
                  for mod in (L, F)]
             assert repr(r[0]) == repr(r[1]), (fn, group)
+
+
+def test_real_access_log_untouched():
+    """Runs last in this module: the real front-door access log must not change."""
+    assert _stat_sig(_WATCHED_LOG) == _REAL_LOG_AT_START

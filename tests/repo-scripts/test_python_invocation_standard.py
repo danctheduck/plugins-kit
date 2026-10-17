@@ -649,6 +649,28 @@ _SHELL_ALLOWLIST: dict[str, AllowlistEntry] = {
         "deliberately avoids uv per its own documented reason"),
 }
 
+# llm-kit is a dev-only plugin whose source master does not carry, so its launcher
+# entries are present only where its files are tracked (the staleness test and the
+# scan both read git ls-files); an entry for an untracked or absent file would be stale.
+_LLM_KIT_SHELL_ALLOWLIST: dict[str, AllowlistEntry] = {
+    "plugins/llm-kit/bin/llm-kit": AllowlistEntry(
+        "the plugin venv bootstrap provisions -- it carries every extra the CLI",
+        "class C launcher shim; the redirected venv when CLAUDE_BOOTSTRAP_DATA_ROOT "
+        "is set (exit 2 when that interpreter is missing, never the production "
+        "venv), else the plugin venv first, then BOOTSTRAP_PYTHON only when its "
+        "realpath is inside the standalone directory, then the PATH-name "
+        "fallback; exits 2 when run as the cached copy under claudx"),
+    "plugins/llm-kit/bin/llm-kit.cmd": AllowlistEntry(
+        "the plugin venv bootstrap provisions -- it carries every extra the CLI",
+        "class C launcher shim (Windows); same venv-first order, same exit 2 on "
+        "a missing redirected venv, same cached-copy refusal under claudx"),
+}
+_TRACKED_LLM_KIT_BIN = frozenset(_git_ls_files("plugins/llm-kit/bin"))
+_SHELL_ALLOWLIST.update({
+    path: item for path, item in _LLM_KIT_SHELL_ALLOWLIST.items()
+    if path in _TRACKED_LLM_KIT_BIN
+})
+
 
 def test_tracked_shell_family_bare_python_is_allowlisted_or_pending():
     """Every bare-python hit in a tracked shell/cmd/bat/bin/githooks file is
@@ -786,18 +808,16 @@ _LLM_KIT_PYTHON_ALLOWLIST: dict[str, AllowlistEntry] = {
     "plugins/llm-kit/lib/llm_kit/bootstrap_guard.py": AllowlistEntry(
         'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
         _BOOTSTRAP_GUARD_REASON),
-    "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/backends.py": AllowlistEntry(
+    "plugins/llm-kit/lib/llm_kit/adapters/backends.py": AllowlistEntry(
         "Path(sys.argv[0]).name or 'python'",
-        "display-label fallback string for an API user field, not a spawn "
-        "(llm-kit's quarantined copy of the llm-scripting-kit module)"),
-    "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/server.py": AllowlistEntry(
-        'prog="python -m llm_scripting_kit.frontdoor"',
-        "argparse prog= display string, not an invocation (llm-kit's "
-        "quarantined copy; the display name keeps the legacy spelling)"),
-    "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/swapper.py": AllowlistEntry(
+        "display-label fallback string for an API user field, not a spawn"),
+    "plugins/llm-kit/lib/llm_kit/frontdoor/server.py": AllowlistEntry(
+        'prog="python -m llm_kit.frontdoor"',
+        "argparse prog= display string, not an invocation"),
+    "plugins/llm-kit/lib/llm_kit/adapters/swapper.py": AllowlistEntry(
         'name.lower().startswith("python")',
         "process-name classification (psutil name of an mlx_lm.server "
-        "host process), not an interpreter spawn (llm-kit's quarantined copy)"),
+        "host process), not an interpreter spawn"),
 }
 _TRACKED_PYTHON = frozenset(_git_ls_files("*.py"))
 _PYTHON_ALLOWLIST.update({
@@ -908,6 +928,22 @@ _MD_PLUGINS_ALLOWLIST: dict[str, AllowlistEntry] = {
         "plugin-venv interpreter (NOT `uv run python`",
         "gold-standard plugin-venv form + explicit anti-pattern warning"),
 }
+
+# llm-kit is a dev-only plugin whose source master does not carry, so its entries
+# are present only where its files are tracked (the staleness test and the scan
+# both read git ls-files); an entry for an untracked or absent file would be stale.
+_LLM_KIT_MD_ALLOWLIST: dict[str, AllowlistEntry] = {
+    "plugins/llm-kit/skills/execute-work-unit/SKILL.md": AllowlistEntry(
+        "BEGIN ENUMERATED-INVOCATIONS",
+        "illustrative example of a CONSUMER-supplied WorkerCommand between "
+        "generator-owned do-not-edit-by-hand markers (the migrated copy of the "
+        "content-pipeline-kit skill)"),
+}
+_TRACKED_MARKDOWN = frozenset(_git_ls_files("*.md"))
+_MD_PLUGINS_ALLOWLIST.update({
+    path: item for path, item in _LLM_KIT_MD_ALLOWLIST.items()
+    if path in _TRACKED_MARKDOWN
+})
 
 
 def test_tracked_plugin_markdown_bare_python_is_allowlisted_or_pending():

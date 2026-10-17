@@ -686,11 +686,11 @@ def _derive_run_state(job_rows: Sequence[sqlite3.Row]) -> RunState:
 
 
 def _future_schema_message(stored_version: int) -> str:
-    """The refusal for a ledger written by a newer job-kit."""
+    """The refusal for a ledger written by a newer llm-kit."""
     return (
         f"database schema version {stored_version} is newer than this "
-        f"job-kit supports (max {len(_MIGRATIONS)}); refusing to open "
-        "it -- update job-kit, or point at a database this version "
+        f"llm-kit supports (max {len(_MIGRATIONS)}); refusing to open "
+        "it -- update llm-kit, or point at a database this version "
         "understands"
     )
 
@@ -2897,7 +2897,7 @@ class LedgerReader:
             raise StoreError(
                 f"database schema version {version} is older than status reads "
                 f"(min {READER_MIN_SCHEMA}); status never migrates a ledger -- "
-                "run any writing verb, for example `job-kit resume <run-id>`, to "
+                "run any writing verb, for example `llm-kit jobs resume <run-id>`, to "
                 "migrate it first"
             )
         return version

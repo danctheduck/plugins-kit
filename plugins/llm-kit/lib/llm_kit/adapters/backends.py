@@ -529,7 +529,7 @@ def _claudx_unavailable(exc: ImportError, symbol: str) -> ClaudxSupportError:
     uses.
     """
     head = (
-        "llm-scripting-kit cannot start a `claude -p` child under claudx "
+        "llm-kit cannot start a `claude -p` child under claudx "
         "(CLAUDE_PLUGIN_TEST is set), so the child could not be made a claudx "
         "session. Nothing was started. "
     )

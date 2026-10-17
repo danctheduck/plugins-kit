@@ -359,22 +359,22 @@ _DISPOSITION_TEXT_ONLY = "text-only"
 _DELIVERY_UNREPORTED = "unreported"
 
 
-#: The first llm-scripting-kit release that ships ``classify_backpressure``.
-_BACKPRESSURE_FLOOR = "0.61.0"
+#: The first llm-kit release that ships ``classify_backpressure``.
+_BACKPRESSURE_FLOOR = "0.1.3"
 
 _MISSING_BACKPRESSURE_LIB_MSG = (
-    "the 'llm_scripting_kit' shared lib is absent, so an overload halt's "
+    "the 'llm_kit' shared lib is absent, so an overload halt's "
     "retry-after hint is not parsed from the error text and the adaptive gate "
     "uses its own exponential backoff. Run "
-    "`claude plugin install llm-scripting-kit@plugins-kit`."
+    "`claude plugin install llm-kit@plugins-kit`."
 )
 
 _STALE_BACKPRESSURE_LIB_MSG = (
-    "the linked llm_scripting_kit predates classify_backpressure, so an "
+    "the linked llm_kit predates classify_backpressure, so an "
     "overload halt's retry-after hint is not parsed from the error text and "
     "the adaptive gate uses its own exponential backoff; this needs "
-    f"llm-scripting-kit >= {_BACKPRESSURE_FLOOR}. Run "
-    "`claude plugin update llm-scripting-kit@plugins-kit`."
+    f"llm-kit >= {_BACKPRESSURE_FLOOR}. Run "
+    "`claude plugin update llm-kit@plugins-kit`."
 )
 
 _BACKPRESSURE_WARNED: set = set()

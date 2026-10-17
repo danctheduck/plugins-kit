@@ -57,6 +57,8 @@ from typing import Any, Callable, Mapping, Optional
 
 import pytest
 
+from final_wording import floors_in_text_to_final, to_final
+
 _REPO = Path(__file__).resolve().parents[2]
 _LEGACY_PATHS = [
     _REPO / "plugins" / "job-kit" / "lib",
@@ -1156,7 +1158,7 @@ class TestLedgerSchema:
             wal_before = sorted(p.name for p in base.iterdir())
             with pytest.raises(side.store.StoreError) as excinfo:
                 side.store.JobStore(db)
-            outcomes.append((str(excinfo.value).replace(str(base), "<ROOT>"), db.read_bytes() == before, wal_before == sorted(p.name for p in base.iterdir())))
+            outcomes.append((to_final(str(excinfo.value).replace(str(base), "<ROOT>")), db.read_bytes() == before, wal_before == sorted(p.name for p in base.iterdir())))
         assert outcomes[0] == outcomes[1]
         assert outcomes[0][1] is True
 
@@ -1170,7 +1172,8 @@ class TestLedgerSchema:
             with pytest.raises(side.store.StoreError) as excinfo:
                 side.store.LedgerReader(db).schema_version()
             outcomes.append(str(excinfo.value))
-        assert outcomes[0] == outcomes[1]
+        # the stale-ledger hint names `llm-kit jobs resume` (final_wording.RENAMES)
+        assert to_final(outcomes[0]) == outcomes[1]
 
     def test_opening_a_missing_ledger_without_create_fails_alike(self, sides, tmp_path):
         outcomes = []
@@ -1550,7 +1553,8 @@ class TestInterruptsParity:
                 outcomes.append(str(excinfo.value))
             finally:
                 monkeypatch.undo()
-        assert outcomes[0] == outcomes[1]
+        # named deliberate wording and floor differences (final_wording)
+        assert floors_in_text_to_final(to_final(outcomes[0])) == outcomes[1]
 
 
 # --------------------------------------------------------------------------

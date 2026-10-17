@@ -227,7 +227,7 @@ The consequence to plan around: a dev-only plugin's copy on master is re-checked
 
 - **yaml-data-editor-kit** (source removed from master in `37fb94f6`; the hold-back keeps it off).
 - **prototypes** (inactive experimental nursery/archive; ships no skills).
-- **llm-kit** (consolidation of llm-scripting-kit, job-kit and content-pipeline-kit; `"published": false` is the hold until the user declares it stable and separately authorizes publication). Its generated copy and test mirror come from `scripts/llm_kit_repoint.py` (`uv run --extra dev python scripts/llm_kit_repoint.py sync`), and `tests/llm-kit/` runs the old-versus-copy differential. Bootstrap recognizes `llm_kit` as first-party (`_FIRST_PARTY_LIBS`), and that change ships in the first bootstrap publication that contains it: llm-kit's hold does not hold bootstrap back.
+- **llm-kit** (consolidation of llm-scripting-kit, job-kit and content-pipeline-kit; `"published": false` is the hold until the user declares it stable and separately authorizes publication). The code lives in the final packages under `plugins/llm-kit/lib/llm_kit/` (there is no copy of the legacy trees). `scripts/llm_kit_repoint.py` (`uv run --extra dev python scripts/llm_kit_repoint.py sync`) regenerates the ignored mirror under `tmp/` from the legacy test suites, re-pointed at the final names by the module map `tests/llm-kit/repoint-map.json`, and `tests/llm-kit/` runs the old-versus-final differential over it. Bootstrap recognizes `llm_kit` as first-party (`_FIRST_PARTY_LIBS`), and that change ships in the first bootstrap publication that contains it: llm-kit's hold does not hold bootstrap back.
 
 Commits for a dev-only plugin need no action -- the file hold-back handles them. See "Anti-pattern: creating a branch" for why not to route around them with one.
 
@@ -485,8 +485,8 @@ syncs a venv the caller never meant; see "Python interpreter variables"
 below for what those call sites use instead.
 
 **Scoped exception: Python CLI launcher shims.** `uv run python` resolves the
-venv from the CWD, so a launcher a user invokes from any directory -- the four
-Python-invoking `plugins/<name>/bin/` shims (hue-kit, job-kit,
+venv from the CWD, so a launcher a user invokes from any directory -- the five
+Python-invoking `plugins/<name>/bin/` shims (hue-kit, job-kit, llm-kit,
 llm-scripting-kit, secrets-kit) and their `.cmd` twins -- would pick up the
 wrong environment, or none. Those shims resolve an absolute interpreter
 instead, and the order depends on whether the CLI needs a plugin venv:
@@ -497,9 +497,10 @@ instead, and the order depends on whether the CLI needs a plugin venv:
   absent and the variable's own realpath resolves inside the standalone
   directory (a stranger's `BOOTSTRAP_PYTHON` must never substitute for the file
   the shim was written to find); then PATH.
-- job-kit and llm-scripting-kit name a plugin venv and take it FIRST, from its
+- job-kit, llm-kit and llm-scripting-kit name a plugin venv and take it FIRST, from its
   version-independent `~/.claude/plugins/data/<marketplace>/<plugin>/.venv/`
-  path. job-kit then tries the validated `BOOTSTRAP_PYTHON`, then PATH.
+  path. job-kit and llm-kit then try the validated `BOOTSTRAP_PYTHON`, then
+  PATH.
   llm-scripting-kit then tries the standalone path (no third-party
   packages, so the CLI warns and uses the shipped model baseline), the
   validated `BOOTSTRAP_PYTHON`, then PATH.
@@ -509,12 +510,12 @@ POSIX shims fall back to `python3`, then `python`; `.cmd` shims fall back to
 the preferred interpreter exists, but the PATH fallback can still resolve it.
 
 Two refusals sit in front of that order. When `CLAUDE_BOOTSTRAP_DATA_ROOT` is
-set (a claude-plugin-test session), job-kit and llm-scripting-kit take
+set (a claude-plugin-test session), job-kit, llm-kit and llm-scripting-kit take
 `$CLAUDE_BOOTSTRAP_DATA_ROOT/plugins-kit/<plugin>/.venv/` as the only venv
 candidate and exit 2 when that interpreter is missing: they never fall back to
 the production venv, which holds the installed release, or to anything later in
 the chain. With the variable unset the order above is unchanged. Separately,
-all four shims exit 2 when `CLAUDE_PLUGIN_TEST` is set and the shim itself runs
+all five shims exit 2 when `CLAUDE_PLUGIN_TEST` is set and the shim itself runs
 from the plugin cache, because that copy is the installed release and the
 session tests the working copy. Only the cache of the marketplace named in
 `CLAUDE_PLUGIN_TEST_MARKETPLACE` is refused, and every cache path when it is

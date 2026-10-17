@@ -56,6 +56,8 @@ from unittest import mock
 
 import pytest
 
+from final_wording import floors_in_text_to_final, to_final
+
 _REPO = Path(__file__).resolve().parents[2]
 _LSK_LIB = _REPO / "plugins" / "llm-scripting-kit" / "lib"
 _CPK_LIB = _REPO / "plugins" / "content-pipeline-kit" / "lib"
@@ -816,6 +818,11 @@ def test_backpressure_probe_present(par):
     assert expect_ok(res)[1][0] == "classify_backpressure"
 
 
+def _reworded(message: str) -> str:
+    """A message in its final wording and floor (final_wording; idempotent)."""
+    return floors_in_text_to_final(to_final(message))
+
+
 def test_backpressure_probe_absent_and_stale_warn_once(sides, monkeypatch):
     legacy, final = sides
     seen = {}
@@ -830,7 +837,7 @@ def test_backpressure_probe_absent_and_stale_warn_once(sides, monkeypatch):
                 warnings.simplefilter("always")
                 assert side.platform._backpressure_classifier() is None
                 assert side.platform._backpressure_classifier() is None
-            absent = [(w.category.__name__, str(w.message)) for w in rec]
+            absent = [(w.category.__name__, _reworded(str(w.message))) for w in rec]
 
         monkeypatch.setattr(side.platform, "_BACKPRESSURE_WARNED", set())
         with monkeypatch.context() as m:
@@ -846,7 +853,7 @@ def test_backpressure_probe_absent_and_stale_warn_once(sides, monkeypatch):
                 warnings.simplefilter("always")
                 assert side.platform._backpressure_classifier() is None
                 assert side.platform._backpressure_classifier() is None
-            stale = [(w.category.__name__, str(w.message)) for w in rec]
+            stale = [(w.category.__name__, _reworded(str(w.message))) for w in rec]
         seen[side.name] = (absent, stale)
     assert seen["legacy"] == seen["final"]
     assert len(seen["final"][0]) == 1 and "absent" in seen["final"][0][0][1]

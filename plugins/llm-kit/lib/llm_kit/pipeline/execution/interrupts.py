@@ -82,12 +82,12 @@ REASON_LIMIT = 2000
 # from a possibly stale module.
 INTERRUPT_CONTRACT_BOOTSTRAP = "0.137.0"
 
-# The llm-scripting-kit version that ships the validator's frozen subset
-# marker and its `subset=` selector.
-JSON_SCHEMA_LSK_VERSION = "0.56.0"
+# The first llm-kit version that ships the validator's frozen subset marker
+# and its `subset=` selector.
+JSON_SCHEMA_LSK_VERSION = "0.1.2"
 
 _CONTRACT_OWNER = "bootstrap@plugins-kit"
-_VALIDATOR_OWNER = "llm-scripting-kit@plugins-kit"
+_VALIDATOR_OWNER = "llm-kit@plugins-kit"
 _CONTRACT_MODULE = "bootstrap_lib.interrupt_contract"
 _VALIDATOR_MODULE = "llm_kit.schema.json_schema"
 
@@ -167,14 +167,14 @@ def _render_contract_failure(failure: ProbeFailure) -> str:
 
     def too_old(reason: str) -> str:
         return (
-            f"content-pipeline-kit interrupts need bootstrap "
+            f"llm-kit pipeline interrupts need bootstrap "
             f"{failure.floor} or newer: {reason}. Run "
             f"`claude plugin update {_CONTRACT_OWNER}` and restart the session."
         )
 
     if failure.kind == probe.ABSENT:
         return (
-            "content-pipeline-kit interrupts need bootstrap_lib, which this "
+            "llm-kit pipeline interrupts need bootstrap_lib, which this "
             f"interpreter cannot import. Run `claude plugin install "
             f"{_CONTRACT_OWNER}`."
         )
@@ -191,7 +191,7 @@ def _render_contract_failure(failure: ProbeFailure) -> str:
 
 def _validator_too_old(reason: str) -> InterruptSupportError:
     return InterruptSupportError(
-        f"content-pipeline-kit interrupts need llm-scripting-kit "
+        f"llm-kit pipeline interrupts need llm-kit "
         f"{JSON_SCHEMA_LSK_VERSION} or newer: {reason}. Run "
         f"`claude plugin update {_VALIDATOR_OWNER}` and restart the session."
     )
@@ -201,20 +201,20 @@ def _render_validator_failure(failure: ProbeFailure) -> str:
     """Word a refused validator probe in this product's own terms."""
     if failure.kind == probe.ABSENT:
         return (
-            "content-pipeline-kit interrupts validate requests and answers "
-            "with llm_scripting_kit, which this interpreter cannot import. "
+            "llm-kit pipeline interrupts validate requests and answers "
+            "with llm_kit.schema.json_schema, which this interpreter cannot import. "
             f"Run `claude plugin install {_VALIDATOR_OWNER}`."
         )
 
     def too_old(reason: str) -> str:
         return (
-            f"content-pipeline-kit interrupts need llm-scripting-kit "
+            f"llm-kit pipeline interrupts need llm-kit "
             f"{failure.floor} or newer: {reason}. Run "
             f"`claude plugin update {_VALIDATOR_OWNER}` and restart the session."
         )
 
     if failure.kind == probe.BROKEN_IMPORT:
-        return too_old(f"llm_scripting_kit failed to import ({failure.detail})")
+        return too_old(f"llm_kit.schema.json_schema failed to import ({failure.detail})")
     if failure.kind == probe.MODULE_UNIMPORTABLE:
         return too_old(f"{failure.subject} does not import")
     if failure.kind == probe.UNSUPPORTED:

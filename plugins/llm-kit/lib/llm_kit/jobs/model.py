@@ -560,9 +560,9 @@ def _parse_declaration(value: object) -> tuple[str, ...]:
         raise ImportError(
             "job-kit validates model declarations with bootstrap_lib, which is "
             "not linked into this environment: the plugins-kit:bootstrap plugin "
-            "has not provisioned job-kit here. Install or enable bootstrap "
+            "has not provisioned llm-kit here. Install or enable bootstrap "
             "(`claude plugin install bootstrap@plugins-kit`) and start a new "
-            "session so it links job-kit's shared libs."
+            "session so it links llm-kit's shared libs."
         ) from exc
     try:
         from bootstrap_lib import model_declaration

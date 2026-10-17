@@ -1,13 +1,12 @@
-"""Join test: the completion split and the shim identity rule in ``_copy``.
+"""Join test: the completion split, by the repoint map's facade table.
 
-- A whole-module shim is one module object under the copy name and the final
-  name, so a patch, a fake or an ``except`` clause meets the same thing by
-  either path (checked here for every shim row in the map).
 - ``claude_runner.AgentTimeoutError`` is the class ``llm_kit.completion.halt``
-  defines, so the ``except AgentTimeoutError`` clauses in the copy backends
-  and the classifiers in halt match one class.
-- The copy ``completion/__init__`` keeps every legacy export importable and
-  sources the neutral names from ``llm_kit.completion``.
+  defines, so the ``except AgentTimeoutError`` clauses in the adapters and the
+  classifiers in halt match one class.
+- Every export of the legacy ``llm_scripting_kit.completion`` package has a
+  final home recorded in the map's ``facade-names`` row, and the name resolves
+  there. The neutral names come from ``llm_kit.completion``, the transports from
+  ``llm_kit.adapters`` and the factory from ``llm_kit.dispatch``.
 """
 
 from __future__ import annotations
@@ -21,29 +20,8 @@ import pytest
 
 _REPO = Path(__file__).resolve().parents[2]
 _LEGACY_LIB = _REPO / "plugins" / "llm-scripting-kit" / "lib"
-_COPY = "llm_kit._copy.llm_scripting_kit.completion"
 _MAP = json.loads((_REPO / "tests" / "llm-kit" / "repoint-map.json").read_text(encoding="utf-8"))
-
-
-def _copy_module_name(copy_path: str) -> str:
-    dotted = copy_path.split("/lib/", 1)[1][:-3].replace("/", ".")
-    return dotted[: -len(".__init__")] if dotted.endswith(".__init__") else dotted
-
-
-_PLAIN_SHIMS = [
-    (_copy_module_name(row["copy"]), row["final"])
-    for row in _MAP["modules"].values()
-    if row["state"] == "shim" and not row["copy"].endswith("/__init__.py")
-]
-
-
-def test_the_map_declares_plain_shims():
-    assert len(_PLAIN_SHIMS) >= 40
-
-
-@pytest.mark.parametrize("copy_name, final_name", _PLAIN_SHIMS, ids=[c.split("_copy.", 1)[1] for c, _ in _PLAIN_SHIMS])
-def test_a_plain_shim_is_its_final_module(copy_name, final_name):
-    assert importlib.import_module(copy_name) is importlib.import_module(final_name)
+_ROW = _MAP["modules"]["plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/__init__.py"]
 
 
 @pytest.fixture(scope="module")
@@ -61,12 +39,11 @@ def legacy_completion():
 
 def test_agent_timeout_error_is_one_class():
     halt = importlib.import_module("llm_kit.completion.halt")
-    runner = importlib.import_module(f"{_COPY}.claude_runner")
+    runner = importlib.import_module("llm_kit.adapters.claude_runner")
     assert runner.AgentTimeoutError is halt.AgentTimeoutError
     for module in ("backends", "opencode_backend"):
-        assert importlib.import_module(f"{_COPY}.{module}").AgentTimeoutError is halt.AgentTimeoutError
-    assert importlib.import_module(_COPY).AgentTimeoutError is halt.AgentTimeoutError
-    # Raised through the copy path, matched through the final class: the message
+        assert importlib.import_module(f"llm_kit.adapters.{module}").AgentTimeoutError is halt.AgentTimeoutError
+    # Raised through the runner, matched through the neutral class: the message
     # carries no timeout text, so only the typed check can classify it.
     with pytest.raises(halt.AgentTimeoutError) as caught:
         raise runner.AgentTimeoutError("plain", cmd=["c"], elapsed_s=1, stdout="o", stderr="e")
@@ -74,15 +51,24 @@ def test_agent_timeout_error_is_one_class():
     assert halt.classify_claude_exception(caught.value) == halt.HALT_RATE_LIMIT
 
 
-def test_copy_init_keeps_every_legacy_export(legacy_completion):
-    copy = importlib.import_module(_COPY)
-    assert sorted(copy.__all__) == sorted(legacy_completion.__all__)
-    missing = [name for name in legacy_completion.__all__ if not hasattr(copy, name)]
+def test_the_facade_row_is_a_names_table():
+    assert _ROW["kind"] == "facade-names"
+    assert len(_ROW["names"]) >= 80
+
+
+def test_every_legacy_export_has_a_final_home(legacy_completion):
+    missing = [name for name in legacy_completion.__all__ if name not in _ROW["names"]]
     assert missing == []
 
 
-def test_copy_init_sources_neutral_names_from_llm_kit_completion(legacy_completion):
-    copy = importlib.import_module(_COPY)
+def test_every_recorded_home_resolves_to_the_object_the_name_stands_for(legacy_completion):
+    for name in legacy_completion.__all__:
+        module, attr = _ROW["names"][name]
+        obj = getattr(importlib.import_module(module), attr)
+        assert obj is not None, (name, module, attr)
+
+
+def test_neutral_names_come_from_llm_kit_completion(legacy_completion):
     neutral = {
         "halt": ("HaltError", "HALT_AUTH", "HALT_QUOTA", "classify_halt_text", "classify_openai_exception"),
         "capabilities": ("Capabilities", "ParamCapability", "SHELL_EXEC"),
@@ -96,24 +82,13 @@ def test_copy_init_sources_neutral_names_from_llm_kit_completion(legacy_completi
     for module_name, names in neutral.items():
         final = importlib.import_module(f"llm_kit.completion.{module_name}")
         for name in names:
-            assert getattr(copy, name) is getattr(final, name), (module_name, name)
             assert name in legacy_completion.__all__
-    # The adapter and endpoint-profile names are defined in llm_kit.adapters
-    # since I5; the factory is defined in llm_kit.dispatch since I6.
+            assert _ROW["names"][name] == [f"llm_kit.completion.{module_name}", name], name
+            assert getattr(importlib.import_module(_ROW["names"][name][0]), name) is getattr(final, name)
     for name, home in (
         ("adapter_capabilities", "llm_kit.adapters."),
         ("EndpointProfile", "llm_kit.adapters."),
         ("OpenRouterBackend", "llm_kit.adapters."),
         ("create_backend", "llm_kit.dispatch."),
     ):
-        assert name in copy.__all__
-        assert getattr(copy, name).__module__.startswith(home), name
-
-
-def test_copy_init_binds_no_name_the_legacy_init_lacks(legacy_completion):
-    copy = importlib.import_module(_COPY)
-    legacy_names = {n for n in vars(legacy_completion) if not n.startswith("__")}
-    copy_names = {n for n in vars(copy) if not n.startswith("__")}
-    # Submodule attributes are set by the import system on both packages.
-    extra = copy_names - legacy_names
-    assert all(isinstance(getattr(copy, n), type(importlib)) for n in extra), sorted(extra)
+        assert _ROW["names"][name][0].startswith(home), name

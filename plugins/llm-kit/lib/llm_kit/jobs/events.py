@@ -99,7 +99,7 @@ def _render_support_failure(failure: ProbeFailure) -> str:
             "job-kit records execution events with bootstrap_lib, which is not "
             "linked into this environment: install or enable the bootstrap "
             "plugin (`claude plugin install bootstrap@plugins-kit`) and start a "
-            "new session so it links job-kit's shared libs."
+            "new session so it links llm-kit's shared libs."
         )
     if failure.kind == probe.UNSUPPORTED and failure.subject == SCHEMA_V2:
         return (

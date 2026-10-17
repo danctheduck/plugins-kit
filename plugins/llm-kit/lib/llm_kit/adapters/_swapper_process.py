@@ -115,7 +115,7 @@ class PsutilInspector:
         except ImportError as exc:
             raise InspectionIndeterminate(
                 "psutil is not importable, so local processes cannot be "
-                f"inspected ({exc}); it is declared in llm-scripting-kit's "
+                f"inspected ({exc}); it is declared in llm-kit's "
                 "pyproject.toml and provisioned by bootstrap"
             ) from exc
         self._ps = psutil

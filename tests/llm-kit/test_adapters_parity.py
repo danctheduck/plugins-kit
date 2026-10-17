@@ -35,7 +35,11 @@ Deliberate differences, each pinned by name:
   legacy ``usage_budget`` module;
 * ``swapper.ProcessNotFound`` / ``InspectionIndeterminate`` / ``SwapperError``
   (and the EXIT_* constants) are defined in the leaf ``adapters._swapper_errors``
-  (no swapper <-> _swapper_process cycle) and re-exported by ``swapper``.
+  (no swapper <-> _swapper_process cycle) and re-exported by ``swapper``;
+* messages name llm-kit where the legacy text named llm-scripting-kit or one of
+  its bare verbs: ``final_wording.RENAMES`` pins each by name and
+  ``test_final_messages.py`` proves each against the live legacy and final
+  sources, so a rename cannot stand in for an unrelated difference.
 """
 
 from __future__ import annotations
@@ -61,6 +65,8 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+
+from final_wording import to_final
 
 _REPO = Path(__file__).resolve().parents[2]
 _LEGACY_LIB = _REPO / "plugins" / "llm-scripting-kit" / "lib"
@@ -127,7 +133,8 @@ _TEXT_SUBS: list[str] = []
 def _text(value: str) -> str:
     for sub in _TEXT_SUBS:
         value = value.replace(sub, "<CLI>")
-    return value
+    # named deliberate wording differences (final_wording.RENAMES); idempotent
+    return to_final(value)
 
 
 class _Out(tuple):
@@ -3187,3 +3194,4 @@ def test_run_swapper_acceptance(par, monkeypatch):
     assert failed("discovery_fails") == ["discovery: /v1/models answers"]
     assert failed("not_swapper") == ["discovery: /running answers"]
     assert failed("one_model") == ["discovery: two models to alternate"]
+
