@@ -180,10 +180,11 @@
     {
       "path": "tests/llm-scripting-kit/test_completion_contract.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.llm_scripting_kit; module-name strings.",
+      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.llm_scripting_kit; module-name strings. Text edits (repoint-map test_text_edits): contract_types moved to llm_kit.completion.contract_types, where json_schema is the absolute import from llm_kit.schema; the leaf-module property is checked on the final file (inspect reads it through the alias), with the one non-stdlib import pinned to the validator.",
       "rewrite_classes": [
         "import",
-        "module-string"
+        "module-string",
+        "text-edit"
       ],
       "collection_count": 72,
       "baseline_failures": []

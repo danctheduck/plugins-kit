@@ -75,12 +75,13 @@
     {
       "path": "tests/job-kit/test_events.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
+      "reason": "Rewrites 7 import line(s) -> llm_kit._copy.content_pipeline/job_kit/llm_scripting_kit; module-name strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): events.py now delegates its probe and make_event call to llm_kit.execution; that is the one llm_kit edge it may hold besides bootstrap_lib.",
       "rewrite_classes": [
         "import",
         "module-string",
         "path-package-dir",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 34,
       "baseline_failures": []
@@ -98,10 +99,11 @@
     {
       "path": "tests/job-kit/test_interrupts_contract_parity.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for.",
       "rewrite_classes": [
         "import",
-        "module-string"
+        "module-string",
+        "text-edit"
       ],
       "collection_count": 67,
       "baseline_failures": []
@@ -109,12 +111,13 @@
     {
       "path": "tests/job-kit/test_interrupts_contract_probe.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets); \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for. job-kit now reaches the contract through the shared adapter (_adapter().<call>); the probe table must still name every call job-kit makes.",
       "rewrite_classes": [
         "import",
         "module-string",
         "path-package-dir",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 25,
       "baseline_failures": []
@@ -132,10 +135,11 @@
     {
       "path": "tests/job-kit/test_interrupts_envelope.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
+      "reason": "Rewrites 4 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for. The validator probe's package is llm_kit (the validator lives in llm_kit.schema), so an absent validator package is simulated by blocking llm_kit, the name the probe imports first.",
       "rewrite_classes": [
         "import",
-        "module-string"
+        "module-string",
+        "text-edit"
       ],
       "collection_count": 40,
       "baseline_failures": []
@@ -143,10 +147,11 @@
     {
       "path": "tests/job-kit/test_interrupts_runner.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
+      "reason": "Rewrites 6 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for.",
       "rewrite_classes": [
         "import",
-        "module-string"
+        "module-string",
+        "text-edit"
       ],
       "collection_count": 31,
       "baseline_failures": []
@@ -154,10 +159,11 @@
     {
       "path": "tests/job-kit/test_interrupts_store.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets).",
+      "reason": "Rewrites 5 import line(s) -> llm_kit._copy.job_kit/llm_scripting_kit; module-name strings (monkeypatch/sys.modules targets). Text edits (repoint-map test_text_edits): The validator probe now loads llm_kit.schema.json_schema (the execution slices re-point the two _schema_validator loaders there), so a fake or a block of the validator is installed under that name; the copy path is the same module object but is no longer what the probe asks for.",
       "rewrite_classes": [
         "import",
-        "module-string"
+        "module-string",
+        "text-edit"
       ],
       "collection_count": 65,
       "baseline_failures": []

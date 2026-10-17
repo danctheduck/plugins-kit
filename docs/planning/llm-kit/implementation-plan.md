@@ -315,5 +315,16 @@ authorize publication before `published` changes or publish tooling runs.
 
 ## Design defects found
 
-None. All seven review findings concern implementation-plan completeness. The
-signed architecture remains unchanged.
+None in the signed architecture; all seven review findings concern
+implementation-plan completeness and the architecture remains unchanged. One
+scope decision from the I4 join is recorded here:
+
+- The job thread pool and the pipeline `run_graph` are not unified in I4. They
+  share no admission algorithm: `job_kit/run.py` submits every job to its pool
+  up front and cancels the remainder on the first failure, while the pipeline
+  `execution/scheduler.py` `run_graph` admits a unit only into a slot that has
+  freed. Both stay unmoved in `_copy`, and `llm_kit.execution` holds only the
+  probes, adapters and values the two products demonstrably share. The
+  question is revisited at I7, when both runners are built and the two
+  admission semantics can be compared on a real runner rather than inferred.
+

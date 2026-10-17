@@ -79,6 +79,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Mapping, Optional, Sequence
 
+from llm_kit.execution.values import InterruptResolution, interrupt_lapsed
+
 
 PathLike = str | Path
 
@@ -1286,15 +1288,6 @@ class RunRecord:
         }
 
 
-def interrupt_lapsed(expires_at: Optional[float], now: float) -> bool:
-    """Whether an interrupt expiring at ``expires_at`` has lapsed at ``now``.
-
-    Inclusive: an interrupt lapses AT its ``expires_at``. An interrupt with
-    no expiry never lapses.
-    """
-    return expires_at is not None and now >= expires_at
-
-
 @dataclass(frozen=True)
 class InterruptRequest:
     """A contract's validated request to wait for an operator's answer.
@@ -1309,34 +1302,6 @@ class InterruptRequest:
     request_schema: Mapping[str, object]
     payload: Mapping[str, object]
     expires_in_s: Optional[int] = None
-
-
-@dataclass(frozen=True)
-class InterruptResolution:
-    """The one immutable resolution of one interrupt.
-
-    ``outcome`` is ``answered``, ``rejected`` or ``expired``. ``input`` is
-    the operator's answer (answered only) and ``reason`` the operator's free
-    text (rejected only). ``replayed`` is not stored: it is true when a
-    resolve call matched the existing resolution and wrote nothing.
-    """
-
-    interrupt_id: str
-    outcome: str
-    resolved_at: float
-    input: object = None
-    reason: Optional[str] = None
-    replayed: bool = field(default=False, compare=False)
-
-    def to_mapping(self) -> dict[str, object]:
-        """Return a JSON-compatible resolution mapping."""
-        return {
-            "interrupt_id": self.interrupt_id,
-            "outcome": self.outcome,
-            "input": self.input,
-            "reason": self.reason,
-            "resolved_at": self.resolved_at,
-        }
 
 
 @dataclass(frozen=True)

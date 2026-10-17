@@ -34,6 +34,10 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 
+# One class object: the timeout type lives in the neutral halt module, so an
+# ``except AgentTimeoutError`` matches whichever path the caller imported it by.
+from llm_kit.completion.halt import AgentTimeoutError
+
 
 # Hard-stop markers in claude -p's stderr that mean "this run is over, do not
 # retry, surface to the caller as a clean halt". Shared verbatim so the same
@@ -55,32 +59,6 @@ HARD_STOP_STDERR_MARKERS = (
 # subprocess has gone silent on both stdout and stderr for this long. Without
 # this a stuck call looks identical to "the LLM is thinking" in the terminal.
 _CLAUDE_HEARTBEAT_S = 120
-
-
-class AgentTimeoutError(RuntimeError):
-    """Raised when the ``claude -p`` subprocess exceeds the per-call timeout.
-
-    Subclasses RuntimeError so existing ``except RuntimeError`` / message
-    handling keeps working; the distinct type lets a caller classify the
-    timeout halt without parsing the message text. Carries the killed call's
-    context (``cmd``, ``elapsed_s``, ``stdout``, ``stderr``) so a caller can
-    dump diagnostics without re-deriving it.
-    """
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        cmd: list[str],
-        elapsed_s: int,
-        stdout: str,
-        stderr: str,
-    ) -> None:
-        super().__init__(message)
-        self.cmd = cmd
-        self.elapsed_s = elapsed_s
-        self.stdout = stdout
-        self.stderr = stderr
 
 
 def looks_like_hard_stop(

@@ -81,9 +81,11 @@ anything; that outcome is terminal on the apply axis while the unit remains
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Mapping, Optional
+
+from llm_kit.execution.values import InterruptResolution, record_lapsed
 
 
 class UnitState(str, Enum):
@@ -362,24 +364,6 @@ class InterruptRequest:
 
 
 @dataclass(frozen=True)
-class InterruptResolution:
-    """The one immutable resolution of one interrupt.
-
-    ``outcome`` is ``answered``, ``rejected`` or ``expired``. ``input`` is
-    the answer (answered only) and ``reason`` the free text given with a
-    rejection (rejected only). ``replayed`` is not stored: it is true when a
-    resolve call matched the stored resolution and wrote nothing.
-    """
-
-    interrupt_id: str
-    outcome: str
-    resolved_at: float
-    input: object = None
-    reason: Optional[str] = None
-    replayed: bool = field(default=False, compare=False)
-
-
-@dataclass(frozen=True)
 class InterruptRecord:
     """One immutable interrupt row, with its resolution when it has one.
 
@@ -408,11 +392,7 @@ class InterruptRecord:
         Inclusive: an interrupt lapses AT its ``expires_at``, and one with no
         expiry never lapses. A read; it records nothing.
         """
-        return (
-            self.resolution is None
-            and self.expires_at is not None
-            and now >= self.expires_at
-        )
+        return record_lapsed(self.resolution, self.expires_at, now)
 
 
 class ExecutionError(Exception):

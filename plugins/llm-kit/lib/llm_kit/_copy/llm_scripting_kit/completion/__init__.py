@@ -37,7 +37,7 @@ from .codex_backend import (
     CodexRunError,
     compose_prompt,
 )
-from .halt import (
+from llm_kit.completion.halt import (
     HALT_AUTH,
     HALT_INSUFFICIENT_CREDIT,
     HALT_QUOTA,
@@ -53,7 +53,7 @@ from .halt import (
     classify_openai_exception,
 )
 from .adapter_capabilities import ADAPTER_CAPABILITIES, adapter_capabilities
-from .capabilities import (
+from llm_kit.completion.capabilities import (
     FILESYSTEM_WRITE,
     SHELL_EXEC,
     SUBAGENT_SPAWN,
@@ -65,12 +65,14 @@ from .capabilities import (
     SystemPromptCapability,
     subjects_for_disallowed_tools,
 )
-from .requirements import match_capabilities
+from llm_kit.completion.requirements import match_capabilities
+# Neutral names are sourced from llm_kit.completion; the adapter, factory,
+# endpoint-profile and backend names stay in this copy until they move.
 # The output-contract CONSUMER surface, exactly. Everything else a contract
 # involves (reports, delivery plans, the pre-dispatch refusal, the prompt
 # instruction) is importable from ``.contract`` for this package's own
 # adapters and is deliberately not re-exported here.
-from .contract import (
+from llm_kit.completion.contract import (
     POLICY_NATIVE_REQUIRED,
     POLICY_TEXT_ONLY,
     POLICY_VALIDATED_RESULT,
@@ -82,19 +84,19 @@ from .contract import (
 # The skill-context CONSUMER surface. The adapter plumbing (the delivery plan,
 # the pre-dispatch refusal, the system-text composition) stays importable from
 # ``.skill_context`` for this package's own adapters.
-from .skill_context import (
+from llm_kit.completion.skill_context import (
     SKILL_MATERIAL_BOOTSTRAP,
     materialize_skill_context,
     skill_context_requirements,
 )
-from .skill_context_types import (
+from llm_kit.completion.skill_context_types import (
     SkillContext,
     SkillContextError,
     SkillContextReport,
     SkillContextSupportError,
     SkillContextUnsatisfiable,
 )
-from .results import (
+from llm_kit.completion.results import (
     caller_set_params,
     check_applied_controls,
     derive_dropped_params,
@@ -103,7 +105,7 @@ from .results import (
     fixed_control_ids,
     utc_now_iso,
 )
-from .types import (
+from llm_kit.completion.types import (
     COMPLETED,
     ERROR,
     TIMEOUT,

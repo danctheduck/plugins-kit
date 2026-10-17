@@ -7,7 +7,7 @@ decision and outcome words, the replay test, the lapse rule and the
 resolution document -- are the shared interrupt contract
 ``plugins-kit.interrupt-contract/v1``, implemented once in
 ``bootstrap_lib.interrupt_contract``. Request schemas are checked and answers
-validated with ``llm_scripting_kit.completion.json_schema`` under its frozen
+validated with ``llm_kit.schema.json_schema`` under its frozen
 subset ``llm-scripting-kit.json-schema-subset/v1``. This module is the only
 place ``content_pipeline`` reaches either one. The store calls the functions
 here and never the contract.
@@ -33,9 +33,13 @@ normative values and executes every rule.
 from __future__ import annotations
 
 import importlib
-import inspect
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
+from llm_kit.execution import contract_probe, probe, schema_validator
+from llm_kit.execution.contract_probe import ContractProbeSpec
+from llm_kit.execution.interrupts import InterruptAdapter, InterruptAdapterSpec
+from llm_kit.execution.probe import CallShape, ProbeFailure
+from llm_kit.execution.schema_validator import ValidatorProbeSpec
 from llm_kit._copy.content_pipeline.execution.model import (
     INTERRUPT_REQUEST_ENVELOPE,
     InterruptRecord,
@@ -85,7 +89,7 @@ JSON_SCHEMA_LSK_VERSION = "0.56.0"
 _CONTRACT_OWNER = "bootstrap@plugins-kit"
 _VALIDATOR_OWNER = "llm-scripting-kit@plugins-kit"
 _CONTRACT_MODULE = "bootstrap_lib.interrupt_contract"
-_VALIDATOR_MODULE = "llm_kit._copy.llm_scripting_kit.completion.json_schema"
+_VALIDATOR_MODULE = "llm_kit.schema.json_schema"
 
 # Every contract call this module makes, as (name, positional count, keywords).
 # The probe binds each one, so an installed module that lacks a keyword this
@@ -142,10 +146,11 @@ _CONTRACT_CALLS: Tuple[Tuple[str, int, Tuple[str, ...]], ...] = (
 # The contract's error classes this module catches.
 _CONTRACT_ERRORS = ("RequestError", "InputError", "DecisionError", "ValidatorError")
 
-# The two validator calls the contract makes, in the same form.
-_VALIDATOR_CALLS: Tuple[Tuple[str, int, Tuple[str, ...]], ...] = (
-    ("check_schema", 1, ("subset",)),
-    ("validate", 2, ("subset",)),
+# The two validator calls the contract makes, in the same form; the shared
+# validator probe binds exactly these.
+_VALIDATOR_CALLS: Tuple[Tuple[str, int, Tuple[str, ...]], ...] = tuple(
+    (shape.name, shape.positional, shape.keywords)
+    for shape in (schema_validator.CHECK_SCHEMA_SHAPE, schema_validator.VALIDATE_SHAPE)
 )
 
 
@@ -157,21 +162,115 @@ def _import_module(name: str) -> Any:
     return importlib.import_module(name)
 
 
-def _binds(function: Any, positional: int, keywords: Tuple[str, ...]) -> bool:
-    try:
-        inspect.signature(function).bind(
-            *([None] * positional), **{name: None for name in keywords}
+def _render_contract_failure(failure: ProbeFailure) -> str:
+    """Word a refused contract probe in this product's own terms."""
+
+    def too_old(reason: str) -> str:
+        return (
+            f"content-pipeline-kit interrupts need bootstrap "
+            f"{failure.floor} or newer: {reason}. Run "
+            f"`claude plugin update {_CONTRACT_OWNER}` and restart the session."
         )
-    except (TypeError, ValueError):
-        return False
-    return True
+
+    if failure.kind == probe.ABSENT:
+        return (
+            "content-pipeline-kit interrupts need bootstrap_lib, which this "
+            f"interpreter cannot import. Run `claude plugin install "
+            f"{_CONTRACT_OWNER}`."
+        )
+    if failure.kind == probe.BROKEN_IMPORT:
+        return too_old(f"bootstrap_lib failed to import ({failure.detail})")
+    if failure.kind == probe.MODULE_UNIMPORTABLE:
+        return too_old(f"{failure.subject} does not import")
+    if failure.kind == probe.UNSUPPORTED:
+        return too_old(f"the installed module does not support {failure.subject}")
+    if failure.kind == probe.MISSING_NAME:
+        return too_old(f"the installed module has no {failure.subject}")
+    return too_old(f"the installed {failure.subject} does not accept this call shape")
 
 
-def _contract_too_old(reason: str) -> InterruptSupportError:
+def _validator_too_old(reason: str) -> InterruptSupportError:
     return InterruptSupportError(
-        f"content-pipeline-kit interrupts need bootstrap "
-        f"{INTERRUPT_CONTRACT_BOOTSTRAP} or newer: {reason}. Run "
-        f"`claude plugin update {_CONTRACT_OWNER}` and restart the session."
+        f"content-pipeline-kit interrupts need llm-scripting-kit "
+        f"{JSON_SCHEMA_LSK_VERSION} or newer: {reason}. Run "
+        f"`claude plugin update {_VALIDATOR_OWNER}` and restart the session."
+    )
+
+
+def _render_validator_failure(failure: ProbeFailure) -> str:
+    """Word a refused validator probe in this product's own terms."""
+    if failure.kind == probe.ABSENT:
+        return (
+            "content-pipeline-kit interrupts validate requests and answers "
+            "with llm_scripting_kit, which this interpreter cannot import. "
+            f"Run `claude plugin install {_VALIDATOR_OWNER}`."
+        )
+
+    def too_old(reason: str) -> str:
+        return (
+            f"content-pipeline-kit interrupts need llm-scripting-kit "
+            f"{failure.floor} or newer: {reason}. Run "
+            f"`claude plugin update {_VALIDATOR_OWNER}` and restart the session."
+        )
+
+    if failure.kind == probe.BROKEN_IMPORT:
+        return too_old(f"llm_scripting_kit failed to import ({failure.detail})")
+    if failure.kind == probe.MODULE_UNIMPORTABLE:
+        return too_old(f"{failure.subject} does not import")
+    if failure.kind == probe.UNSUPPORTED:
+        return too_old(f"the installed validator does not advertise {failure.subject}")
+    if failure.kind == probe.MISSING_NAME:
+        return too_old(f"the installed validator has no {failure.subject}")
+    return too_old(f"the installed {failure.subject} does not accept this call shape")
+
+
+def _contract_spec() -> ContractProbeSpec:
+    """This product's description of what it needs from the contract.
+
+    Built on every call, so the import seam and the tables above are read
+    when the probe runs.
+    """
+    return ContractProbeSpec(
+        error=InterruptSupportError,
+        render=_render_contract_failure,
+        shapes=tuple(
+            CallShape(name, positional, keywords)
+            for name, positional, keywords in _CONTRACT_CALLS
+        ),
+        floor=INTERRUPT_CONTRACT_BOOTSTRAP,
+        required_errors=_CONTRACT_ERRORS,
+        contract=CONTRACT,
+        module=_CONTRACT_MODULE,
+        importer=_import_module,
+    )
+
+
+def _validator_spec() -> ValidatorProbeSpec:
+    """This product's description of the schema validator it needs."""
+    return ValidatorProbeSpec(
+        error=InterruptSupportError,
+        render=_render_validator_failure,
+        floor=JSON_SCHEMA_LSK_VERSION,
+        subset=VALIDATOR_SUBSET,
+        module=_VALIDATOR_MODULE,
+        importer=_import_module,
+    )
+
+
+def _adapter() -> InterruptAdapter:
+    """The shared contract adapter, configured with this product's literals."""
+    return InterruptAdapter(
+        InterruptAdapterSpec(
+            owner=OWNER,
+            contract=_contract_spec(),
+            validator=_validator_spec(),
+            accepted_envelopes=REQUEST_ENVELOPES,
+            resolution_envelope=RESOLUTION_ENVELOPE,
+            request_error=InterruptRequestError,
+            input_error=ResolutionInputError,
+            map_validator_error=lambda exc: _validator_too_old(str(exc)),
+        ),
+        acquire=support,
     )
 
 
@@ -183,86 +282,18 @@ def _interrupt_contract() -> Any:
     usable. Usable means the module supports :data:`CONTRACT`, has the error
     classes this module catches, and accepts every call this module makes.
     """
-    try:
-        _import_module("bootstrap_lib")
-    except ModuleNotFoundError as exc:
-        if exc.name in (None, "bootstrap_lib"):
-            raise InterruptSupportError(
-                "content-pipeline-kit interrupts need bootstrap_lib, which this "
-                f"interpreter cannot import. Run `claude plugin install "
-                f"{_CONTRACT_OWNER}`."
-            ) from exc
-        raise _contract_too_old(f"bootstrap_lib failed to import ({exc})") from exc
-    try:
-        module = _import_module(_CONTRACT_MODULE)
-    except ImportError as exc:
-        raise _contract_too_old(f"{_CONTRACT_MODULE} does not import") from exc
-    contracts = getattr(module, "SUPPORTED_CONTRACTS", None)
-    try:
-        supported = CONTRACT in contracts
-    except TypeError:
-        supported = False
-    if not supported:
-        raise _contract_too_old(f"the installed module does not support {CONTRACT}")
-    for name in _CONTRACT_ERRORS:
-        error = getattr(module, name, None)
-        if not (isinstance(error, type) and issubclass(error, Exception)):
-            raise _contract_too_old(f"the installed module has no {name}")
-    for name, positional, keywords in _CONTRACT_CALLS:
-        function = getattr(module, name, None)
-        if not callable(function):
-            raise _contract_too_old(f"the installed module has no {name}")
-        if not _binds(function, positional, keywords):
-            raise _contract_too_old(
-                f"the installed {name} does not accept this call shape"
-            )
-    return module
-
-
-def _validator_too_old(reason: str) -> InterruptSupportError:
-    return InterruptSupportError(
-        f"content-pipeline-kit interrupts need llm-scripting-kit "
-        f"{JSON_SCHEMA_LSK_VERSION} or newer: {reason}. Run "
-        f"`claude plugin update {_VALIDATOR_OWNER}` and restart the session."
-    )
+    return contract_probe.probe_interrupt_contract(_contract_spec())
 
 
 def _schema_validator() -> Any:
     """Return the usable schema validator module, or raise a diagnosis.
 
-    Absent (``llm_scripting_kit`` does not import) and too old or stale (the
+    Absent (the validator package does not import) and too old or stale (the
     submodule missing, the subset marker missing or without
     :data:`VALIDATOR_SUBSET`, or either call not accepting ``subset=``) give
     different messages with different remedies.
     """
-    try:
-        _import_module("llm_kit._copy.llm_scripting_kit")
-    except ModuleNotFoundError as exc:
-        if exc.name in (None, "llm_kit._copy.llm_scripting_kit"):
-            raise InterruptSupportError(
-                "content-pipeline-kit interrupts validate requests and answers "
-                "with llm_scripting_kit, which this interpreter cannot import. "
-                f"Run `claude plugin install {_VALIDATOR_OWNER}`."
-            ) from exc
-        raise _validator_too_old(f"llm_scripting_kit failed to import ({exc})") from exc
-    try:
-        module = _import_module(_VALIDATOR_MODULE)
-    except ImportError as exc:
-        raise _validator_too_old(f"{_VALIDATOR_MODULE} does not import") from exc
-    subsets = getattr(module, "SUPPORTED_SUBSETS", None)
-    if not isinstance(subsets, (frozenset, set, tuple, list)) or VALIDATOR_SUBSET not in subsets:
-        raise _validator_too_old(
-            f"the installed validator does not advertise {VALIDATOR_SUBSET}"
-        )
-    for name, positional, keywords in _VALIDATOR_CALLS:
-        function = getattr(module, name, None)
-        if not callable(function):
-            raise _validator_too_old(f"the installed validator has no {name}")
-        if not _binds(function, positional, keywords):
-            raise _validator_too_old(
-                f"the installed {name} does not accept this call shape"
-            )
-    return module
+    return schema_validator.probe_schema_validator(_validator_spec())
 
 
 def support() -> Tuple[Any, Any]:
@@ -294,27 +325,9 @@ def check_request(request: InterruptRequest) -> InterruptRequest:
     naming the first fault, and :class:`InterruptSupportError` when an edge is
     unusable.
     """
-    contract, validator = support()
-    if not isinstance(request, InterruptRequest):
-        raise InterruptRequestError(
-            f"interrupt request must be an InterruptRequest, got {type(request).__name__}"
-        )
-    try:
-        checked = contract.check_request(
-            envelope=request.envelope,
-            kind=request.kind,
-            request_schema=request.request_schema,
-            payload=request.payload,
-            expires_in_s=request.expires_in_s,
-            accepted_envelopes=REQUEST_ENVELOPES,
-            owner=OWNER,
-            validator=validator,
-        )
-    except contract.ValidatorError as exc:
-        raise _validator_too_old(str(exc)) from exc
-    except contract.RequestError as exc:
-        raise InterruptRequestError(str(exc)) from exc
-    return _as_request(checked)
+    return _as_request(
+        _adapter().check_request(request, expected_type=InterruptRequest)
+    )
 
 
 def request_from_mapping(raw: Any) -> InterruptRequest:
@@ -324,19 +337,7 @@ def request_from_mapping(raw: Any) -> InterruptRequest:
     ``payload``, plus an optional ``expires_in_s``. Raises as
     :func:`check_request` does.
     """
-    contract, validator = support()
-    try:
-        checked = contract.check_request_mapping(
-            raw,
-            accepted_envelopes=REQUEST_ENVELOPES,
-            owner=OWNER,
-            validator=validator,
-        )
-    except contract.ValidatorError as exc:
-        raise _validator_too_old(str(exc)) from exc
-    except contract.RequestError as exc:
-        raise InterruptRequestError(str(exc)) from exc
-    return _as_request(checked)
+    return _as_request(_adapter().check_request_mapping(raw))
 
 
 def validate_input(schema: Mapping[str, object], value: object) -> str:
@@ -347,13 +348,7 @@ def validate_input(schema: Mapping[str, object], value: object) -> str:
     :data:`INPUT_LIMIT` bytes, and with the validator's ``(json_pointer,
     keyword)`` tuples when the input fails the request schema.
     """
-    contract, validator = support()
-    try:
-        return contract.validate_input(schema, value, validator=validator)
-    except contract.ValidatorError as exc:
-        raise _validator_too_old(str(exc)) from exc
-    except contract.InputError as exc:
-        raise ResolutionInputError(str(exc), exc.errors) from exc
+    return _adapter().validate_input(schema, value)
 
 
 def resolution_document(record: InterruptRecord) -> str:
@@ -363,23 +358,12 @@ def resolution_document(record: InterruptRecord) -> str:
     row, so it is byte-identical on every call. Its ``schema`` is
     :data:`RESOLUTION_ENVELOPE`; a caller cannot choose another.
     """
-    resolution = record.resolution
-    if resolution is None:
-        raise ValueError(f"interrupt {record.id} has no resolution")
-    return _interrupt_contract().resolution_document(
-        resolution_envelope=RESOLUTION_ENVELOPE,
-        interrupt_id=record.id,
-        kind=record.kind,
-        outcome=resolution.outcome,
-        input=resolution.input,
-        payload=record.payload,
-        resolved_at=resolution.resolved_at,
-    )
+    return _adapter().resolution_document(record)
 
 
 def canonical_json(value: object) -> str:
     """The canonical text of a JSON value: sorted keys, compact, ASCII."""
-    return _interrupt_contract().canonical_json(value)
+    return _adapter().canonical_json(value)
 
 
 def decision_outcome(decision: object, *, input: object = None, reason: object = None) -> str:
@@ -388,11 +372,7 @@ def decision_outcome(decision: object, *, input: object = None, reason: object =
     Raises ``ValueError`` for an unknown decision, a rejection given an
     input, or an answer given a reason.
     """
-    contract = _interrupt_contract()
-    try:
-        return contract.decision_outcome(decision, input=input, reason=reason)
-    except contract.DecisionError as exc:
-        raise ValueError(str(exc)) from exc
+    return _adapter().decision_outcome(decision, input=input, reason=reason)
 
 
 def same_resolution(
@@ -405,7 +385,7 @@ def same_resolution(
     reason: object = None,
 ) -> bool:
     """Whether a resolution replays the stored one (false is a conflict)."""
-    return _interrupt_contract().same_resolution(
+    return _adapter().same_resolution(
         stored_outcome=stored_outcome,
         stored_input_json=stored_input_json,
         stored_reason=stored_reason,
@@ -417,17 +397,17 @@ def same_resolution(
 
 def expiry(created_at: float, expires_in_s: Optional[int]) -> Optional[float]:
     """When a request recorded at ``created_at`` lapses, or ``None`` for never."""
-    return _interrupt_contract().expiry(created_at, expires_in_s)
+    return _adapter().expiry(created_at, expires_in_s)
 
 
 def lapsed(expires_at: Optional[float], now: float) -> bool:
     """Whether an interrupt expiring at ``expires_at`` has lapsed at ``now``."""
-    return _interrupt_contract().lapsed(expires_at, now)
+    return _adapter().lapsed(expires_at, now)
 
 
 def bound_reason(reason: object) -> Optional[str]:
     """The reason as recorded: cut to :data:`REASON_LIMIT` characters."""
-    return _interrupt_contract().bound_reason(reason)
+    return _adapter().bound_reason(reason)
 
 
 # -- read helpers: no shared module ------------------------------------------

@@ -71,9 +71,11 @@ interrupt contract.
 from __future__ import annotations
 
 import importlib
-import inspect
 from typing import Any, Dict, List, Optional, Tuple
 
+from llm_kit.execution import event_probe, probe
+from llm_kit.execution.event_probe import EventProbeSpec
+from llm_kit.execution.probe import CallShape, ProbeFailure
 from llm_kit._copy.content_pipeline.execution.model import (
     POLICY_STOP,
     TERMINAL_STATES,
@@ -137,11 +139,67 @@ def _import_module(name: str) -> Any:
     return importlib.import_module(name)
 
 
-def _too_old(reason: str) -> ExecutionEventSupportError:
-    return ExecutionEventSupportError(
-        f"content-pipeline-kit execution events need bootstrap "
-        f"{EXECUTION_EVENT_BOOTSTRAP} or newer: {reason}. Run "
-        f"`claude plugin update {_OWNER}` and restart the session."
+def _render_support_failure(failure: ProbeFailure) -> str:
+    """Word a refused probe in this product's own terms.
+
+    The shared probe decides what is wrong; this function says it, naming
+    the bootstrap release in ``failure.floor`` (the base floor, or the
+    schema-v2 floor for the v2 stage).
+    """
+
+    def too_old(reason: str) -> str:
+        return (
+            f"content-pipeline-kit execution events need bootstrap "
+            f"{failure.floor} or newer: {reason}. Run "
+            f"`claude plugin update {_OWNER}` and restart the session."
+        )
+
+    if failure.kind == probe.ABSENT:
+        return (
+            "content-pipeline-kit execution events need bootstrap_lib, which "
+            f"this interpreter cannot import. Run `claude plugin install {_OWNER}`."
+        )
+    if failure.kind == probe.BROKEN_IMPORT:
+        return too_old(f"bootstrap_lib failed to import ({failure.detail})")
+    if failure.stage == probe.STAGE_V2:
+        reason = (
+            f"the installed module does not support {failure.subject}"
+            if failure.kind == probe.UNSUPPORTED
+            else "the installed make_event does not accept a schema keyword"
+        )
+        return (
+            f"this run has interrupt rows, which content-pipeline-kit projects as "
+            f"interrupt events under {REQUIRED_SCHEMA_V2}; that needs bootstrap "
+            f"{failure.floor} or newer: {reason}. Run "
+            f"`claude plugin update {_OWNER}` and restart the session."
+        )
+    if failure.kind == probe.MODULE_UNIMPORTABLE:
+        return too_old(f"{failure.subject} does not import")
+    if failure.kind == probe.UNSUPPORTED:
+        return too_old(f"the installed module does not support {failure.subject}")
+    if failure.kind == probe.MISSING_NAME:
+        return too_old(f"the installed module has no {failure.subject}")
+    return too_old("the installed make_event does not accept this call shape")
+
+
+def _event_spec() -> EventProbeSpec:
+    """This product's description of what it needs from the event module.
+
+    Built on every call, so the import seam and the tables above are read
+    when the probe runs.
+    """
+    return EventProbeSpec(
+        plugin=PLUGIN,
+        error=ExecutionEventSupportError,
+        render=_render_support_failure,
+        floor=EXECUTION_EVENT_BOOTSTRAP,
+        required_schemas=(REQUIRED_SCHEMA,),
+        required_callables=_REQUIRED_CALLABLES,
+        shapes=(CallShape("make_event", 0, _MAKE_EVENT_KEYWORDS),),
+        v2_schema=REQUIRED_SCHEMA_V2,
+        v2_floor=EXECUTION_EVENT_V2_BOOTSTRAP,
+        v2_shape=CallShape("make_event", 0, _MAKE_EVENT_KEYWORDS + ("schema",)),
+        importer=_import_module,
     )
 
 
@@ -151,34 +209,7 @@ def _execution_event() -> Any:
     Three states: ``bootstrap_lib`` absent (install message), too old or stale
     (update message with this module's own version constant), or usable.
     """
-    try:
-        _import_module("bootstrap_lib")
-    except ModuleNotFoundError as exc:
-        if exc.name in (None, "bootstrap_lib"):
-            raise ExecutionEventSupportError(
-                "content-pipeline-kit execution events need bootstrap_lib, which "
-                f"this interpreter cannot import. Run `claude plugin install {_OWNER}`."
-            ) from exc
-        raise _too_old(f"bootstrap_lib failed to import ({exc})") from exc
-    try:
-        module = _import_module("bootstrap_lib.execution_event")
-    except ImportError as exc:
-        raise _too_old("bootstrap_lib.execution_event does not import") from exc
-    schemas = getattr(module, "SUPPORTED_SCHEMAS", None)
-    try:
-        supported = REQUIRED_SCHEMA in schemas
-    except TypeError:
-        supported = False
-    if not supported:
-        raise _too_old(f"the installed module does not support {REQUIRED_SCHEMA}")
-    for name in _REQUIRED_CALLABLES:
-        if not callable(getattr(module, name, None)):
-            raise _too_old(f"the installed module has no {name}")
-    try:
-        inspect.signature(module.make_event).bind(**{k: None for k in _MAKE_EVENT_KEYWORDS})
-    except (TypeError, ValueError) as exc:
-        raise _too_old("the installed make_event does not accept this call shape") from exc
-    return module
+    return event_probe.probe_execution_event(_event_spec())
 
 
 def _execution_event_v2() -> Any:
@@ -188,25 +219,7 @@ def _execution_event_v2() -> Any:
     schema v1 only is usable for every other run, so it gets a message of its
     own, naming the version that ships v2.
     """
-    module = _execution_event()
-    reason = None
-    if REQUIRED_SCHEMA_V2 not in module.SUPPORTED_SCHEMAS:
-        reason = f"the installed module does not support {REQUIRED_SCHEMA_V2}"
-    else:
-        try:
-            inspect.signature(module.make_event).bind(
-                **{k: None for k in _MAKE_EVENT_KEYWORDS + ("schema",)}
-            )
-        except (TypeError, ValueError):
-            reason = "the installed make_event does not accept a schema keyword"
-    if reason is not None:
-        raise ExecutionEventSupportError(
-            f"this run has interrupt rows, which content-pipeline-kit projects as "
-            f"interrupt events under {REQUIRED_SCHEMA_V2}; that needs bootstrap "
-            f"{EXECUTION_EVENT_V2_BOOTSTRAP} or newer: {reason}. Run "
-            f"`claude plugin update {_OWNER}` and restart the session."
-        )
-    return module
+    return event_probe.probe_execution_event_v2(_event_spec())
 
 
 def _last_attempt_rows(attempts: List[AttemptRecord]) -> Dict[str, int]:
@@ -234,6 +247,7 @@ def project_run(store: Any, run_id: str) -> Tuple[dict, ...]:
     supports v1 only and the run has an interrupt row.
     """
     ee = _execution_event()
+    spec = _event_spec()
     run, units, attempts = store.snapshot(run_id)
     if run is None:
         raise UnknownRunError(run_id)
@@ -261,19 +275,19 @@ def project_run(store: Any, run_id: str) -> Tuple[dict, ...]:
     ) -> dict:
         # `schema` is passed only for a v2 event, so a run with no interrupt
         # row makes the same call it always has.
-        revision = {} if schema is None else {"schema": schema}
-        return ee.make_event(
+        return event_probe.build_event(
+            ee,
+            spec,
             seq=seq,
             run_id=run_id,
             event=event,
-            plugin=PLUGIN,
             at=ee.utc_timestamp(at),
             unit_id=unit_id,
             attempt_id=attempt_id,
             adapter=run.backend or None,
             model=run.model or None,
             payload=payload,
-            **revision,
+            schema=schema,
         )
 
     events: List[dict] = [

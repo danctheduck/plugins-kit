@@ -22,11 +22,14 @@ apart from a too-old or stale one before any fact is written.
 from __future__ import annotations
 
 import datetime as _dt
-import inspect
 import math
 import re
 from types import ModuleType
 from typing import Any, Iterable, Mapping, Optional
+
+from llm_kit.execution import event_probe, probe
+from llm_kit.execution.event_probe import EventProbeSpec
+from llm_kit.execution.probe import CallShape, ProbeFailure
 
 #: The ``source.plugin`` of every event job-kit records.
 PLUGIN = "job-kit"
@@ -84,6 +87,57 @@ class ExecutionEventSupportError(ImportError):
     """``bootstrap_lib.execution_event`` is absent, too old, or stale."""
 
 
+def _render_support_failure(failure: ProbeFailure) -> str:
+    """Word a refused probe in job-kit's own terms.
+
+    The shared probe decides what is wrong (an absent module, a stale one, an
+    unadvertised schema); job-kit says it, naming the bootstrap release in
+    ``failure.floor``.
+    """
+    if failure.kind in (probe.ABSENT, probe.BROKEN_IMPORT):
+        return (
+            "job-kit records execution events with bootstrap_lib, which is not "
+            "linked into this environment: install or enable the bootstrap "
+            "plugin (`claude plugin install bootstrap@plugins-kit`) and start a "
+            "new session so it links job-kit's shared libs."
+        )
+    if failure.kind == probe.UNSUPPORTED and failure.subject == SCHEMA_V2:
+        return (
+            "the linked bootstrap_lib.execution_event supports "
+            f"{SCHEMA_V1} but not /v2, which job-kit needs to record "
+            "interrupts: update the bootstrap plugin to >= "
+            f"{failure.floor} "
+            "(`claude plugin update bootstrap@plugins-kit`) and restart."
+        )
+    return (
+        "job-kit records execution events with bootstrap_lib.execution_event "
+        f"({SCHEMA_V1} and {SCHEMA_V2}), which the linked bootstrap_lib "
+        "predates or lacks: update the bootstrap plugin to >= "
+        f"{failure.floor} "
+        "(`claude plugin update bootstrap@plugins-kit`) and restart."
+    )
+
+
+def _event_spec() -> EventProbeSpec:
+    """job-kit's description of what it needs from the event module.
+
+    Built on every call so the floor and the tables above are read when the
+    probe runs.
+    """
+    return EventProbeSpec(
+        plugin=PLUGIN,
+        error=ExecutionEventSupportError,
+        render=_render_support_failure,
+        floor=_EXECUTION_EVENT_BOOTSTRAP,
+        required_schemas=REQUIRED_SCHEMAS,
+        required_callables=_REQUIRED_CALLABLES,
+        shapes=(
+            CallShape("make_event", 0, _MAKE_EVENT_KEYWORDS),
+            CallShape("JsonlSink", 1, ("mode",)),
+        ),
+    )
+
+
 def _execution_event() -> ModuleType:
     """Return the usable execution-event module, or raise a diagnosis.
 
@@ -91,48 +145,7 @@ def _execution_event() -> ModuleType:
     submodule, the schema, a callable, or the ``make_event`` call shape is
     missing) produce different messages with different remedies.
     """
-    try:
-        import bootstrap_lib  # noqa: F401
-    except ModuleNotFoundError as exc:
-        raise ExecutionEventSupportError(
-            "job-kit records execution events with bootstrap_lib, which is not "
-            "linked into this environment: install or enable the bootstrap "
-            "plugin (`claude plugin install bootstrap@plugins-kit`) and start a "
-            "new session so it links job-kit's shared libs."
-        ) from exc
-    too_old = (
-        "job-kit records execution events with bootstrap_lib.execution_event "
-        f"({SCHEMA_V1} and {SCHEMA_V2}), which the linked bootstrap_lib "
-        "predates or lacks: update the bootstrap plugin to >= "
-        f"{_EXECUTION_EVENT_BOOTSTRAP} "
-        "(`claude plugin update bootstrap@plugins-kit`) and restart."
-    )
-    try:
-        from bootstrap_lib import execution_event as module
-    except ImportError as exc:
-        raise ExecutionEventSupportError(too_old) from exc
-    supported = getattr(module, "SUPPORTED_SCHEMAS", None)
-    if supported is None or SCHEMA_V1 not in supported:
-        raise ExecutionEventSupportError(too_old)
-    if SCHEMA_V2 not in supported:
-        raise ExecutionEventSupportError(
-            "the linked bootstrap_lib.execution_event supports "
-            f"{SCHEMA_V1} but not /v2, which job-kit needs to record "
-            "interrupts: update the bootstrap plugin to >= "
-            f"{_EXECUTION_EVENT_BOOTSTRAP} "
-            "(`claude plugin update bootstrap@plugins-kit`) and restart."
-        )
-    for name in _REQUIRED_CALLABLES:
-        if not callable(getattr(module, name, None)):
-            raise ExecutionEventSupportError(too_old)
-    try:
-        inspect.signature(module.make_event).bind(
-            **{keyword: None for keyword in _MAKE_EVENT_KEYWORDS}
-        )
-        inspect.signature(module.JsonlSink).bind("events.jsonl", mode="create")
-    except (TypeError, ValueError) as exc:
-        raise ExecutionEventSupportError(too_old) from exc
-    return module
+    return event_probe.probe_execution_event(_event_spec())
 
 
 def _is_iso_z(value: str) -> bool:
@@ -193,18 +206,19 @@ def build_event(
     unusable.
     """
     module = _execution_event()
-    return module.make_event(
-        schema=SCHEMA_V1 if schema is None else schema,
+    return event_probe.build_event(
+        module,
+        _event_spec(),
         seq=seq,
         run_id=run_id,
         event=event,
-        plugin=PLUGIN,
         at=at,
         unit_id=job_id,
         attempt_id=(str(attempt_no) if attempt_no is not None else None),
         adapter=adapter or None,
         model=model or None,
         payload=dict(payload) if payload is not None else None,
+        schema=SCHEMA_V1 if schema is None else schema,
     )
 
 

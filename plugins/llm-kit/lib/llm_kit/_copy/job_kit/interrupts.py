@@ -20,20 +20,24 @@ load would record an unchecked wait, so an absent or too-old contract
 refuses with a diagnosis instead. ``canonical_json`` stays a local stdlib
 function so that ``import job_kit`` never needs ``bootstrap_lib``.
 
-Schemas are checked and answers validated with llm-scripting-kit's
-stdlib-only closed-subset validator (``llm_scripting_kit.completion.
-json_schema``), reached only through :func:`_schema_validator` and handed to
-the contract. That edge is REQUIRED for the same reason.
+Schemas are checked and answers validated with the stdlib-only
+closed-subset validator (``llm_kit.schema.json_schema``), reached only
+through :func:`_schema_validator` and handed to the contract. That edge is
+REQUIRED for the same reason.
 """
 
 from __future__ import annotations
 
-import importlib
-import inspect
-import json
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Mapping, Optional
+
+from llm_kit.execution import contract_probe, probe, schema_validator
+from llm_kit.execution.contract_probe import ContractProbeSpec
+from llm_kit.execution.interrupts import InterruptAdapter, InterruptAdapterSpec
+from llm_kit.execution.probe import CallShape, ProbeFailure
+from llm_kit.execution.schema_validator import ValidatorProbeSpec
+from llm_kit.execution.values import canonical_json
 
 from .model import InterruptRecord, InterruptRequest
 
@@ -159,6 +163,96 @@ class InterruptContractSupportError(ImportError):
     """``bootstrap_lib.interrupt_contract`` is absent, too old, or stale."""
 
 
+def _render_contract_failure(failure: ProbeFailure) -> str:
+    """Word a refused contract probe in job-kit's own terms.
+
+    The shared probe decides what is wrong; job-kit says it, naming the
+    bootstrap release in ``failure.floor``.
+    """
+    if failure.kind in (probe.ABSENT, probe.BROKEN_IMPORT):
+        return (
+            "job-kit checks interrupt requests and resolutions with "
+            "bootstrap_lib.interrupt_contract, which is not linked into this "
+            "environment: install or enable the bootstrap plugin "
+            "(`claude plugin install bootstrap@plugins-kit`) and start a new "
+            "session so it links job-kit's shared libs."
+        )
+    return (
+        "job-kit checks interrupt requests and resolutions with "
+        f"bootstrap_lib.interrupt_contract ({_CONTRACT_V1}), which the linked "
+        "bootstrap_lib predates or lacks: update the bootstrap plugin to >= "
+        f"{failure.floor} "
+        "(`claude plugin update bootstrap@plugins-kit`) and restart."
+    )
+
+
+def _render_validator_failure(failure: ProbeFailure) -> str:
+    """Word a refused validator probe in job-kit's own terms."""
+    if failure.kind in (probe.ABSENT, probe.BROKEN_IMPORT):
+        return (
+            "job-kit validates interrupt requests with llm-scripting-kit, which "
+            "is not linked into this environment: install or enable it "
+            "(`claude plugin install llm-scripting-kit@plugins-kit`) and start a "
+            "new session so bootstrap links job-kit's shared libs."
+        )
+    return (
+        "job-kit validates interrupt requests with "
+        "llm_scripting_kit.completion.json_schema (check_schema and validate "
+        "with the subset= selector), which the linked llm-scripting-kit "
+        "predates or lacks: update "
+        f"llm-scripting-kit to >= {failure.floor} "
+        "(`claude plugin update llm-scripting-kit@plugins-kit`) and restart."
+    )
+
+
+def _contract_spec() -> ContractProbeSpec:
+    """job-kit's description of what it needs from the contract.
+
+    Built on every call so the floor and the tables above are read when the
+    probe runs.
+    """
+    return ContractProbeSpec(
+        error=InterruptContractSupportError,
+        render=_render_contract_failure,
+        shapes=tuple(
+            CallShape(name, len(positional), tuple(keywords))
+            for name, (positional, keywords) in _CONTRACT_CALL_SHAPES.items()
+        ),
+        floor=_INTERRUPT_CONTRACT_BOOTSTRAP,
+        contract=_CONTRACT_V1,
+    )
+
+
+def _validator_spec() -> ValidatorProbeSpec:
+    """job-kit's description of the schema validator it needs.
+
+    ``subset=None``: the literal is the probed contract's ``VALIDATOR_SUBSET``.
+    """
+    return ValidatorProbeSpec(
+        error=JsonSchemaSupportError,
+        render=_render_validator_failure,
+        floor=_JSON_SCHEMA_LSK_VERSION,
+        subset=None,
+    )
+
+
+def _adapter() -> InterruptAdapter:
+    """The shared contract adapter, configured with job-kit's literals."""
+    return InterruptAdapter(
+        InterruptAdapterSpec(
+            owner=_OWNER,
+            contract=_contract_spec(),
+            validator=_validator_spec(),
+            accepted_envelopes=REQUEST_ENVELOPES,
+            resolution_envelope=RESOLUTION_ENVELOPE_V1,
+            request_error=InterruptRequestError,
+            input_error=InterruptInputError,
+            hash_decision=True,
+        ),
+        acquire=_contract_and_validator,
+    )
+
+
 def _interrupt_contract() -> ModuleType:
     """Return the usable interrupt-contract module, or raise a diagnosis.
 
@@ -166,99 +260,21 @@ def _interrupt_contract() -> ModuleType:
     submodule, the contract revision, a callable, or a call shape job-kit
     uses is missing) produce different messages with different remedies.
     """
-    try:
-        import bootstrap_lib  # noqa: F401
-    except ModuleNotFoundError as exc:
-        raise InterruptContractSupportError(
-            "job-kit checks interrupt requests and resolutions with "
-            "bootstrap_lib.interrupt_contract, which is not linked into this "
-            "environment: install or enable the bootstrap plugin "
-            "(`claude plugin install bootstrap@plugins-kit`) and start a new "
-            "session so it links job-kit's shared libs."
-        ) from exc
-    too_old = (
-        "job-kit checks interrupt requests and resolutions with "
-        f"bootstrap_lib.interrupt_contract ({_CONTRACT_V1}), which the linked "
-        "bootstrap_lib predates or lacks: update the bootstrap plugin to >= "
-        f"{_INTERRUPT_CONTRACT_BOOTSTRAP} "
-        "(`claude plugin update bootstrap@plugins-kit`) and restart."
-    )
-    try:
-        module = importlib.import_module("bootstrap_lib.interrupt_contract")
-    except ImportError as exc:
-        raise InterruptContractSupportError(too_old) from exc
-    supported = getattr(module, "SUPPORTED_CONTRACTS", None)
-    try:
-        current = supported is not None and _CONTRACT_V1 in supported
-    except TypeError:
-        current = False
-    if not current:
-        raise InterruptContractSupportError(too_old)
-    for name, (positional, keywords) in _CONTRACT_CALL_SHAPES.items():
-        function = getattr(module, name, None)
-        if not callable(function):
-            raise InterruptContractSupportError(too_old)
-        try:
-            inspect.signature(function).bind(*positional, **keywords)
-        except (TypeError, ValueError) as exc:
-            raise InterruptContractSupportError(too_old) from exc
-    return module
+    return contract_probe.probe_interrupt_contract(_contract_spec())
 
 
 def _schema_validator() -> ModuleType:
     """Return the usable json_schema module, or raise a diagnosis.
 
     Runs :func:`_interrupt_contract` first, so one call before any ledger
-    open probes both edges. Absent (``llm_scripting_kit`` does not import) and
-    too old or stale (the submodule, the subset marker the contract requires,
-    ``check_schema`` or ``validate`` missing, or either call shape the
-    contract uses not binding) produce different messages with different
+    open probes both edges. Absent (the validator package does not import)
+    and too old or stale (the submodule, the subset marker the contract
+    requires, ``check_schema`` or ``validate`` missing, or either call shape
+    the contract uses not binding) produce different messages with different
     remedies.
     """
     subset = _interrupt_contract().VALIDATOR_SUBSET
-    try:
-        importlib.import_module("llm_kit._copy.llm_scripting_kit")
-    except ModuleNotFoundError as exc:
-        raise JsonSchemaSupportError(
-            "job-kit validates interrupt requests with llm-scripting-kit, which "
-            "is not linked into this environment: install or enable it "
-            "(`claude plugin install llm-scripting-kit@plugins-kit`) and start a "
-            "new session so bootstrap links job-kit's shared libs."
-        ) from exc
-    too_old = (
-        "job-kit validates interrupt requests with "
-        "llm_scripting_kit.completion.json_schema (check_schema and validate "
-        "with the subset= selector), which the linked llm-scripting-kit "
-        "predates or lacks: update "
-        f"llm-scripting-kit to >= {_JSON_SCHEMA_LSK_VERSION} "
-        "(`claude plugin update llm-scripting-kit@plugins-kit`) and restart."
-    )
-    try:
-        module = importlib.import_module("llm_kit._copy.llm_scripting_kit.completion.json_schema")
-    except ImportError as exc:
-        raise JsonSchemaSupportError(too_old) from exc
-    try:
-        advertised = getattr(module, "SUPPORTED_SUBSETS", None)
-        marked = advertised is not None and subset in advertised
-    except TypeError:
-        marked = False
-    if not marked:
-        raise JsonSchemaSupportError(too_old)
-    check_schema = getattr(module, "check_schema", None)
-    validate = getattr(module, "validate", None)
-    if not callable(check_schema) or not callable(validate):
-        raise JsonSchemaSupportError(too_old)
-    try:
-        check_signature = inspect.signature(check_schema)
-        validate_signature = inspect.signature(validate)
-    except ValueError as exc:  # a callable with no introspectable signature
-        raise JsonSchemaSupportError(too_old) from exc
-    try:
-        check_signature.bind({}, subset=subset)
-        validate_signature.bind({}, None, subset=subset)
-    except TypeError as exc:
-        raise JsonSchemaSupportError(too_old) from exc
-    return module
+    return schema_validator.probe_schema_validator(_validator_spec(), subset)
 
 
 class _UnusableValidator:
@@ -292,19 +308,6 @@ def _contract_and_validator() -> tuple[ModuleType, Any]:
     return contract, validator
 
 
-def canonical_json(value: object) -> str:
-    """The canonical text of a JSON value: sorted keys, compact, ASCII.
-
-    Identical values give byte-identical text, whatever their key order.
-    Raises ``ValueError`` for NaN or infinity. This stays a local stdlib
-    function, pinned to the contract's by a parity test, so that job-kit
-    holds no hidden ``bootstrap_lib`` requirement for a helper.
-    """
-    return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
-    )
-
-
 def check_request(request: InterruptRequest) -> InterruptRequest:
     """Validate a request built from a file or by a library caller.
 
@@ -313,21 +316,7 @@ def check_request(request: InterruptRequest) -> InterruptRequest:
     :class:`JsonSchemaSupportError` when the validator is unusable, and
     :class:`InterruptContractSupportError` when the contract is.
     """
-    contract, validator = _contract_and_validator()
-    try:
-        checked = contract.check_request(
-            envelope=request.envelope,
-            kind=request.kind,
-            request_schema=request.request_schema,
-            payload=request.payload,
-            expires_in_s=request.expires_in_s,
-            accepted_envelopes=REQUEST_ENVELOPES,
-            owner=_OWNER,
-            validator=validator,
-        )
-    except contract.RequestError as exc:
-        raise InterruptRequestError(str(exc)) from exc
-    return _request_from(checked)
+    return _request_from(_adapter().check_request(request))
 
 
 def _request_from(checked: Mapping[str, Any]) -> InterruptRequest:
@@ -357,17 +346,7 @@ def parse_request(path: str | Path) -> InterruptRequest:
         raise InterruptRequestError(
             f"interrupt request file cannot be read: {exc}"
         ) from exc
-    contract, validator = _contract_and_validator()
-    try:
-        checked = contract.parse_request_document(
-            data,
-            accepted_envelopes=REQUEST_ENVELOPES,
-            owner=_OWNER,
-            validator=validator,
-        )
-    except contract.RequestError as exc:
-        raise InterruptRequestError(str(exc)) from exc
-    return _request_from(checked)
+    return _request_from(_adapter().parse_request_document(data))
 
 
 def validate_input(schema: Mapping[str, object], value: object) -> str:
@@ -379,11 +358,7 @@ def validate_input(schema: Mapping[str, object], value: object) -> str:
     with the validator's ``(json_pointer, keyword)`` tuples verbatim when it
     fails the schema.
     """
-    contract, validator = _contract_and_validator()
-    try:
-        return contract.validate_input(schema, value, validator=validator)
-    except contract.InputError as exc:
-        raise InterruptInputError(str(exc), exc.errors) from exc
+    return _adapter().validate_input(schema, value)
 
 
 def decision_outcome(
@@ -394,12 +369,7 @@ def decision_outcome(
     Raises ``ValueError`` for an unknown decision and for crossed arguments.
     An unhashable decision raises ``TypeError``, as it always did here.
     """
-    hash(decision)
-    contract = _interrupt_contract()
-    try:
-        return contract.decision_outcome(decision, input=input, reason=reason)
-    except contract.DecisionError as exc:
-        raise ValueError(str(exc)) from exc
+    return _adapter().decision_outcome(decision, input=input, reason=reason)
 
 
 def same_resolution(
@@ -412,7 +382,7 @@ def same_resolution(
     reason: object = None,
 ) -> bool:
     """Whether a resolve call replays the stored resolution."""
-    return _interrupt_contract().same_resolution(
+    return _adapter().same_resolution(
         stored_outcome=stored_outcome,
         stored_input_json=stored_input_json,
         stored_reason=stored_reason,
@@ -424,12 +394,12 @@ def same_resolution(
 
 def expiry(created_at: float, expires_in_s: Optional[int]) -> Optional[float]:
     """When a request recorded at ``created_at`` lapses, or ``None`` for never."""
-    return _interrupt_contract().expiry(created_at, expires_in_s)
+    return _adapter().expiry(created_at, expires_in_s)
 
 
 def bound_reason(reason: object) -> Optional[str]:
     """The reason as recorded: its text cut to the contract's reason limit."""
-    return _interrupt_contract().bound_reason(reason)
+    return _adapter().bound_reason(reason)
 
 
 def resolution_document(record: InterruptRecord) -> str:
@@ -441,18 +411,7 @@ def resolution_document(record: InterruptRecord) -> str:
     ``schema`` literal is :data:`RESOLUTION_ENVELOPE_V1`, fixed here and
     taken from no caller.
     """
-    resolution = record.resolution
-    if resolution is None:
-        raise ValueError(f"interrupt {record.id} has no resolution")
-    return _interrupt_contract().resolution_document(
-        resolution_envelope=RESOLUTION_ENVELOPE_V1,
-        interrupt_id=record.id,
-        kind=record.kind,
-        outcome=resolution.outcome,
-        input=resolution.input,
-        payload=record.payload,
-        resolved_at=resolution.resolved_at,
-    )
+    return _adapter().resolution_document(record)
 
 
 __all__ = [
