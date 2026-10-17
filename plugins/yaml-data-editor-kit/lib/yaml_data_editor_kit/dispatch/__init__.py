@@ -1,4 +1,4 @@
-"""The planner and content-pipeline-kit binding for editor dispatch."""
+"""The planner and llm-kit binding for editor dispatch."""
 
 from .request import (
     DispatchRequest,
@@ -8,10 +8,10 @@ from .request import (
     load_request,
 )
 
-# Every module below reaches the content_pipeline shared library. A consumer whose
+# Every module below reaches the llm_kit shared library. A consumer whose
 # venv lacks it gets one actionable message naming the remedy, rather than a bare
 # ImportError from whichever submodule happened to be imported first. A nested
-# ModuleNotFoundError raised from inside content_pipeline is a different fault and
+# ModuleNotFoundError raised from inside llm_kit is a different fault and
 # is re-raised untouched, so a real packaging bug is not mislabelled.
 try:
     from .planner import (
@@ -48,14 +48,14 @@ try:
     from .run import RunSummary, StaleSliceError, dispatch, effective_result
     from .worker_mount import build_worker_command, main
 except ImportError as exc:
-    if getattr(exc, "name", "") not in ("content_pipeline", None) and not str(
+    if getattr(exc, "name", "") not in ("llm_kit", None) and not str(
         exc
-    ).startswith("No module named 'content_pipeline'"):
+    ).startswith("No module named 'llm_kit'"):
         raise
     raise ModuleNotFoundError(
-        "yaml-data-editor-kit dispatch requires the content_pipeline shared library; "
+        "yaml-data-editor-kit dispatch requires the llm_kit shared library; "
         "run the bootstrap dependency convergence action",
-        name="content_pipeline",
+        name="llm_kit",
     ) from exc
 
 __all__ = [

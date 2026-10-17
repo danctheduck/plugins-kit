@@ -6,10 +6,10 @@ import json
 import yaml
 from copy import deepcopy
 
-from content_pipeline.execution.model import UnitState
-from content_pipeline.execution.store import ExecutionStore
-from content_pipeline.llm.backends import MockBackend
-from content_pipeline.pipeline.workunit import WorkUnit
+from llm_kit.pipeline.execution.model import UnitState
+from llm_kit.pipeline.execution.store import ExecutionStore
+from llm_kit.pipeline.runtime.backends import MockBackend
+from llm_kit.pipeline.core.workunit import WorkUnit
 
 from yaml_data_editor_kit.comments import Comment, CommentStore
 from yaml_data_editor_kit.dispatch.request import DispatchRequest

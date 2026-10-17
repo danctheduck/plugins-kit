@@ -1,6 +1,6 @@
-"""Execute planned comment units through content-pipeline-kit.
+"""Execute planned comment units through llm-kit.
 
-The inline lane uses content-pipeline-kit for claims, fencing, leases, and
+The inline lane uses llm-kit for claims, fencing, leases, and
 accepted-text recording. The attributed YAML file is the small file seam for
 the editor-facing result: only its ``machine`` slice is written by this
 module. Existing ``human`` slices are carried through untouched.
@@ -20,18 +20,18 @@ from uuid import uuid4
 
 import yaml
 
-from content_pipeline.execution.adapter import RunAdapter
-from content_pipeline.execution.controller import finalize_run
-from content_pipeline.execution.drivers.inline import (
+from llm_kit.pipeline.execution.adapter import RunAdapter
+from llm_kit.pipeline.execution.controller import finalize_run
+from llm_kit.pipeline.execution.drivers.inline import (
     UnacceptedSubmissionError,
     run_wave,
 )
-from content_pipeline.execution.model import ApplyRejected, AttemptKind, UnitState
-from content_pipeline.execution.store import ExecutionStore
-from content_pipeline.freshness.hashing import content_hash
-from content_pipeline.llm.backends import route
-from content_pipeline.llm.platform import LLMBackend, submit_validated
-from content_pipeline.store.attributed import effective_value
+from llm_kit.pipeline.execution.model import ApplyRejected, AttemptKind, UnitState
+from llm_kit.pipeline.execution.store import ExecutionStore
+from llm_kit.pipeline.artifacts.freshness.hashing import content_hash
+from llm_kit.pipeline.runtime.backends import route
+from llm_kit.pipeline.runtime.platform import LLMBackend, submit_validated
+from llm_kit.pipeline.artifacts.store.attributed import effective_value
 
 from yaml_data_editor_kit.comments import (
     EvaluationError,
@@ -103,7 +103,7 @@ def dispatch(
     """Load, plan, and execute one file-backed dispatch request.
 
     ``backend`` is an injection seam for tests and callers that already chose
-    a backend. When omitted, content-pipeline-kit performs its normal routing.
+    a backend. When omitted, llm-kit performs its normal routing.
     """
     resolved_request = _request_value(request)
     if resolved_request.driver == "claude_bg":

@@ -1,6 +1,6 @@
-# Binding to content-pipeline-kit
+# Binding to llm-kit
 
-`dispatch/` is the only package that imports content-pipeline-kit. This
+`dispatch/` is the only package that imports llm-kit. This
 document records WHAT it binds to and, more usefully, what it deliberately
 does not -- so a reader of `dispatch/` does not re-litigate it or reimplement
 a concern that already ships.
@@ -98,7 +98,7 @@ These define the dispatch seam; everything else above is adoption.
 
 ## Do not build a quota predictor
 
-content-pipeline-kit rules this explicitly and it carries here: the
+llm-kit rules this explicitly and it carries here: the
 guaranteed-correct path is the reactive halt. Code that parses a rate-limit
 snapshot to decide whether to dispatch is the named anti-pattern, not an
 optimization.

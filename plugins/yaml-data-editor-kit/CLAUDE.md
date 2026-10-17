@@ -53,12 +53,12 @@ framework dependency.
   what the note is about. This package owns the address grammar, the
   persistence of comment records, and detecting that data moved underneath
   an anchor.
-- `dispatch/` -- the planner and the content-pipeline-kit binding. The
+- `dispatch/` -- the planner and the llm-kit binding. The
   request loader reads the file seam, and `CommentPlanner` groups open
   comments mechanically into work units: comment count is not unit count,
   and not agent count. `AgenticCommentPlanner` can group complete mechanical
-  units through content-pipeline-kit, with mechanical planning as its fallback.
-  The inline lane uses content-pipeline-kit execution and writes accepted
+  units through llm-kit, with mechanical planning as its fallback.
+  The inline lane uses llm-kit execution and writes accepted
   results to the `machine` slice of an attributed store; stale anchored slices
   are rejected. The `claude_bg` lane uses the staged
   `prepare_background_dispatch`, `run_background_wave`,
@@ -69,7 +69,7 @@ framework dependency.
   inline-only and raises `BackgroundStagesRequiredError` for background
   requests. Finalize writes only the `machine` layer and preserves human,
   sourced, and metadata values. This is the only package that imports
-  content-pipeline-kit, and `bootstrap.json` carries the matching plugin and
+  llm-kit, and `bootstrap.json` carries the matching plugin and
   shared-library declarations.
 - `editor/` -- the web surface, which this kit does NOT build. **Databench**
   owns it: a separate local web workbench that browses and edits a project's

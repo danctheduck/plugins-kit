@@ -2,8 +2,8 @@
 
 Every other test in this suite (``test_dispatch_background.py``,
 ``test_dispatch_worker_mount.py``) drives ``worker_mount``'s protocol
-handlers IN-PROCESS, and content-pipeline-kit's own driver tests
-(``tests/content-pipeline-kit/test_execution_driver_claude_bg.py``) patch
+handlers IN-PROCESS, and llm-kit's own driver tests
+(``tests/llm-kit/test_execution_driver_claude_bg.py``) patch
 ``ClaudeCli.runner`` to a scripted fake and explicitly assert that no test
 in that suite reaches a real subprocess. So nothing anywhere exercises the
 one thing that actually matters for the ``claude_bg`` lane: that
@@ -52,22 +52,22 @@ from pathlib import Path
 
 import yaml
 
-from content_pipeline.execution.drivers.claude_bg import build_launch_prompt
-from content_pipeline.execution.store import ExecutionStore
-from content_pipeline.execution.workerpack import (
+from llm_kit.pipeline.execution.drivers.claude_bg import build_launch_prompt
+from llm_kit.pipeline.execution.store import ExecutionStore
+from llm_kit.pipeline.execution.workerpack import (
     answer_path_for,
     enumerate_worker_invocations,
     format_fenced_answer,
     worker_envelopes_for,
 )
-from content_pipeline.freshness.hashing import content_hash
+from llm_kit.pipeline.artifacts.freshness.hashing import content_hash
 
 from yaml_data_editor_kit.comments.store import CommentStore
 from yaml_data_editor_kit.dispatch.state import write_plan
 from yaml_data_editor_kit.dispatch.worker_mount import build_worker_command
 
 PLUGIN_LIB = Path(__file__).resolve().parents[2] / "plugins" / "yaml-data-editor-kit" / "lib"
-CPK_LIB = Path(__file__).resolve().parents[2] / "plugins" / "content-pipeline-kit" / "lib"
+LLM_KIT_LIB = Path(__file__).resolve().parents[2] / "plugins" / "llm-kit" / "lib"
 
 _SUBPROCESS_TIMEOUT_S = 30.0
 
@@ -78,7 +78,7 @@ def _subprocess_env() -> dict[str, str]:
     is in-process only and a child process starts with none of it."""
     env = dict(os.environ)
     existing = env.get("PYTHONPATH", "")
-    parts = [str(PLUGIN_LIB), str(CPK_LIB)]
+    parts = [str(PLUGIN_LIB), str(LLM_KIT_LIB)]
     if existing:
         parts.append(existing)
     env["PYTHONPATH"] = os.pathsep.join(parts)

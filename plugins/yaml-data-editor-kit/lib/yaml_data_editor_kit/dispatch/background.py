@@ -12,10 +12,10 @@ from uuid import uuid4
 
 import yaml
 
-from content_pipeline.execution.controller import finalize_run
-from content_pipeline.execution.drivers.claude_bg import ClaudeCli, dispatch_wave
-from content_pipeline.execution.model import AttemptKind, UnitState
-from content_pipeline.execution.store import ExecutionStore
+from llm_kit.pipeline.execution.controller import finalize_run
+from llm_kit.pipeline.execution.drivers.claude_bg import ClaudeCli, dispatch_wave
+from llm_kit.pipeline.execution.model import AttemptKind, UnitState
+from llm_kit.pipeline.execution.store import ExecutionStore
 
 from yaml_data_editor_kit.comments import CommentStore
 
@@ -28,7 +28,7 @@ from .state import DispatchPlan, load_plan, write_plan
 from .units import unit_targets, validation_spec_for_unit
 from .worker_mount import build_worker_command
 from yaml_data_editor_kit.schema import errors_only, load_corpus, load_profile
-from content_pipeline.pipeline.workunit import WorkUnit
+from llm_kit.pipeline.core.workunit import WorkUnit
 
 
 DispatchInput = DispatchRequest | DispatchRequestSet | str | Path
