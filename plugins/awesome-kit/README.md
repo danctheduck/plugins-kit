@@ -14,8 +14,6 @@ machine-local poster output uses the
 
 Also in the box, one line each:
 
-- A task-folder system (the `task` skill) -- file-backed task folders
-  with a CLI for create/list/work/close/archive/move.
 - `orchestrate` -- delegate significant work to background agents so the
   main context holds conclusions rather than work product. Its model
   tiers, dispatch backends (the Agent tool, the Codex CLI, or one you

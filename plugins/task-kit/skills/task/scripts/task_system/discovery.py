@@ -65,7 +65,7 @@ Readings chosen in Step 3 (flagged in the implementation report):
 Reuse note: ``skills_kit_lib.document_walker.iter_yaml_blocks`` supplies the
 fenced-YAML-block extraction. Its ``collect_yaml_units`` cannot serve here:
 it filters by skills-kit's ``SCHEMAS_BY_ROOT`` registry, and ``task_list``
-is deliberately NOT registered there (the schema lives in awesome-kit, CCP
+is deliberately NOT registered there (the schema lives in task-kit, CCP
 -- see schemas.py). Block parsing + ``task_list`` recognition + schema
 validation (via ``skills_kit_lib.schema_engine``) happen here.
 """

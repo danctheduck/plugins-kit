@@ -4,7 +4,7 @@ Both schemas are expressed in the skills_kit_lib.schema_engine rule vocabulary
 (required / type / forbid_regex / items / keys) and are validated by calling
 ``skills_kit_lib.schema_engine.validate(yaml_data, schema)`` directly. They are
 deliberately NOT registered in skills-kit's schema_registry -- the schema dicts
-live here in awesome-kit because they change with the task system (CCP).
+live here in task-kit because they change with the task system (CCP).
 
 Layering: the engine checks structure / types / regex only. Vocabulary checks
 that depend on the Task Type -- ``status`` within the type's state_vocabulary,

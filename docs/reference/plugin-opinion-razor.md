@@ -240,7 +240,7 @@ no instructions at all.
 **Detect:** grep the tree for `treat .* as noise`, `ignore the warning`, `does not apply
 to this repo`, `deliberate deviation`. Each hit is a candidate finding.
 
-**Worked example (real, unfixed).** `awesome-kit:task` holds that `dev/tasks/<stub>` is the
+**Worked example (real, unfixed).** `task-kit:task` holds that `dev/tasks/<stub>` is the
 durable, version-controlled half of the task system and `tmp/<stub>` the ephemeral half,
 and its `validate` gate blocks work while a `dev/tasks` folder is uncommitted. This repo
 gitignores `dev/` entirely, so the root CLAUDE.md instructs the reader:
@@ -270,7 +270,7 @@ first and `dev` tracks `origin/dev` here, so the fallback never fires in practic
 only a branch with no upstream. Recorded as a real gap with an honest severity: the seam
 would be a `base_branch_candidates` list defaulting to today's four.
 
-**Worked example (real).** `awesome-kit:task` privileges git as the VCS it detects and
+**Worked example (real).** `task-kit:task` privileges git as the VCS it detects and
 automates. Under another VCS the scripts run no commands and hand submission back to the
 agent -- a strictly degraded path baked into the code rather than a pluggable alternative.
 The skill does declare this, which is why it is a weaker finding than the durability one:
@@ -289,10 +289,10 @@ None outstanding.
 
 | Plugin | Opinion | Disposition |
 |---|---|---|
-| awesome-kit:task | git is the privileged, automated VCS | Registered as a deliberate stance in `plugins/CLAUDE.md`, with the rationale OP-5 requires and the bounded degradation a Perforce consumer actually gets. Not a seam. |
+| task-kit:task | git is the privileged, automated VCS | Registered as a deliberate stance in `plugins/CLAUDE.md`, with the rationale OP-5 requires and the bounded degradation a Perforce consumer actually gets. Not a seam. |
 | job-kit | selection is deterministic caller preference; no scoring, aliases, or learned routing | Registered in `plugins/CLAUDE.md`. Forecloses adaptive routing on purpose: an unattended run must be explainable from its inputs, and the user who wants judgment wants `awesome-kit:orchestrate`. Within a run job-kit only NARROWS the stated order (halted endpoints excluded), and the ledger records each exclusion. |
 | job-kit | a run-level deny floor is a selection requirement, not best-effort | Registered in `plugins/CLAUDE.md`. A team preferring best-effort application has only the remedy of dropping the floor, which is deliberate: a floor sometimes not applied is not a floor, and unattended is exactly the case where nobody notices. |
-| job-kit | git is the only workspace-isolation VCS | Registered in `plugins/CLAUDE.md`, same reasoning as awesome-kit:task. Isolation is opt-in (`workspace.isolate: true`). Bounded and recorded, never silent: a job requesting it in a non-git directory runs in place with `workspace: none` on the attempt row. |
+| job-kit | git is the only workspace-isolation VCS | Registered in `plugins/CLAUDE.md`, same reasoning as task-kit:task. Isolation is opt-in (`workspace.isolate: true`). Bounded and recorded, never silent: a job requesting it in a non-git directory runs in place with `workspace: none` on the attempt row. |
 | bootstrap | a shared library linked into a project venv PREPENDS, outranking a same-named package the venv already holds; no precedence setting | Registered stance in `plugins/CLAUDE.md`. The same `.pth` mechanism prepends for plugin venvs to beat a stale installed shadow, and a project venv is where such copies accumulate, so appending would reintroduce that defect. Not a seam: the hazard is made OBSERVABLE instead -- a pass that links a library the venv already holds emits an action entry naming the shadowed copy and its version. The remedy a team has is to stop listing that library. A per-entry flag is the shape if a real consumer needs its own copy to win. |
 | bootstrap | a bare `python`/`python3`/`py` command word in a shipped plugin manifest's `tools[].check`/`install` is a displayed lint action entry naming the fact | Registered stance: plugin manifests must be multi-platform, since the target machine's PATH is unknown to the manifest author. The same command in a layered or project manifest -- the author's own machine -- is a log-only entry (never displayed) until the command actually fails; nothing nags a project that chose its own interpreter. Not a seam: the entry never fails the pass, and it names the fix (`BOOTSTRAP_PYTHON`/`BOOTSTRAP_PROJECT_PYTHON`) in its own text. |
 
@@ -315,7 +315,7 @@ is neither a default nor a registered stance. The rule and its check live in
 | git-kit | base-branch fallback omits `dev`/`develop`/`trunk` | `@{upstream}` resolves first for any tracked branch; the fallback path ends in one message naming the exact remedy. Friction, not a scenario. Widen the list if desired -- that is a default change. |
 | git-kit | fan-out threshold of 1 in review mode; `lanes <= 6` dispatch cutoff | Internal dispatch mechanics with no user-visible behaviour change to prefer. No user has a preference about a lane count. |
 | p4-kit | `-m 20` pending-CL listing limit | One scenario at most (>20 pending CLs), remedied by picking the CL explicitly. If 20 proves low, raise the constant. |
-| awesome-kit:task | document size ceilings (400 hard / 250 soft) | The tool's own house style for a rotation mechanism it owns, like a formatter's line length. Users adopt the mechanism or not. |
+| task-kit:task | document size ceilings (400 hard / 250 soft) | The tool's own house style for a rotation mechanism it owns, like a formatter's line length. Users adopt the mechanism or not. |
 | p4-kit | auto-shelve then fingerprint-matched cleanup | Intrinsic to reviewing an unshelved pending CL in Perforce. Outside the razor. |
 | job-kit | acceptance is command-shaped -- exit 0 accepts | The seam already exists and is the contract command itself: a caller wanting rubric scoring or an LLM judge puts that call INSIDE their command. No remedial action against the default, so no scenario. It is a scope statement, documented in the plugin README, not a config opinion. |
 | hue-kit, job-kit, llm-scripting-kit, secrets-kit, unreal-kit (`bin/` shims, `ue-runner.cmd`) | the shim refuses to run the plugin-cache copy when `CLAUDE_PLUGIN_TEST` is set | Fires only inside a claudx session, the maintainer test harness (`scripts/claude_plugin_test.py`), which exports that variable; a consumer never sets it. A test of the working copy that silently ran the cached published copy would report the published code's behaviour as the working copy's, so the refusal enforces correctness of the harness, not a team workflow. No serious scenario: nobody wants a harness run that tests the wrong code. Remedy is the refusal's own message. Outside the razor as a workflow opinion; recorded so an audit does not rediscover it. |
@@ -328,7 +328,7 @@ is neither a default nor a registered stance. The rule and its check live in
 
 | Plugin | Opinion | Why unresolved |
 |---|---|---|
-| awesome-kit:task | `dev/tasks/<stub>` is durable and must be committed | RE-RUN, verdict downgraded from PASSES. The scenario that made it serious -- this repo gitignoring `dev/` and having to call the resulting blocking warnings noise -- was discharged by DETECTION rather than a seam: `validate.py` classes a git-ignored task root as an advisory note, never a warning, so it cannot gate `work`, and `location_ops.py` carries the matching `vcs_ignored` archive disposition. What remains is one non-serious scenario: a user whose durable root is `docs/tasks` or `.tasks` cannot express it, because the two prefixes are argparse `choices`. One weak scenario is below the bar of one serious or two distinct. Re-test if a second appears. |
+| task-kit:task | `dev/tasks/<stub>` is durable and must be committed | RE-RUN, verdict downgraded from PASSES. The scenario that made it serious -- this repo gitignoring `dev/` and having to call the resulting blocking warnings noise -- was discharged by DETECTION rather than a seam: `validate.py` classes a git-ignored task root as an advisory note, never a warning, so it cannot gate `work`, and `location_ops.py` carries the matching `vcs_ignored` archive disposition. What remains is one non-serious scenario: a user whose durable root is `docs/tasks` or `.tasks` cannot express it, because the two prefixes are argparse `choices`. One weak scenario is below the bar of one serious or two distinct. Re-test if a second appears. |
 | bootstrap | 3600s cooldown, 24h env-recheck TTL | A plugin developer iterating locally wants a shorter cooldown -- a real audience here, since this marketplace is public and others develop against it. But `bootstrap-reset-cooldown.sh` already gives a one-command remedy, which blunts "repeated manual remediation". Needs one more distinct scenario to pass. Notable that the four-layer manifest that would hold the key **already exists** -- a plugin with a configuration system can still fail the razor by not routing an opinion through it. |
 | job-kit | `CONTRACT_OUTPUT_LIMIT = 2000` hardcoded | The acceptance output tail is the only diagnostic an unattended run leaves behind, so a truncated tail forces a manual re-run -- remedial action against the default, which is what a passing scenario looks like. But no real workload has produced a contract output near 2000 characters, so the scenario is constructed rather than observed. A key defaulting to 2000 is the likely answer the moment one appears. Re-test on the first truncated tail. |
 

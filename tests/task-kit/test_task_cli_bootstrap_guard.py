@@ -32,7 +32,7 @@ from bootstrap_guard import _REEXEC_SKIP_ENV, EXIT_BOOTSTRAP_MISSING
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _TASK_SCRIPTS_DIR = (
-    _REPO_ROOT / "plugins" / "awesome-kit" / "skills" / "task" / "scripts"
+    _REPO_ROOT / "plugins" / "task-kit" / "skills" / "task" / "scripts"
 )
 _TASK_CLI = _TASK_SCRIPTS_DIR / "task.py"
 _BOOTSTRAP_GUARD = _TASK_SCRIPTS_DIR / "bootstrap_guard.py"

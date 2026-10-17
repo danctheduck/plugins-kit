@@ -17,7 +17,7 @@ is authoritative and this document should be updated or retired.
   consumer's install.
 
 **Location.** This design package lives with the skill it evolves:
-`plugins/awesome-kit/skills/task/design/`. The task system **evolves the hand-off skill** -- the task
+`plugins/task-kit/skills/task/design/`. The task system **evolves the hand-off skill** -- the task
 folder *is* the generalized hand-off folder.
 
 **Governing idea.** The **embedded-YAML typed-unit** model from skills-kit: structured records
@@ -578,7 +578,7 @@ budgets"; constants at the top of `scripts/task_system/validate.py`.
 
 **Reuse of audit machinery.** `validate` is intended to run the **same typed-unit schema validation**
 skills-kit uses for embedded YAML (the `task`/`task_list` units registered as schemas). The wiring is a
-**shared library** -- `skills_kit_lib` exposed via bootstrap `shared_libs` and imported by awesome-kit.
+**shared library** -- `skills_kit_lib` exposed via bootstrap `shared_libs` and imported by task-kit.
 The **rules above are the contract** regardless of how validation is wired.
 
 ---

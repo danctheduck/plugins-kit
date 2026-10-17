@@ -74,7 +74,7 @@ friction report found users and agents reaching for.
   contents.
 
 The term stays in the task skill (handoff-template.md + SKILL.md), not in
-communication-framework.md -- per the framework's own extension rule, a
+the awesome-kit:verbose-updates communication framework -- per its own extension rule, a
 concept used by one skill lives in that skill.
 
 ## 4. The `task_items` typed unit
@@ -90,7 +90,7 @@ The design chose `task_items` as the root because typed-unit discovery
 recognizes root keys; a generic `items` root would invite false positives.
 It reused the `task_list` mechanics: fenced-YAML extraction by
 `skills_kit_lib.document_walker.iter_yaml_blocks`, validation by
-`skills_kit_lib.schema_engine`, and a schema owned by awesome-kit.
+`skills_kit_lib.schema_engine`, and a schema owned by task-kit.
 
 The state model promoted existing triage rather than introducing an item
 lifecycle. The shipped legacy design context motivating that promotion was:

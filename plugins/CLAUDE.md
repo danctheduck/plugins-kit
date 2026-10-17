@@ -86,7 +86,7 @@ unconfigurable opinion whose test passes is a finding.
   same audit. Optional-tier rules and thresholds ARE configurable, and
   `skills-kit/skills/md-domain/references/configuring-standards.md` documents the boundary. A team disagreeing with a
   contract adds its own criteria via an additive standards file.
-- **awesome-kit:task privileges git as the automated VCS.** `archive` commits a
+- **task-kit:task privileges git as the automated VCS.** `archive` commits a
   dev/tasks folder's final state and removes it only where git is present. This is imposed
   rather than configured because a second VCS backend would be carried without being
   exercised: the maintainers track tasks in git, so a p4 path would ship untested and its
@@ -132,7 +132,7 @@ unconfigurable opinion whose test passes is a finding.
 
 - **job-kit privileges git as the only workspace-isolation VCS.** Per-attempt worktrees,
   which a job requests with `workspace.isolate: true`, are git-only, for the same reason as
-  awesome-kit:task's entry: a second VCS backend would ship untested and fail first on a
+  task-kit:task's entry: a second VCS backend would ship untested and fail first on a
   consumer's machine. The degradation is bounded and recorded, never silent -- a job that
   requests isolation in a directory that is not a git repo runs with cwd set to that
   directory and the attempt row says `workspace: none`. A Perforce team gets a working
@@ -714,7 +714,7 @@ os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 ```
 
 Current setters: `tests/awesome-kit`, `tests/git-kit`, `tests/job-kit`,
-`tests/llm-kit`, `tests/llm-scripting-kit`, `tests/p4-kit`, `tests/pdf-kit`, `tests/skills-kit`,
+`tests/llm-kit`, `tests/llm-scripting-kit`, `tests/p4-kit`, `tests/pdf-kit`, `tests/skills-kit`, `tests/task-kit`,
 `tests/unreal-kit`, `tests/workflow-kit`. A dir whose tests import a re-execing script and which does
 NOT set this is a latent false green, and the failure hides itself: in a
 full-suite run an earlier conftest (alphabetically, `tests/awesome-kit`) sets
@@ -736,7 +736,7 @@ location. `tests/bootstrap/test_bootstrap_guard.py` asserts every copy matches
 the canonical, and the guard must never `import bootstrap_lib`. Current vendored
 copies: `git-kit/scripts`, `p4-kit/scripts`, `skills-kit/scripts`,
 `unreal-kit/lib`, `hue-kit/scripts`, `job-kit/lib`,
-`awesome-kit/skills/task/scripts`,
+`task-kit/skills/task/scripts`,
 `awesome-kit/skills/orchestrate/scripts`,
 `llm-scripting-kit/lib/llm_scripting_kit`, `llm-kit/lib/llm_kit`, `workflow-kit/scripts`,
 `pdf-kit/skills/html-pdf/scripts`.

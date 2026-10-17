@@ -122,7 +122,7 @@ import webbrowser
 from pathlib import Path
 
 # Plugins define their own bootstrap-provisioned venv and must run under it
-# preferentially: skills_kit_lib is linked onto awesome-kit's venv by the
+# preferentially: skills_kit_lib is linked onto task-kit's venv by the
 # bootstrap shared-libs .pth ("shared_lib_imports": ["skills_kit_lib"]), so a
 # bare `python` / `uv run` invocation would miss it. Re-exec under the
 # provisioned venv BEFORE the task_system import below (which imports
@@ -131,7 +131,7 @@ from pathlib import Path
 # itself trip the missing-shared-lib failure. See plugins/CLAUDE.md.
 from bootstrap_guard import reexec_under_plugin_venv  # noqa: E402
 
-reexec_under_plugin_venv("awesome-kit")
+reexec_under_plugin_venv("task-kit")
 
 try:
     from task_system import location_ops  # noqa: E402
@@ -166,13 +166,13 @@ except ImportError as exc:
     # for an unrelated name) -- print the real exception first so that case
     # stays diagnosable instead of being swallowed by the canonical text.
     print(
-        f"[awesome-kit] underlying error: {type(exc).__name__}: {exc}",
+        f"[task-kit] underlying error: {type(exc).__name__}: {exc}",
         file=sys.stderr,
     )
     from bootstrap_guard import require_bootstrap
 
     require_bootstrap(
-        "awesome-kit",
+        "task-kit",
         feature="task system",
         missing="skills_kit_lib/pyyaml",
         force=True,

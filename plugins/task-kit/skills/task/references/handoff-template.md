@@ -9,8 +9,9 @@ This guidance descends from the original `/hand-off` skill (the task folder
 is the generalized hand-off folder). The shared vocabulary -- `work-unit`,
 `auto-loaded vs on-demand context`, `three-part end-of-turn template`,
 `State A / State B`, `orientation moment`, `self-contained briefs`,
-`hand-off baton`, `provenance triad` -- is canonical at
-`communication-framework.md`. A worked example of a fully-populated CLAUDE.md
+`hand-off baton`, `provenance triad` -- is canonical in
+the communication framework in the awesome-kit:verbose-updates skill
+(`references/communication-framework.md`). A worked example of a fully-populated CLAUDE.md
 is at `example-claude-md.md` -- read it if the template below feels abstract.
 
 ## The core idea: two gates

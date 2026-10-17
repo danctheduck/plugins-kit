@@ -702,7 +702,7 @@ _PYTHON_ALLOWLIST: dict[str, AllowlistEntry] = {
     "plugins/awesome-kit/skills/orchestrate/scripts/bootstrap_guard.py": AllowlistEntry(
         'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
         _BOOTSTRAP_GUARD_REASON),
-    "plugins/awesome-kit/skills/task/scripts/bootstrap_guard.py": AllowlistEntry(
+    "plugins/task-kit/skills/task/scripts/bootstrap_guard.py": AllowlistEntry(
         'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
         _BOOTSTRAP_GUARD_REASON),
     "plugins/bootstrap/bootstrap_lib/bootstrap_guard.py": AllowlistEntry(
@@ -853,7 +853,7 @@ _MD_PLUGINS_ALLOWLIST: dict[str, AllowlistEntry] = {
     "plugins/awesome-kit/skills/orchestrate/SKILL.md": AllowlistEntry(
         "not `uv run python`, which resolves the",
         "anti-pattern warning prose, not an instruction"),
-    "plugins/awesome-kit/skills/task/SKILL.md": AllowlistEntry(
+    "plugins/task-kit/skills/task/SKILL.md": AllowlistEntry(
         "Python explicitly -- not `uv run python`, which resolves the wrong environment",
         "anti-pattern warning prose + gold-standard-form description"),
     "plugins/bootstrap-stuck-fix/README.md": AllowlistEntry(
