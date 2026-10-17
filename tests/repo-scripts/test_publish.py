@@ -403,6 +403,40 @@ class TestMasterOnlyGuardAsksDevHistory:
 
         assert publish._master_only_paths() == ["dev/notes.md"]
 
+    def test_a_plugin_whose_hold_was_lifted_publishes_as_an_addition(self, repo):
+        """A dev-only plugin's files were never on master: the projection held
+        them back. Removing `published: false` on dev makes them ordinary
+        shippable paths that master simply lacks, and a publish ADDS them. The
+        guard read master's absence as a master-side deletion (master_blob is
+        None), because dev held the files at the recorded base, and refused the
+        first publish of every plugin that had ever been dev-only."""
+        _write_manifest(repo, "held-kit", "0.1.0", published=False)
+        (repo / "plugins" / "held-kit" / "lib.py").write_text("x = 1\n")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-qm", "held-kit: dev-only work")
+        _bump(repo, "pub-kit", "1.1.0", "pub-kit 1.1.0")
+        _git(repo, "push", "-q", "origin", "dev")
+        shipped = _git(repo, "rev-parse", "dev")
+        # A projection that holds the dev-only plugin back, as the real one does.
+        _git(repo, "checkout", "-q", "--detach", "origin/master")
+        _git(repo, "read-tree", "--reset", "-u", "dev")
+        _git(repo, "rm", "-rqf", "plugins/held-kit")
+        _git(repo, "commit", "-qm",
+             f"publish: projected\n\nPublished-From: {shipped}")
+        _git(repo, "push", "-q", "origin", "HEAD:refs/heads/master")
+        _git(repo, "checkout", "-q", "dev")
+        _git(repo, "fetch", "-q", "origin")
+        assert _git(repo, "ls-tree", "-r", "--name-only", "origin/master",
+                    "plugins/held-kit") == ""
+        # While held back, the plugin's own files are not offered at all.
+        assert publish._master_only_paths() == []
+
+        _write_manifest(repo, "held-kit", "0.2.0", published=True)
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-qm", "held-kit: publish it")
+
+        assert publish._master_only_paths() == []
+
     def test_content_dev_took_through_a_merge_counts(self, repo):
         """Dev can reach a state through a merge rather than a direct commit.
         The walk must follow the parent the merge actually took its content
