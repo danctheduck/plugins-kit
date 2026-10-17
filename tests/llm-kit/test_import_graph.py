@@ -257,13 +257,20 @@ def _targets(ref: ImportRef) -> list[str]:
 # rules
 # --------------------------------------------------------------------------
 
-def _shim_allows(final: str, ref: ImportRef) -> bool:
-    """True when the import reaches exactly the shim's mapped final module."""
+def _shim_allows(final: "str | list[str]", ref: ImportRef) -> bool:
+    """True when the import reaches exactly one of the shim's mapped final modules.
+
+    A slice that delegates to more than one final module names them as a list.
+    """
     module = ref.module
-    if module == final or module.startswith(final + "."):
-        return True
-    return bool(ref.names) and all(
-        final == f"{module}.{n}" or final.startswith(f"{module}.{n}.") for n in ref.names)
+    for target in ([final] if isinstance(final, str) else final):
+        if module == target or module.startswith(target + "."):
+            return True
+        if ref.names and all(
+                target == f"{module}.{n}" or target.startswith(f"{module}.{n}.")
+                for n in ref.names):
+            return True
+    return False
 
 
 def check_file(root: Path, path: Path, tree: ast.AST,
@@ -367,9 +374,12 @@ def load_declared_shims(map_path: Path = MAP_PATH) -> dict[str, str]:
         copy = row["copy"]
         assert copy.startswith(prefix + "_copy/"), f"{legacy}: copy path outside _copy: {copy}"
         final = row.get("final")
-        assert isinstance(final, str) and classify_module(final) in COMPONENTS, (
-            f"{legacy}: a moved module must name a final component module in its map row "
-            f"('final'), got {final!r}")
+        names = [final] if isinstance(final, str) else final
+        assert isinstance(names, list) and names and all(
+            isinstance(n, str) and classify_module(n) in COMPONENTS for n in names), (
+            f"{legacy}: a moved module must name a final component module (or a list of "
+            f"them, for a slice that delegates to several) in its map row ('final'), "
+            f"got {final!r}")
         shims[copy[len(prefix):]] = final
     return shims
 
@@ -637,6 +647,33 @@ def test_declared_shim_may_import_only_its_final_target(tmp_path):
         ("llm_kit/_copy/wrong.py", "copy-shim-target"),
         ("llm_kit/_copy/wrong2.py", "copy-shim-target"),
     ], report(found)
+
+
+def test_a_slice_with_a_list_of_finals_may_import_each_but_no_third(tmp_path):
+    root = _tree(tmp_path, {
+        "_copy/__init__.py": "",
+        "_copy/slice.py": (
+            "from llm_kit.schema.json_repair import x" + chr(10) +
+            "from llm_kit.registry import conserve" + chr(10)
+        ),
+        "_copy/third.py": "from llm_kit.completion.halt import y",
+        "schema/__init__.py": "",
+    })
+    finals = ["llm_kit.schema.json_repair", "llm_kit.registry.conserve"]
+    found = scan(root, {"_copy/slice.py": finals, "_copy/third.py": finals})
+    assert [(v.path, v.rule) for v in found] == [("llm_kit/_copy/third.py", "copy-shim-target")], report(found)
+
+
+def test_declared_shims_accept_a_list_of_finals_and_reject_a_bad_one(tmp_path):
+    path = tmp_path / "map.json"
+    row = {"copy": "plugins/llm-kit/lib/llm_kit/_copy/a/b.py", "state": "slice",
+           "final": ["llm_kit.registry.conserve", "llm_kit.adapters.usage_sources"]}
+    path.write_text(json.dumps({"modules": {"legacy.py": row}}), encoding="utf-8")
+    assert load_declared_shims(path) == {"_copy/a/b.py": row["final"]}
+    row["final"] = ["llm_kit.registry.conserve", "llm_kit.nowhere.x"]
+    path.write_text(json.dumps({"modules": {"legacy.py": row}}), encoding="utf-8")
+    with pytest.raises(AssertionError, match="must name a final component module"):
+        load_declared_shims(path)
 
 
 def test_jobs_and_pipeline_execution_cross_imports_are_caught(tmp_path):

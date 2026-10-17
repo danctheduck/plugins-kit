@@ -110,7 +110,8 @@ Runtime string sites require classification, not text replacement:
 
 - llm-scripting-kit has five loader/entry occurrences: its pyproject entry
   point, two Python `-m` argv targets, and two `frontdoor.sh` module targets.
-  `frontdoor/server.py:494` is a sixth, display-only program name.
+  `plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/server.py:494`
+  is a sixth, display-only program name.
 - content-pipeline-kit has two loader sites in
   `execution/interrupts.py:88,239`, plus the two-module provenance tuple at
   `provenance/record.py:249` and the static checker package at
@@ -270,7 +271,7 @@ I9 joins, not per parallel leaf.
 3. Compare old and re-pointed failure sets after explicit ledger differences. Unexpected added or removed failures fail the differential; legacy green is not a precondition.
 4. Apply identical call vectors to old and llm-kit APIs and compare values, exceptions, warnings, writes, and injected-call arguments. Identity-only differences require a named fixture.
 5. Compare every job, pipeline, and spend migration prefix, DDL, version row, pragma, isolation mode, event, interrupt, terminal state, and canonical JSON byte.
-6. Run mixed old/new dispatch, takeover, stale-fence, verdict-writer, CLI, resumable-record, and registration rollback cases. Normalize only the executable token where usage text necessarily names `llm-kit`.
+6. Run mixed legacy/llm-kit dispatch, takeover, stale-fence, verdict-writer, CLI, resumable-record, and registration rollback cases. Normalize only the executable token where usage text necessarily names `llm-kit`.
 7. Recreate the generated copy and mirror with `cd "$DEVROOT/plugins-kit2" && uv run python scripts/llm_kit_repoint.py sync`. The command refreshes unmoved modules, hashes, mirrors, and collection counts; it refuses unexplained drift in a moved module.
 8. Record every legacy edit made after its module moved in `tests/llm-kit/porting-ledger.json` with legacy path, legacy commit, final target, porting disposition, and validating test. Inventory remains red until the edit is ported or explicitly rejected with evidence.
 

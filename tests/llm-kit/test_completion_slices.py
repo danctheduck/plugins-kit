@@ -98,10 +98,16 @@ def test_copy_init_sources_neutral_names_from_llm_kit_completion(legacy_completi
         for name in names:
             assert getattr(copy, name) is getattr(final, name), (module_name, name)
             assert name in legacy_completion.__all__
-    # The adapter, factory and endpoint-profile names stay in the copy.
-    for name in ("adapter_capabilities", "create_backend", "EndpointProfile", "OpenRouterBackend"):
+    # The adapter and endpoint-profile names are defined in llm_kit.adapters
+    # since I5; the factory stays in the copy until dispatch is built.
+    for name, home in (
+        ("adapter_capabilities", "llm_kit.adapters."),
+        ("EndpointProfile", "llm_kit.adapters."),
+        ("OpenRouterBackend", "llm_kit.adapters."),
+        ("create_backend", "llm_kit._copy."),
+    ):
         assert name in copy.__all__
-        assert getattr(copy, name).__module__.startswith("llm_kit._copy.")
+        assert getattr(copy, name).__module__.startswith(home), name
 
 
 def test_copy_init_binds_no_name_the_legacy_init_lacks(legacy_completion):

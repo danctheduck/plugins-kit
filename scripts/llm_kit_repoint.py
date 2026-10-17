@@ -28,7 +28,8 @@ Module states in the map: ``unmoved`` (generated from the legacy module on every
 sync), ``shim`` (the whole module now lives at ``final``; the copy file is a
 generated re-export of it) and ``slice`` (part of the module lives under
 ``final``; the copy file is hand-edited to import and delegate and keeps its
-other code). A shim of a plain module replaces itself in ``sys.modules`` with
+other code; a slice that delegates to several final modules lists them all in
+``final``). A shim of a plain module replaces itself in ``sys.modules`` with
 its final module, so the copy name and the final name are one module object:
 a test that patches, fakes or probes the copy name acts on the final code and
 a loader that names the copy still finds what a test installed. A shim of a
@@ -939,6 +940,20 @@ def shim_text(mapping: Mapping, legacy: str, row: Mapping, files: Mapping[str, b
                        row["copy"].endswith("/__init__.py"))
 
 
+def final_problem(state: str, final: Any) -> Optional[str]:
+    """Why a moved row's ``final`` is malformed, or None.
+
+    A shim names exactly one final module (a string). A slice names one, or a
+    list of them when its hand-edited code delegates to several final modules.
+    """
+    if isinstance(final, str) and final:
+        return None
+    if state == "slice" and isinstance(final, list) and final and all(
+            isinstance(f, str) and f for f in final):
+        return None
+    return "a shim names one final module (a string); a slice a string or a list of them"
+
+
 def cmd_moved(_args: argparse.Namespace) -> int:
     mapping = load_map()
     files = build_copy(mapping)
@@ -948,6 +963,9 @@ def cmd_moved(_args: argparse.Namespace) -> int:
             continue
         if "final" not in row:
             raise SystemExit(f"{legacy}: a {row['state']} row must name its final module")
+        problem = final_problem(row["state"], row["final"])
+        if problem:
+            raise SystemExit(f"{legacy}: {problem}")
         path = REPO / row["copy"]
         if row["state"] == "shim":
             path.write_bytes(shim_text(mapping, legacy, row, files))
@@ -1097,6 +1115,8 @@ def check_problems() -> list[str]:
         else:
             if "final" not in entry:
                 problems.append(f"moved module names no final module: {row['legacy']}")
+            elif final_problem(entry["state"], entry["final"]):
+                problems.append(f"moved module has a malformed final: {row['legacy']}")
             if not copy_path.is_file():
                 problems.append(f"moved module missing: {row['copy']}")
             elif _sha(_read(copy_path)) != entry["copy_sha256"]:

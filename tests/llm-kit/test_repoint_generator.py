@@ -165,6 +165,37 @@ def test_check_fails_on_missing_final(gen, repo):
     assert any("names no final module" in p for p in problems), problems
 
 
+@pytest.mark.parametrize("state, final, ok", [
+    ("shim", "llm_kit.a.b", True),
+    ("shim", ["llm_kit.a.b"], False),
+    ("shim", "", False),
+    ("slice", "llm_kit.a.b", True),
+    ("slice", ["llm_kit.a.b", "llm_kit.c.d"], True),
+    ("slice", [], False),
+    ("slice", ["llm_kit.a.b", 3], False),
+])
+def test_final_problem_accepts_a_list_only_for_a_slice(gen, state, final, ok):
+    assert (gen.final_problem(state, final) is None) is ok
+
+
+def test_check_fails_on_a_shim_whose_final_is_a_list(gen, repo):
+    saved = _moved_and_hashed(gen)
+    saved["modules"][LEGACY_MOD]["final"] = [FINAL]
+    _write_map(gen, saved)
+    problems = gen.check_problems()
+    assert any("malformed final" in p for p in problems), problems
+
+
+def test_moved_refuses_a_shim_whose_final_is_a_list(gen, repo):
+    saved = _mapping()
+    saved["modules"][LEGACY_MOD]["final"] = [FINAL]
+    saved["modules"][LEGACY_MOD]["legacy_sha256"] = gen._sha(THING_SRC)
+    _write_map(gen, saved)
+    with pytest.raises(SystemExit) as exc:
+        gen.cmd_moved(None)
+    assert "one final module" in str(exc.value)
+
+
 # --------------------------------------------------------------------------
 # module_table
 # --------------------------------------------------------------------------
