@@ -1,0 +1,271 @@
+{
+  "suite": "job-kit",
+  "rows": [
+    {
+      "path": "tests/job-kit/test_backpressure_retry.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 19,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_bin.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Asserts the bin/ launcher shims and job_kit_entrypoint.py, which the I1 copy does not carry; re-pointed against llm-kit's launchers in I9.",
+      "rewrite_classes": [],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_cli.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "declared-skip",
+        "import",
+        "path-plugin-dir",
+        "prose-kept"
+      ],
+      "collection_count": 25,
+      "baseline_failures": [],
+      "declared_differences": {
+        "job-kit/test_cli.py::test_absent_llm_scripting_kit_names_the_install_remedy": {
+          "mirror_status": "skipped",
+          "reason": "Simulates an absent llm_scripting_kit by omitting its library; the quarantine ships both packages under one root, so absence cannot be simulated until the final layout (I9)."
+        },
+        "job-kit/test_cli.py::test_package_reports_missing_bootstrap_before_cli_import": {
+          "mirror_status": "skipped",
+          "reason": "Simulates an absent llm_scripting_kit by omitting its library; not expressible while both copies share one root (I9)."
+        },
+        "job-kit/test_cli.py::test_package_reraises_deep_import_error_when_provisioned": {
+          "mirror_status": "skipped",
+          "reason": "Plants a broken llm_scripting_kit beside a real job_kit library; not expressible while both copies share one root (I9)."
+        },
+        "job-kit/test_cli.py::test_stale_llm_scripting_kit_names_the_update_remedy": {
+          "mirror_status": "skipped",
+          "reason": "Plants a stale llm_scripting_kit beside a real job_kit library; not expressible while both copies share one root (I9)."
+        },
+        "job-kit/test_cli.py::test_python_m_entrypoint_still_runs_the_cli": {
+          "mirror_status": "skipped",
+          "reason": "Runs python -m job_kit_entrypoint, a launcher shim the I1 copy does not carry; re-pointed in I9."
+        },
+        "job-kit/test_cli.py::test_entrypoint_preserves_explicit_arguments_for_reexec": {
+          "mirror_status": "skipped",
+          "reason": "Imports job_kit_entrypoint, a launcher shim the I1 copy does not carry; re-pointed in I9."
+        }
+      }
+    },
+    {
+      "path": "tests/job-kit/test_cli_redirect_jobkit.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_events.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-package-dir",
+        "path-plugin-dir"
+      ],
+      "collection_count": 34,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_interrupts_cli.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 32,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_interrupts_contract_parity.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 67,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_interrupts_contract_probe.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-package-dir",
+        "path-plugin-dir"
+      ],
+      "collection_count": 25,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_interrupts_e2e.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_interrupts_envelope.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 40,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_interrupts_runner.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 31,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_interrupts_store.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 65,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_job_kit_bootstrap_manifest.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Pins plugins/job-kit/bootstrap.json; llm-kit's manifest is pinned in I9.",
+      "rewrite_classes": [],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_ledger_reader.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_model.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 66,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_reservations.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 13,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_run_claudx.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_runner.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 75,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_select.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 20,
+      "baseline_failures": [],
+      "declared_differences": {
+        "job-kit/test_select.py::test_readme_json_schema_floor_matches_the_probe_constant": {
+          "mirror_status": "skipped",
+          "reason": "Reads plugins/job-kit/README.md, which is not copied; re-pointed against llm-kit's README in I9."
+        },
+        "job-kit/test_select.py::test_readme_version_floor_matches_the_declared_frontier": {
+          "mirror_status": "skipped",
+          "reason": "Reads plugins/job-kit/README.md, which is not copied; re-pointed against llm-kit's README in I9."
+        }
+      }
+    },
+    {
+      "path": "tests/job-kit/test_store.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 27,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/job-kit/test_workspace.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 30,
+      "baseline_failures": []
+    }
+  ],
+  "collection_total": 618
+}

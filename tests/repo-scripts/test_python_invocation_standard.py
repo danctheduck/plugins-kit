@@ -779,6 +779,32 @@ _PYTHON_ALLOWLIST: dict[str, AllowlistEntry] = {
         "not an invocation"),
 }
 
+# llm-kit is a dev-only plugin whose source master does not carry, so its entries
+# are present only where its files are tracked (the staleness test and the scan
+# both read git ls-files); an entry for an untracked or absent file would be stale.
+_LLM_KIT_PYTHON_ALLOWLIST: dict[str, AllowlistEntry] = {
+    "plugins/llm-kit/lib/llm_kit/bootstrap_guard.py": AllowlistEntry(
+        'for rel in (("Scripts", "python.exe"), ("bin", "python"), ("bin", "python3")):',
+        _BOOTSTRAP_GUARD_REASON),
+    "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/backends.py": AllowlistEntry(
+        "Path(sys.argv[0]).name or 'python'",
+        "display-label fallback string for an API user field, not a spawn "
+        "(llm-kit's quarantined copy of the llm-scripting-kit module)"),
+    "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/server.py": AllowlistEntry(
+        'prog="python -m llm_scripting_kit.frontdoor"',
+        "argparse prog= display string, not an invocation (llm-kit's "
+        "quarantined copy; the display name keeps the legacy spelling)"),
+    "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/swapper.py": AllowlistEntry(
+        'name.lower().startswith("python")',
+        "process-name classification (psutil name of an mlx_lm.server "
+        "host process), not an interpreter spawn (llm-kit's quarantined copy)"),
+}
+_TRACKED_PYTHON = frozenset(_git_ls_files("*.py"))
+_PYTHON_ALLOWLIST.update({
+    path: entry for path, entry in _LLM_KIT_PYTHON_ALLOWLIST.items()
+    if path in _TRACKED_PYTHON
+})
+
 
 def test_tracked_python_outside_tests_bare_python_is_allowlisted_or_pending():
     """Every bare-python hit in a tracked Python source file outside tests/

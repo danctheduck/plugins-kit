@@ -1,0 +1,1070 @@
+{
+  "suite": "content-pipeline-kit",
+  "rows": [
+    {
+      "path": "tests/content-pipeline-kit/test_adaptive_gate.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 18,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_audit_auditor.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 12,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_audit_reasoning_chain.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_audit_report.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_backpressure_classifier_seam.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 3,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_call_routing.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 7,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_cl5_convergence_parity.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_claude_bg_claudx.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_cli_budget.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 5,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_cli_budget_spend_stop.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "prose-kept"
+      ],
+      "collection_count": 24,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_cli_scaffold.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 13,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_cli_unsupported.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_consumer_contract_checker.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Imports scripts/check_consumer_contract.py, a script the I1 copy does not carry; re-pointed against llm-kit's scripts in I9.",
+      "rewrite_classes": [],
+      "collection_count": 4,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_deadlines.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 15,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_deliver_inplace.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 28,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_deliver_projection.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 12,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_adapter.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 66,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_b1_exit_criterion.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 21,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_controller.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 33,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 158,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg_banner.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_driver_claude_bg_fixes.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_driver_inline.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_events.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 46,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_interrupts_docs.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Reads README, CLAUDE.md and skill reference documents that are not copied in I1; re-pointed against llm-kit's documents in I9.",
+      "rewrite_classes": [],
+      "collection_count": 18,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_interrupts_events.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 20,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_interrupts_inline.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 22,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_interrupts_store.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 81,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_interrupts_support.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import",
+        "module-string",
+        "named-message",
+        "path-plugin-dir",
+        "prose-kept"
+      ],
+      "collection_count": 56,
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_execution_interrupts_support.py::test_manifests_gain_no_entry_for_interrupts": {
+          "mirror_status": "skipped",
+          "reason": "Reads content-pipeline-kit's bootstrap.json and plugin.json, which the I1 copy does not carry; re-pointed in I9."
+        }
+      }
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_interrupts_unchanged.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_protocol.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 45,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_status.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 17,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_store.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 61,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_execution_wave.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 26,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_failure_cache.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 12,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_freshness_classify.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 20,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_freshness_ensure.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 20,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_freshness_hashing.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 23,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_freshness_seed.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_library_has_no_loc_vocabulary.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "path-package-dir",
+        "path-plugin-dir"
+      ],
+      "collection_count": 1,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_attempt_observer.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 15,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_backends.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir",
+        "prose-kept"
+      ],
+      "collection_count": 82,
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_llm_backends.py::test_absent_declaration_lib_message_names_the_install_command": {
+          "mirror_status": "skipped",
+          "injected": false,
+          "reason": "Needs llm_scripting_kit to be unimportable; the quarantine ships it beside content_pipeline, so the test skips itself until the final layout (I9)."
+        },
+        "content-pipeline-kit/test_llm_backends.py::test_resolve_declaration_absent_lib_names_itself": {
+          "mirror_status": "skipped",
+          "injected": false,
+          "reason": "Needs llm_scripting_kit to be unimportable; the quarantine ships it beside content_pipeline, so the test skips itself until the final layout (I9)."
+        }
+      }
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_convergence.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_convergence_ext.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_model_endpoint.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 96,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_platform.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 79,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_platform_spend.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 36,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_spend_ledger.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 106,
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_llm_spend_ledger.py::TestImportHygiene::test_module_imports_only_stdlib_and_platform": {
+          "mirror_status": "skipped",
+          "reason": "Classifies imports by their first dotted segment equal to content_pipeline; in the copy every first segment is llm_kit. The import-direction guard (I2) replaces it."
+        }
+      }
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_spend_ledger_concurrency.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_spend_ledger_halt.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 37,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_spend_ledger_orphans.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 43,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_structured_generation.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 48,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_llm_yaml_extract.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 15,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_loop_stage_result_and_measure_detail.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 3,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_package_imports.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-package-dir",
+        "path-plugin-dir",
+        "prose-kept"
+      ],
+      "collection_count": 64,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_parallel_graph.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-package-dir",
+        "path-plugin-dir"
+      ],
+      "collection_count": 44,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_pipeline_cell_policy.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 5,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_pipeline_convergence_loop.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_pipeline_convergence_loop_ext.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_pipeline_gate_aliases.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 4,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_pipeline_single_pass.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 3,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_pipeline_workunit.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_pr1_provenance_record.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 16,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_provenance_call_audit.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 7,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_provenance_replay.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 7,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_provenance_snapshot.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 7,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_providers_assembly.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 22,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_providers_registry.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 25,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_public_surface_contract.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Reads contract/public-surface.json, which is not copied in I1; the final public surface is declared in I9.",
+      "rewrite_classes": [],
+      "collection_count": 496,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_a_run_plane.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 15,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_b_apply_status.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 5,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_b_worker_verbs.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_c_skill_script_paths.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "declared-skip",
+        "path-plugin-dir",
+        "path-string",
+        "prose-kept"
+      ],
+      "collection_count": 8,
+      "baseline_failures": [],
+      "declared_differences": {
+        "content-pipeline-kit/test_review_fix_c_skill_script_paths.py::test_workflow_skill_documents_the_named_invocation": {
+          "mirror_status": "skipped",
+          "reason": "Reads a SKILL.md that is not copied in I1; re-pointed against llm-kit's migrated skill in I9."
+        }
+      }
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_d_cache_key.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 55,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_d_routing.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 29,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_h_bg_failure_code.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 28,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_h_bg_followups.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 7,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_review_fix_h_inline_reclaim.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_roundtrip_questions.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_roundtrip_returns.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 4,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_run_cli.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 12,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_run_cli_protocol.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 20,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_store_attributed.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 23,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_store_candidate.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 28,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_store_candidate_state.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_store_intermediary.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_store_projection.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_validate_contract.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_validate_floor_guard.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_validate_riders.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_vcs_git.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 13,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_version_matches_plugin_json.py",
+      "disposition": "legacy-only",
+      "reason": "Asserts content_pipeline.__version__ equals the content-pipeline-kit manifest version; llm-kit versions independently and has its own manifest.",
+      "rewrite_classes": [],
+      "collection_count": 1,
+      "baseline_failures": [
+        "content-pipeline-kit/test_version_matches_plugin_json.py::test_version_matches_plugin_json"
+      ]
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_worker_assets_drift.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Compares skills/execute-work-unit/SKILL.md with the worker pack; the skill migrates in I9.",
+      "rewrite_classes": [],
+      "collection_count": 7,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_worker_generation_fencing.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_worker_invocation_contract.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_worker_invocation_roundtrip.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 3,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_workerpack_aliases.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import"
+      ],
+      "collection_count": 21,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/content-pipeline-kit/test_workflow_contract.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Runs workflows/run-ready-wave.js and reads the pipeline skills; the workflow and skills migrate in I9.",
+      "rewrite_classes": [],
+      "collection_count": 51,
+      "baseline_failures": []
+    }
+  ],
+  "collection_total": 2732
+}

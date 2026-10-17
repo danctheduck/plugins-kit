@@ -1264,6 +1264,19 @@ EXEMPT: list[Exempt] = [
            "by test_forced_interpreter_order.py"),
 ]
 
+# llm-kit is a dev-only plugin whose source master does not carry, so its entries
+# are present only where its files are; an entry for an absent file would be stale.
+EXEMPT.extend(
+    entry for entry in [
+        *_p("plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/constants.py",
+            "llm-kit's quarantined copy of the llm-scripting-kit constants module; CLI_COMMAND keeps naming "
+            "the legacy plugin's venv console script, the human contract that the llm-kit command replaces "
+            "when the final CLI lands",
+            "CLI_COMMAND ="),
+    ]
+    if (_REPO_ROOT / entry.path).is_file()
+)
+
 
 # --------------------------------------------------------------------------
 # Verdict

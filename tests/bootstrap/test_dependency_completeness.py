@@ -375,6 +375,8 @@ def test_first_party_map_is_sane():
     # Sanity guard so a refactor that breaks package discovery is caught.
     assert "bootstrap_lib" in _FIRST_PARTY
     assert "llm_scripting_kit" in _FIRST_PARTY
+    if (_PLUGINS / "llm-kit").is_dir():  # a dev-only plugin: its source is held back from master
+        assert "llm_kit" in _FIRST_PARTY
 
 
 @pytest.mark.parametrize(

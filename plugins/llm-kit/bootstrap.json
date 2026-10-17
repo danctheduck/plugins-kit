@@ -1,0 +1,12 @@
+{
+  "requires_bootstrap": "0.157.0",
+  "$comment": "requires_bootstrap is the bootstrap release that first recognizes the llm_kit shared library as first-party for the transient-import retry (engine._FIRST_PARTY_LIBS), shipped in the same bootstrap publication as this plugin. The copied code binds bootstrap_lib call shapes first shipped no later than bootstrap 0.154.1 (the claudx REFUSE edge), so 0.157.0 covers them. llm_kit is the only shared library this plugin publishes; the legacy libraries llm_scripting_kit, content_pipeline and job_kit keep their owning plugins and are never imported here. No config block and no custom script: llm-kit seeds no user config and reads the legacy credential and config locations unchanged. The venv carries every extra the bundled code reaches; the standalone interpreter carries only the .pth links.",
+  "shared_libs": [
+    { "name": "llm_kit", "src": "lib" }
+  ],
+  "shared_lib_imports": ["bootstrap_lib"],
+  "venv": {
+    "extras": ["config", "sdk", "local", "frontdoor", "jobs", "pipeline"],
+    "check_imports": ["yaml", "openai", "psutil", "fastapi", "uvicorn", "httpx", "llm_kit"]
+  }
+}

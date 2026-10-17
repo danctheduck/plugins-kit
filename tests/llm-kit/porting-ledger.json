@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "purpose": "Legacy edits made after their module moved out of the quarantined copy: one entry per edit, ported or rejected with evidence.",
+  "entry_fields": ["legacy_path", "legacy_commit", "legacy_sha256", "final_target", "disposition", "validating_test"],
+  "dispositions": ["ported", "rejected"],
+  "entries": []
+}

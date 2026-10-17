@@ -1,0 +1,655 @@
+{
+  "suite": "llm-scripting-kit",
+  "rows": [
+    {
+      "path": "tests/llm-scripting-kit/test_account.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 28,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_api_key.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 28,
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_api_key.py::TestSkillMdDocumentsEveryKeyLookupSource::test_every_source_value_appears_in_the_skill_doc": {
+          "mirror_status": "skipped",
+          "reason": "Reads a SKILL.md that is not copied in I1; re-pointed against llm-kit's migrated skill in I9."
+        }
+      }
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_bootstrap_manifest_floor.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Pins plugins/llm-scripting-kit/bootstrap.json floors; llm-kit's manifest floors are pinned against its own manifest in I9.",
+      "rewrite_classes": [],
+      "collection_count": 3,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_claude_backend_claudx.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_cli_command_contract.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 4,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_cli_json_repair.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_cli_redirect.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "declared-skip",
+        "import",
+        "module-string"
+      ],
+      "collection_count": 12,
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_cli_redirect.py::TestEntryPointsRefuseInASubprocess::test_console_script_shape_exits_2": {
+          "mirror_status": "skipped",
+          "reason": "Launches scripts/llm_scripting_kit_cli.py and the console wrapper, launcher surfaces not copied in I1; re-pointed in I9."
+        },
+        "llm-scripting-kit/test_cli_redirect.py::TestEntryPointsRefuseInASubprocess::test_launcher_script_exits_2_before_importing_the_cli": {
+          "mirror_status": "skipped",
+          "reason": "Launches scripts/llm_scripting_kit_cli.py, a launcher surface not copied in I1; re-pointed in I9."
+        }
+      }
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_cli_requirements_fallback.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 16,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_client.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 7,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_backends.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 68,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_capabilities.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 90,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_claude_runner.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_codex_backend.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 44,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_contract.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 72,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_contract_adapters.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_contract_conformance.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 38,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_contract_strict.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 21,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_endpoint_profile.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_factory.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_halt.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 31,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_json_schema.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 77,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_opencode_backend.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 23,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_requirements.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 28,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_skill_context.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 36,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_skill_context_adapters.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 22,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_truthful_results.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 49,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_contract_json_repair.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 102,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_custom_bootstrap.py",
+      "disposition": "legacy-only",
+      "reason": "Tests plugins/llm-scripting-kit/custom_bootstrap.py, the config-seeding script. llm-kit seeds no user configuration and ships no custom bootstrap script.",
+      "rewrite_classes": [],
+      "collection_count": 19,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_declaration.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 66,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_declaration_observer.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-package-dir",
+        "path-plugin-dir"
+      ],
+      "collection_count": 29,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_declaration_skill_context.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_deprecated_names_removed.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_effort.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 37,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_effort_menu.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 12,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_endpoints.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 45,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_env_file.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 19,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_frontdoor.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 66,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_frontdoor_acceptance.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_halt_backpressure.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 15,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_harness_adapters.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 12,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_llm_scripting_cli.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 92,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_llm_scripting_kit_cli_script.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Drives scripts/llm_scripting_kit_cli.py, a launcher the I1 copy does not carry; re-pointed against llm-kit's launchers in I9.",
+      "rewrite_classes": [],
+      "collection_count": 1,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_model_endpoints.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 59,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_model_resolve.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 43,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_model_server_script.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Drives the qwen and model-server shell launchers under scripts/ and bin/, which the I1 copy does not carry; re-pointed in I9.",
+      "rewrite_classes": [],
+      "collection_count": 27,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_openrouter_account_skill_verb_table.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Reads a SKILL.md that is not copied in I1; re-pointed against llm-kit's migrated skill in I9.",
+      "rewrite_classes": [],
+      "collection_count": 2,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_reachability.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 45,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_readme_exit_code_summary.py",
+      "disposition": "deferred-to-I9",
+      "reason": "Reads plugins/llm-scripting-kit/README.md, which is not copied; re-pointed against llm-kit's README in I9.",
+      "rewrite_classes": [],
+      "collection_count": 1,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_request_protocol.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 26,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_request_protocol_skill_context.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_review_lane.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import",
+        "path-package-dir",
+        "path-plugin-dir"
+      ],
+      "collection_count": 86,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_risk_drill.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_seats.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 26,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_swapper.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "code-string",
+        "import"
+      ],
+      "collection_count": 98,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_swapper_acceptance.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_swapper_cli.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 44,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_swapper_process.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 22,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_text_only_arming.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 34,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_text_only_cli_path.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 3,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_text_only_codex.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_text_only_mode.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_usage_budget.py",
+      "disposition": "rewrite",
+      "reason": "Exercises the copied library only; re-pointed by the mechanical rewrite and compared with the legacy outcome.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 60,
+      "baseline_failures": []
+    }
+  ],
+  "collection_total": 1926
+}

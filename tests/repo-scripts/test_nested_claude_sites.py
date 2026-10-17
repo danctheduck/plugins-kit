@@ -92,6 +92,32 @@ SITES = {
 }
 
 
+# The llm-kit quarantined copy (plugins/llm-kit/lib/llm_kit/_copy/<package>/) carries
+# every legacy site unchanged, so each legacy entry is classified again under its
+# copy path. A legacy package missing from this map leaves its copy's sites
+# unclassified, which the inventory test below reports. llm-kit is a dev-only
+# plugin whose source master does not carry, so an entry exists only where the
+# copy file does.
+_COPY_PREFIXES = {
+    "plugins/llm-scripting-kit/lib/llm_scripting_kit/": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/",
+    "plugins/content-pipeline-kit/lib/content_pipeline/": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/",
+    "plugins/job-kit/lib/job_kit/": "plugins/llm-kit/lib/llm_kit/_copy/job_kit/",
+}
+
+
+def _copy_path(relpath: str) -> str:
+    for legacy, copy in _COPY_PREFIXES.items():
+        if relpath.startswith(legacy):
+            return copy + relpath[len(legacy):]
+    return relpath
+
+
+SITES.update({
+    (_copy_path(path), qualname, rule): entry
+    for (path, qualname, rule), entry in list(SITES.items())
+    if _copy_path(path) != path and (_REPO_ROOT / _copy_path(path)).is_file()
+})
+
 SITE_TABLE = SITES
 
 

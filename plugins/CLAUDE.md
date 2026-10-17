@@ -411,6 +411,8 @@ new positional slot), not the version that first exported the symbol.
 
 **Plugin boundaries are hard boundaries for cohesion work.** Never move content between plugins -- or into another plugin -- to achieve skill cohesion. Plugins are independently versioned, installed, and bootstrapped units; relocating a skill/reference across a plugin boundary to satisfy CCP/CRP/ADP breaks that independence (cross-plugin caches, dependency edges, version coupling) and is never worth the cohesion gain. Cohesion refactors operate *within* a plugin only. When you spot a genuine cohesion opportunity that spans plugins -- two doer-skills in different plugins sharing a subject (e.g. git-kit `git-code-review` + p4-kit `p4-code-review`), a reference duplicated across plugins, a shared substrate two plugins both consume -- **surface it as an insight** (a `claude_md:` insight or a note in the relevant skill), do **not** act on it by relocation or by spawning a unifying plugin. Sharing across plugins is done through a library both depend on (e.g. `bootstrap_lib.code_review`), not by merging the skills.
 
+**Approved consolidation exception: llm-kit.** The llm-kit merge, signed off in `docs/reference/llm-kit-architecture.md`, may copy and restructure behavior from llm-scripting-kit, content-pipeline-kit and job-kit into llm-kit. The old plugins retain their source during migration and freeze. This exception does not generalize to other plugin-boundary cohesion work. Every renamed or removed public name follows `docs/reference/deprecation-policy.md`.
+
 **Reference file design** (within a skill): each reference serves a single audience and changes for a single reason (same cohesion framework). See `plugins/bootstrap/skills/bootstrap/` for the gold standard -- references split by audience with clean change boundaries.
 
 ## The bootstrap-provisioned venv and shared libs
@@ -710,7 +712,7 @@ os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 ```
 
 Current setters: `tests/awesome-kit`, `tests/git-kit`, `tests/job-kit`,
-`tests/llm-scripting-kit`, `tests/p4-kit`, `tests/pdf-kit`, `tests/skills-kit`,
+`tests/llm-kit`, `tests/llm-scripting-kit`, `tests/p4-kit`, `tests/pdf-kit`, `tests/skills-kit`,
 `tests/unreal-kit`, `tests/workflow-kit`. A dir whose tests import a re-execing script and which does
 NOT set this is a latent false green, and the failure hides itself: in a
 full-suite run an earlier conftest (alphabetically, `tests/awesome-kit`) sets
@@ -734,7 +736,7 @@ copies: `git-kit/scripts`, `p4-kit/scripts`, `skills-kit/scripts`,
 `unreal-kit/lib`, `hue-kit/scripts`, `job-kit/lib`,
 `awesome-kit/skills/task/scripts`,
 `awesome-kit/skills/orchestrate/scripts`,
-`llm-scripting-kit/lib/llm_scripting_kit`, `workflow-kit/scripts`,
+`llm-scripting-kit/lib/llm_scripting_kit`, `llm-kit/lib/llm_kit`, `workflow-kit/scripts`,
 `pdf-kit/skills/html-pdf/scripts`.
 
 **The test globs `plugins/**/bootstrap_guard.py`, so it is the authority on that

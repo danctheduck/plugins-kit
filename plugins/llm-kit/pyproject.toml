@@ -1,0 +1,26 @@
+[project]
+name = "llm-kit"
+version = "0.1.0"
+description = "LLM access, durable agent jobs and batch content pipelines in one library (dev-only consolidation)"
+requires-python = ">=3.12"
+
+# The base shared-library path is standard-library only. Each capability that
+# needs a third-party package names it in an extra; the owner venv enables every
+# extra its bundled commands reach (see bootstrap.json).
+dependencies = []
+
+[project.optional-dependencies]
+config = ["pyyaml>=6.0"]
+sdk = ["openai>=1.0.0"]
+local = ["psutil>=6.0"]
+frontdoor = ["fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27"]
+jobs = ["pyyaml>=6.0"]
+pipeline = ["pyyaml>=6.0"]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["lib"]
