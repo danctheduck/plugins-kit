@@ -455,7 +455,10 @@ def test_completion_holds_types_not_filled_capability_records():
     import llm_kit.completion as pkg
 
     names = sorted(m.name for m in pkgutil.iter_modules(pkg.__path__))
-    assert names == sorted(ALL_MODULES), names
+    # factory_protocols (I6) holds the injected-factory contracts; it is a final module
+    # only, so it joins the expected list here and not in ALL_MODULES, which also feeds
+    # the legacy side of the module-by-module comparison.
+    assert names == sorted(ALL_MODULES + ("factory_protocols",)), names
     for name in names:
         mod = importlib.import_module(f"llm_kit.completion.{name}")
         assert _filled_records(mod) == [], (name, _filled_records(mod))

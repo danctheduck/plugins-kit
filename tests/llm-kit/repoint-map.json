@@ -62,7 +62,7 @@
       "file": "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/server.py",
       "preview": "python -m llm_scripting_kit.frontdoor",
       "action": "keep-human",
-      "reason": "display-only argparse prog name; no loader consumes it"
+      "reason": "display-only argparse prog name; no loader consumes it. The final llm_kit.frontdoor.server names its own module path (python -m llm_kit.frontdoor), so the legacy wording is not carried into the shimmed copy (I6 declared difference: frontdoor module path is llm_kit.frontdoor)"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py::dc5cefd299::0": {
       "file": "plugins/content-pipeline-kit/lib/content_pipeline/execution/interrupts.py",
@@ -352,9 +352,10 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/factory.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/factory.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "91c58dc7261edb661e4577b7680e352463f733d03acb7598611d789c32bd070e",
-      "copy_sha256": "91c58dc7261edb661e4577b7680e352463f733d03acb7598611d789c32bd070e"
+      "copy_sha256": "85b9a098be9d9acaf41bc6ac7dce1939367873c714aec84b75daa8b8d5b98ff5",
+      "final": "llm_kit.dispatch.factory"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/completion/halt.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/completion/halt.py",
@@ -435,10 +436,10 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/declaration.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/declaration.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "c35bdeb2091aa489e26fcbcae228eda16881ed1eeb05b76f02b31b51fcba4ea9",
-      "copy_sha256": "4e43e78a647f086e65558a8e488168ae6aeb8ed7fb67e78c24e02f96a71283a0",
-      "final": "llm_kit.registry.declaration_syntax"
+      "copy_sha256": "5c0c7260e086fd2aaa39302a0c9195e80f27daa65a216c4189b3416a365f35ca",
+      "final": "llm_kit.dispatch.declaration"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/default_config.yaml": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/default_config.yaml",
@@ -462,27 +463,31 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/__init__.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "d069d722508785b2048d38f6eb05fc6a349154dd4300917522c97badb4e368fa",
-      "copy_sha256": "d069d722508785b2048d38f6eb05fc6a349154dd4300917522c97badb4e368fa"
+      "copy_sha256": "2dc3a224dd8f74b182e98f882e2ac3e40722ccbad6d0d417776c0ad981370382",
+      "final": "llm_kit.frontdoor"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/__main__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/__main__.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "0d56a8285f3d7898c7d24b53f2ce08e7ccc9dbd01a93f334952b101125e17903",
-      "copy_sha256": "0d56a8285f3d7898c7d24b53f2ce08e7ccc9dbd01a93f334952b101125e17903"
+      "copy_sha256": "e86c01862a53588c10248a36ea0146bafc0b66dfe9bc04f1c9ae1acb8e6cbc57",
+      "final": "llm_kit.frontdoor.__main__"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/acceptance.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/acceptance.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "544037bce7647e5f36467f4fcce8a74242e3b3ce8f1896a2e4460f9061d9f6ae",
-      "copy_sha256": "544037bce7647e5f36467f4fcce8a74242e3b3ce8f1896a2e4460f9061d9f6ae"
+      "copy_sha256": "5aa45dd5f29daf7ce26fcbe9691c61be1eff3656a3a9f6fddfb0e0e3624090fe",
+      "final": "llm_kit.frontdoor.acceptance"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/frontdoor/server.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/frontdoor/server.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "c604b734a522d32c766e1f08792a7e8388b8e51f16e05fe8d82e6f3fe9afb018",
-      "copy_sha256": "c604b734a522d32c766e1f08792a7e8388b8e51f16e05fe8d82e6f3fe9afb018"
+      "copy_sha256": "299db65dbbc114745eff5a5c9069d750aa331f47614b50c51cb59d013b4eeea4",
+      "final": "llm_kit.frontdoor.server"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/harness_adapters.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/harness_adapters.py",
@@ -507,15 +512,17 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/observer.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/observer.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "05e6b5a69b9f81ba9b8e86835c3581de41b10197500a48360553b92c5c842bc6",
-      "copy_sha256": "05e6b5a69b9f81ba9b8e86835c3581de41b10197500a48360553b92c5c842bc6"
+      "copy_sha256": "c77fff4788cffc90e866f33dcf50a6d168e5a37efe07e1ddaa0b807b81529da7",
+      "final": "llm_kit.dispatch.observer"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/reachability.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/reachability.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "f8aa7223c95497a014097c3c4e5802f57a13e192daef0fca757115779514f264",
-      "copy_sha256": "f8aa7223c95497a014097c3c4e5802f57a13e192daef0fca757115779514f264"
+      "copy_sha256": "7f1007c582ed57b6b55ef3ebcfe15270e71647ef2a53dfa3ac34e82a3117c2b1",
+      "final": "llm_kit.dispatch.reachability"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/request_protocol.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/request_protocol.py",
@@ -526,15 +533,17 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/review_lane.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/review_lane.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "149918cad0e9a1c52a062caee9b9bb4858461db0d00b325b7260da16c8a2dbba",
-      "copy_sha256": "0089450eca89f9a4fe96750202930f0515c571128c9d84253e37765a39d25c49"
+      "copy_sha256": "609b9591703888f6dc8363fbe4d8e8c54b2b8f9cd6ee1752c72c8cdf99a82c3e",
+      "final": "llm_kit.dispatch.review_lane"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/seats.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/seats.py",
-      "state": "unmoved",
+      "state": "shim",
       "legacy_sha256": "6986ef7a6f699172281c07548e418e2e41ef1fd5077b4b9d612079b3b96c1aa4",
-      "copy_sha256": "6986ef7a6f699172281c07548e418e2e41ef1fd5077b4b9d612079b3b96c1aa4"
+      "copy_sha256": "93624c1c33fb8ceb425d89b40a71e0de3a2b00112e3e42d8a7e135a2d1928d06",
+      "final": "llm_kit.dispatch.seats"
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/swapper.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/swapper.py",
@@ -552,13 +561,10 @@
     },
     "plugins/llm-scripting-kit/lib/llm_scripting_kit/usage_budget.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/llm_scripting_kit/usage_budget.py",
-      "state": "slice",
+      "state": "shim",
       "legacy_sha256": "89e2203f4a9da882a950b213a858705c26f755511bb21f7afaf6b73aeeb6e161",
-      "copy_sha256": "0aa437cb0bdf6e14f0232269e0cf69de16e4fbbb23fa44b212f0726cfc96d63b",
-      "final": [
-        "llm_kit.registry.conserve",
-        "llm_kit.adapters.usage_sources"
-      ]
+      "copy_sha256": "ead161da1f6c2c3cc9577b44cec1ee168e204490d85ae29c35f85617b4c4e383",
+      "final": "llm_kit.dispatch.usage_budget"
     },
     "plugins/content-pipeline-kit/lib/content_pipeline/__init__.py": {
       "copy": "plugins/llm-kit/lib/llm_kit/_copy/content_pipeline/__init__.py",
@@ -1277,6 +1283,18 @@
       "old": "        \"llm_kit._copy.llm_scripting_kit\",\n        \"llm_kit._copy.llm_scripting_kit.completion\",\n        \"llm_kit._copy.llm_scripting_kit.completion.json_schema\",\n    )\n    saved =",
       "new": "        \"llm_kit.schema.json_schema\",\n    )\n    saved =",
       "reason": "The validator the interrupt probe loads is llm_kit.schema.json_schema; the copy path is only an alias of it, and the probe never imports the quarantined package, so the test blocks and checks the module the probe asks for."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_declaration_observer.py",
+      "old": "path = PLUGIN_ROOT / \"lib\" / \"llm_kit\" / \"_copy\" / \"llm_scripting_kit\" / \"observer.py\"",
+      "new": "path = PLUGIN_ROOT / \"lib\" / \"llm_kit\" / \"dispatch\" / \"observer.py\"",
+      "reason": "observer moved to llm_kit.dispatch.observer; the leaf-import property is checked on the final file, not on the one-line shim at the copy path."
+    },
+    {
+      "file": "tests/llm-scripting-kit/test_review_lane.py",
+      "old": "/ \"plugins\" / \"llm-kit\" / \"lib\" / \"llm_kit\" / \"_copy\" / \"llm_scripting_kit\" / \"review_lane.py\"",
+      "new": "/ \"plugins\" / \"llm-kit\" / \"lib\" / \"llm_kit\" / \"dispatch\" / \"review_lane.py\"",
+      "reason": "review_lane moved to llm_kit.dispatch.review_lane; the no-silent-fallback source scan reads the final file, not the shim at the copy path."
     }
   ]
 }

@@ -343,12 +343,13 @@
     {
       "path": "tests/llm-scripting-kit/test_declaration_observer.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 13 import line(s) -> llm_kit._copy.llm_scripting_kit; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
+      "reason": "Rewrites 13 import line(s) -> llm_kit._copy.llm_scripting_kit; module names inside subprocess/exec code strings; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): observer moved to llm_kit.dispatch.observer; the leaf-import property is checked on the final file, not on the shim at the copy path.",
       "rewrite_classes": [
         "code-string",
         "import",
         "path-package-dir",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 29,
       "baseline_failures": []
@@ -556,11 +557,12 @@
     {
       "path": "tests/llm-scripting-kit/test_review_lane.py",
       "disposition": "rewrite",
-      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.llm_scripting_kit; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>.",
+      "reason": "Rewrites 2 import line(s) -> llm_kit._copy.llm_scripting_kit; \"plugins\"/<kit> path -> plugins/llm-kit; \"lib\"/<pkg> path -> lib/llm_kit/_copy/<pkg>. Text edits (repoint-map test_text_edits): review_lane moved to llm_kit.dispatch.review_lane; the no-silent-fallback source scan reads the final file, not the shim at the copy path.",
       "rewrite_classes": [
         "import",
         "path-package-dir",
-        "path-plugin-dir"
+        "path-plugin-dir",
+        "text-edit"
       ],
       "collection_count": 86,
       "baseline_failures": []

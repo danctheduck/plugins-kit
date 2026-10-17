@@ -6,10 +6,13 @@
 - ``HarnessAdapterError``, ``AgentTimeoutError`` and the swapper error classes
   are each one class across the copy and final names, so an ``except`` clause on
   either side catches what the other raises.
-- ``usage_budget`` stays a slice: its pacing policy is in the copy, its readers
-  are ``llm_kit.adapters.usage_sources``. A patch on a reader name of the copy
-  module changes what the copy policy reads (and what the final codex backend
-  reads), exactly as when the readers were defined in the copy module.
+- ``usage_budget`` is a whole shim over ``llm_kit.dispatch.usage_budget`` (I6):
+  the pacing policy and the verdict cache are there, the readers are
+  ``llm_kit.adapters.usage_sources``. A patch on a reader name, on
+  ``VERDICT_CACHE`` or on ``_load_cache``/``_store_cache`` through the copy name
+  acts on the one module object that runs, and a reader patch also reaches the
+  final codex backend, exactly as when the readers were defined in the copy
+  module.
 """
 
 from __future__ import annotations
@@ -114,7 +117,7 @@ def test_a_copy_swapper_error_is_caught_by_the_final_class():
 
 
 # --------------------------------------------------------------------------
-# usage_budget: slice over registry.conserve and adapters.usage_sources
+# usage_budget: whole shim over dispatch.usage_budget (readers: adapters.usage_sources)
 # --------------------------------------------------------------------------
 
 _USAGE_ROW = _MAP["modules"]["plugins/llm-scripting-kit/lib/llm_scripting_kit/usage_budget.py"]
@@ -138,9 +141,10 @@ def src():
     return _mod("llm_kit.adapters.usage_sources")
 
 
-def test_usage_budget_is_a_slice_naming_both_final_modules():
-    assert _USAGE_ROW["state"] == "slice"
-    assert _USAGE_ROW["final"] == ["llm_kit.registry.conserve", "llm_kit.adapters.usage_sources"]
+def test_usage_budget_is_a_whole_shim_over_dispatch(ub):
+    assert _USAGE_ROW["state"] == "shim"
+    assert _USAGE_ROW["final"] == "llm_kit.dispatch.usage_budget"
+    assert ub is _mod("llm_kit.dispatch.usage_budget")
 
 
 @pytest.mark.parametrize("name", _READERS)
@@ -158,7 +162,7 @@ def test_registry_names_of_the_copy_are_the_conserve_objects(ub):
         assert getattr(ub, name) is getattr(conserve, name), name
 
 
-def test_the_policy_stays_in_the_copy(ub, src):
+def test_the_policy_is_defined_in_dispatch_not_in_usage_sources(ub, src):
     for name in (
         "evaluate", "pinned_evaluate", "session_key", "record_observed_halt", "quota_pool_key",
         "VERDICT_CACHE", "_load_cache", "_store_cache",
@@ -180,7 +184,7 @@ def _rollout(directory: Path, used: float) -> Path:
     return path
 
 
-def test_a_patched_codex_sessions_dir_on_the_copy_reaches_the_copy_policy(ub, src, tmp_path, monkeypatch):
+def test_a_patched_codex_sessions_dir_on_the_copy_reaches_the_policy(ub, src, tmp_path, monkeypatch):
     _rollout(tmp_path, used=80.0)             # 20% left with 50% of the window left: under quota
     spec = ub.ConserveSpec(pool="primary")
     real = src.CODEX_SESSIONS_DIR
@@ -193,7 +197,7 @@ def test_a_patched_codex_sessions_dir_on_the_copy_reaches_the_copy_policy(ub, sr
     assert src.CODEX_SESSIONS_DIR == real and ub.CODEX_SESSIONS_DIR == real
 
 
-def test_a_patched_claude_snapshot_on_the_copy_reaches_the_copy_policy(ub, src, tmp_path, monkeypatch):
+def test_a_patched_claude_snapshot_on_the_copy_reaches_the_policy(ub, src, tmp_path, monkeypatch):
     snapshot = tmp_path / "rate-limits.json"
     limits = {"seven_day": {"used_percentage": 10.0, "resets_at": NOW + WEEK // 2}}
     snapshot.write_text(json.dumps({"rate_limits": limits}), encoding="utf-8")
@@ -236,6 +240,52 @@ def test_the_observed_halt_latch_reads_the_usage_sources_constant(ub, src, tmp_p
         cache_path=tmp_path / "v.json", environ={"CLAUDE_CODE_SESSION_ID": "s"},
     )
     assert written.resets_at == NOW + 60
+
+
+def _pin_args(ub):
+    return ("entry-a", ub.ConserveSpec(pool="seven_day"), "claude")
+
+
+def test_a_patched_verdict_cache_on_the_copy_reaches_pinned_evaluate(ub, tmp_path, monkeypatch):
+    # Legacy suites isolate the verdict cache by patching VERDICT_CACHE through
+    # the copy name; the pinned verdict must land in that file, not the real one.
+    cache = tmp_path / "usage-verdicts.json"
+    snapshot = tmp_path / "rate-limits.json"
+    snapshot.write_text(json.dumps({"rate_limits": {"seven_day": {
+        "used_percentage": 10.0, "resets_at": NOW + WEEK // 2}}}), encoding="utf-8")
+    monkeypatch.setattr(ub, "VERDICT_CACHE", cache)
+    monkeypatch.setattr(ub, "CLAUDE_SNAPSHOT", snapshot)
+    environ = {"CLAUDE_CODE_SESSION_ID": "verdict-cache-session"}
+    first = ub.pinned_evaluate(*_pin_args(ub), now=NOW, environ=environ)
+    assert first.status == ub.STATUS_AVAILABLE
+    stored = json.loads(cache.read_text(encoding="utf-8"))
+    assert stored["session_key"] == "verdict-cache-session" and "entry-a" in stored["verdicts"]
+    # The pin holds: with the snapshot gone, the stored verdict is served.
+    snapshot.unlink()
+    assert ub.pinned_evaluate(*_pin_args(ub), now=NOW, environ=environ).status == ub.STATUS_AVAILABLE
+    monkeypatch.undo()
+    assert ub.VERDICT_CACHE != cache
+
+
+def test_patched_cache_helpers_on_the_copy_reach_pinned_evaluate(ub, tmp_path, monkeypatch):
+    loaded, stored = [], []
+
+    def fake_load(path, key):
+        loaded.append((path, key))
+        return {}
+
+    def fake_store(path, key, verdicts):
+        stored.append((path, key, dict(verdicts)))
+
+    monkeypatch.setattr(ub, "_load_cache", fake_load)
+    monkeypatch.setattr(ub, "_store_cache", fake_store)
+    monkeypatch.setattr(ub, "evaluate", lambda spec, harness, *, now=None: ub.Budget(
+        status=ub.STATUS_AVAILABLE, pool=spec.pool, detail="faked"))
+    cache = tmp_path / "v.json"
+    got = ub.pinned_evaluate(*_pin_args(ub), now=NOW, cache_path=cache,
+                             environ={"CLAUDE_CODE_SESSION_ID": "s"})
+    assert got.detail == "faked"
+    assert loaded == [(cache, "s")] and stored and stored[0][0] == cache
 
 
 def test_other_attributes_still_set_on_the_copy_module_itself(ub, monkeypatch):
