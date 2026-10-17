@@ -35,7 +35,7 @@ layer overrides, and raised together after every layer validated.
 ``agent_route`` splits an agent-only family's entries into the ids Workflow
 ``agent()`` / the Agent tool can run (``CORE_IDS``) and the ids they cannot,
 which are dropped and reported. ``audit_job`` never goes through it, because
-its route runs through job-kit and llm-scripting-kit.
+its route runs through llm-kit.
 """
 
 from __future__ import annotations

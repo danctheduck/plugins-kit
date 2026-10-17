@@ -1,4 +1,4 @@
-"""Tests for emit_audit_jobs.py -- the job-kit job emitter for the project-doc
+"""Tests for emit_audit_jobs.py -- the llm-kit job emitter for the project-doc
 audit lane.
 
 Loaded via importlib under a unique module name (same pattern as the sibling
@@ -7,7 +7,7 @@ cache entry never collides with a sibling test's.
 
 The load-bearing assertion is (d): the JSON worked example embedded in each
 emitted prompt is fed through the REAL check_report() from
-check_project_doc_audit.py -- the same function job-kit's acceptance contract
+check_project_doc_audit.py -- the same function llm-kit's acceptance contract
 runs. That is what stops the prompt describing a report shape the checker
 would actually reject, and it costs zero endpoint calls.
 """
@@ -51,16 +51,16 @@ def _entries(*ids: str, effort: str = "low") -> list[dict[str, str]]:
     return [{"id": model_id, "effort": effort} for model_id in ids]
 
 
-def _fake_job_kit(root: Path, version: str | None) -> Path:
-    """A job-kit plugin tree: bin/job-kit plus a plugin.json stating `version`
+def _fake_llm_kit(root: Path, version: str | None) -> Path:
+    """An llm-kit plugin tree: bin/llm-kit plus a plugin.json stating `version`
     (no manifest at all when version is None)."""
     (root / "bin").mkdir(parents=True, exist_ok=True)
-    launcher = root / "bin" / "job-kit"
+    launcher = root / "bin" / "llm-kit"
     launcher.write_text("#!/bin/sh\n", encoding="utf-8")
     if version is not None:
         (root / ".claude-plugin").mkdir(exist_ok=True)
         (root / ".claude-plugin" / "plugin.json").write_text(
-            json.dumps({"name": "job-kit", "version": version}), encoding="utf-8"
+            json.dumps({"name": "llm-kit", "version": version}), encoding="utf-8"
         )
     return launcher
 
@@ -98,8 +98,8 @@ def _hermetic_user_config(tmp_path_factory):
     mp = pytest.MonkeyPatch()
     mp.setenv("CLAUDE_CONFIG_DIR", str(tmp_path_factory.mktemp("empty-config")))
     mp.setattr(emit, "_lane_models_module", lambda: _fake_lane_models())
-    launcher = _fake_job_kit(tmp_path_factory.mktemp("job-kit"), "0.11.0")
-    mp.setattr(emit, "_job_kit_launcher", lambda: str(launcher))
+    launcher = _fake_llm_kit(tmp_path_factory.mktemp("llm-kit"), "0.1.9")
+    mp.setattr(emit, "_llm_kit_launcher", lambda: str(launcher))
     yield
     mp.undo()
 
@@ -254,27 +254,26 @@ class TestYamlRoundTrip:
         loaded = yaml.safe_load(out.read_text(encoding="utf-8"))
         assert loaded == document
 
-    def test_round_trips_through_job_kit_load_job_file(self, document: dict, tmp_path: Path):
+    def test_round_trips_through_llm_kit_load_job_file(self, document: dict, tmp_path: Path):
         pytest.importorskip("yaml")
-        job_kit_lib = REPO_ROOT / "plugins" / "job-kit" / "lib"
+        llm_kit_lib = REPO_ROOT / "plugins" / "llm-kit" / "lib"
         try:
             import sys
 
             for lib in (
-                job_kit_lib,
-                REPO_ROOT / "plugins" / "llm-scripting-kit" / "lib",
+                llm_kit_lib,
                 REPO_ROOT / "plugins" / "bootstrap",
             ):
                 if str(lib) not in sys.path:
                     sys.path.insert(0, str(lib))
-            import job_kit.model as job_kit_model
+            import llm_kit.jobs.model as llm_kit_model
         except (ImportError, SystemExit):
-            pytest.skip("job_kit is not importable in this environment")
+            pytest.skip("llm_kit is not importable in this environment")
 
         rendered = json.dumps(document, indent=2)
         out = tmp_path / "jobs.yaml"
         out.write_text(rendered, encoding="utf-8")
-        job_file = job_kit_model.load_job_file(out)
+        job_file = llm_kit_model.load_job_file(out)
         assert len(job_file.jobs) == len(document["jobs"])
         job_ids = {job.id for job in job_file.jobs}
         assert job_ids == {job["id"] for job in document["jobs"]}
@@ -318,7 +317,7 @@ class TestCliEntryPoint:
         captured = capsys.readouterr()
         assert captured.out == ""
         assert "JOB_KIT_REPORT_DIR=" in captured.err
-        assert "job-kit run" in captured.err
+        assert "llm-kit jobs run" in captured.err
 
 
 class TestLimit:
@@ -751,7 +750,7 @@ class TestSubjectLineCountReadOncePerFile:
 
 class TestAuditJobLaneModels:
     """The models come from the lane_models `audit_job` slot, with each entry's
-    effort carried to job-kit in the model_efforts sidecar."""
+    effort carried to llm-kit in the model_efforts sidecar."""
 
     def test_main_emits_the_slot_entries_in_order_with_effort(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -826,20 +825,19 @@ class TestAuditJobLaneModels:
                 limit=None,
             )
 
-    def test_the_emitted_job_loads_in_job_kit_with_its_efforts(
+    def test_the_emitted_job_loads_in_llm_kit_with_its_efforts(
         self, tmp_path: Path
     ) -> None:
         pytest.importorskip("yaml")
         import sys
 
         for lib in (
-            REPO_ROOT / "plugins" / "job-kit" / "lib",
-            REPO_ROOT / "plugins" / "llm-scripting-kit" / "lib",
+            REPO_ROOT / "plugins" / "llm-kit" / "lib",
             REPO_ROOT / "plugins" / "bootstrap",
         ):
             if str(lib) not in sys.path:
                 sys.path.insert(0, str(lib))
-        import job_kit.model as job_kit_model
+        import llm_kit.jobs.model as llm_kit_model
 
         docs = _tiny_repo(tmp_path)
         document = emit.build_job_file(
@@ -852,42 +850,42 @@ class TestAuditJobLaneModels:
         )
         out = tmp_path / "jobs.yaml"
         out.write_text(json.dumps(document), encoding="utf-8")
-        job = job_kit_model.load_job_file(out).jobs[0]
+        job = llm_kit_model.load_job_file(out).jobs[0]
         assert job.models == ("luna", "sonnet")
         assert dict(job.model_efforts) == {"luna": "high", "sonnet": "low"}
 
 
-class TestJobKitVersionPreflight:
-    """A job-kit older than 0.11.0 ignores model_efforts, so the emit refuses
-    to write such jobs unless the job-kit on PATH is verified >= 0.11.0."""
+class TestLlmKitVersionPreflight:
+    """An llm-kit older than 0.1.9 cannot deliver model_efforts, so the emit
+    refuses to write such jobs unless llm-kit on PATH is verified >= 0.1.9."""
 
     def _main(self, tmp_path: Path, monkeypatch, launcher) -> tuple[int, Path]:
         docs = _tiny_repo(tmp_path)
-        monkeypatch.setattr(emit, "_job_kit_launcher", lambda: launcher)
+        monkeypatch.setattr(emit, "_llm_kit_launcher", lambda: launcher)
         out = tmp_path / "jobs.json"
         rc = emit.main([str(docs), "--repo-root", str(tmp_path), "--out", str(out)])
         return rc, out
 
-    @pytest.mark.parametrize("version", ["0.10.1", "0.9.99"])
-    def test_an_older_job_kit_fails_the_emit_with_exit_7(
+    @pytest.mark.parametrize("version", ["0.1.8", "0.0.99"])
+    def test_an_older_llm_kit_fails_the_emit_with_exit_7(
         self, tmp_path: Path, monkeypatch, capsys, version: str
     ) -> None:
-        launcher = _fake_job_kit(tmp_path / "jk", version)
+        launcher = _fake_llm_kit(tmp_path / "lk", version)
         rc, out = self._main(tmp_path, monkeypatch, str(launcher))
         assert rc == 7
         assert not out.exists()
         err = capsys.readouterr().err
-        assert "0.11.0" in err and version in err
+        assert "0.1.9" in err and version in err
 
     @pytest.mark.parametrize("version", [None, "0.11", "dev"])
     def test_an_unreadable_version_fails_the_emit_with_exit_7(
         self, tmp_path: Path, monkeypatch, capsys, version
     ) -> None:
-        launcher = _fake_job_kit(tmp_path / "jk", version)
+        launcher = _fake_llm_kit(tmp_path / "lk", version)
         rc, out = self._main(tmp_path, monkeypatch, str(launcher))
         assert rc == 7
         assert not out.exists()
-        assert "cannot verify job-kit >= 0.11.0" in capsys.readouterr().err
+        assert "cannot verify llm-kit >= 0.1.9" in capsys.readouterr().err
 
     def test_no_launcher_on_path_fails_the_emit_with_exit_7(
         self, tmp_path: Path, monkeypatch, capsys
@@ -895,11 +893,11 @@ class TestJobKitVersionPreflight:
         rc, out = self._main(tmp_path, monkeypatch, None)
         assert rc == 7
         assert not out.exists()
-        assert "0.11.0" in capsys.readouterr().err
+        assert "0.1.9" in capsys.readouterr().err
 
-    @pytest.mark.parametrize("version", ["0.11.0", "0.12.3", "1.0.0"])
-    def test_a_new_enough_job_kit_emits(self, tmp_path: Path, monkeypatch, version) -> None:
-        launcher = _fake_job_kit(tmp_path / "jk", version)
+    @pytest.mark.parametrize("version", ["0.1.9", "0.2.3", "1.0.0"])
+    def test_a_new_enough_llm_kit_emits(self, tmp_path: Path, monkeypatch, version) -> None:
+        launcher = _fake_llm_kit(tmp_path / "lk", version)
         rc, out = self._main(tmp_path, monkeypatch, str(launcher))
         assert rc == 0
         assert "model_efforts" in json.loads(out.read_text(encoding="utf-8"))["jobs"][0]
@@ -909,9 +907,9 @@ class TestJobKitVersionPreflight:
     ) -> None:
         # The PATH entry is a link in a directory that is not a plugin root;
         # only the link's TARGET sits beside a plugin.json.
-        real = _fake_job_kit(tmp_path / "jk", "0.11.0")
+        real = _fake_llm_kit(tmp_path / "lk", "0.1.9")
         (tmp_path / "links" / "bin").mkdir(parents=True)
-        link = tmp_path / "links" / "bin" / "job-kit"
+        link = tmp_path / "links" / "bin" / "llm-kit"
         link.symlink_to(real)
         rc, _ = self._main(tmp_path, monkeypatch, str(link))
         assert rc == 0
@@ -923,7 +921,7 @@ class TestJobKitVersionPreflight:
         _admit(tmp_path, [EP_A])
         fake = _fake_lane_models(resolved={"audit_job": [{"id": EP_A, "effort": "xhigh"}]})
         monkeypatch.setattr(emit, "_lane_models_module", lambda: fake)
-        monkeypatch.setattr(emit, "_job_kit_launcher", lambda: None)
+        monkeypatch.setattr(emit, "_llm_kit_launcher", lambda: None)
         out = tmp_path / "jobs.json"
         rc = emit.main([str(docs), "--repo-root", str(tmp_path), "--out", str(out)])
         assert rc == 0
