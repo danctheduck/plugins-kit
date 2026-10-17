@@ -3,28 +3,28 @@
 
 Make ONE non-Claude chat-completion call for a workflow node and write the
 reply text to --out. The node's ``--model`` is a model DECLARATION: one or more
-llm-scripting-kit TRANSPORT entry ids (e.g. ``or-qwen``), as a comma list. It
-is dispatched through llm-scripting-kit's one declaration API,
-``llm_scripting_kit.declaration.run``: the first usable entry runs, a classified
+llm-kit TRANSPORT entry ids (e.g. ``or-qwen``), as a comma list. It
+is dispatched through llm-kit's one declaration API,
+``llm_kit.dispatch.declaration.run``: the first usable entry runs, a classified
 halt moves to the next usable entry, and an id this node cannot dispatch (a
 harness entry, or one that resolves to nothing) is skipped silently. When no
 usable entry is left, the typed floor (``NoUsableRoutingTarget``) is reported
 with every declared id and its disposition.
 
 With no ``--model`` the node runs the configured default declaration
-(llm-scripting-kit's ``default_endpoint``); ``--cheap`` selects each entry's
+(llm-kit's ``default_endpoint``); ``--cheap`` selects each entry's
 ``defaultCheap`` model. A model alias (``qwen``) or raw slug
 (``qwen/qwen3-32b``) is not an entry id: it resolves to no entry and reaches
 the floor like any other unresolved id.
 
 Run this with WORKFLOW-KIT's OWN venv python, which bootstrap provisions with:
-  - `llm_scripting_kit` and `bootstrap_lib` -- shared libraries linked onto this
+  - `llm_kit` and `bootstrap_lib` -- shared libraries linked onto this
     venv via the bootstrap shared-libs .pth because workflow-kit declares both
-    in `shared_lib_imports`. llm-scripting-kit is REQUIRED (an `install: auto`
+    in `shared_lib_imports`. llm-kit is REQUIRED (an `install: auto`
     plugin edge in bootstrap.json); an absent copy and a too-old one are
-    diagnosed apart.
+    diagnosed apart, and each is a refusal (exit 2) before any call.
   - the `openai` SDK -- a declared workflow-kit dependency, used lazily inside
-    llm-scripting-kit's OpenRouterBackend.
+    llm-kit's OpenRouterBackend.
 
     <workflow-kit-venv-python> scripts/openrouter_run.py \\
         [--model <entry>[,<entry>...]] [--cheap] --prompt-file <req.txt> --out <OUT> \\
@@ -71,7 +71,7 @@ judgment in a ``workflow-kit.artifact-verdict/v1`` file at --verdict, the same
 file ``check_artifact.py`` writes for a script node (that module owns the
 writer).
 
-- --kind schema: the runner builds llm-scripting-kit's
+- --kind schema: the runner builds llm-kit's
   ``OutputContract(id="workflow-kit.artifact.<NAME>", policy="validated-result",
   schema=<--schema>)``, refuses (exit 2, before any call) a schema outside the
   contract subset or a digest that differs from --schema-digest (the schema
@@ -121,7 +121,7 @@ import sys
 from pathlib import Path
 
 # Run under workflow-kit's bootstrap-provisioned venv (openai lives there, and
-# the shared-libs .pth links llm_scripting_kit and bootstrap_lib onto it). The
+# the shared-libs .pth links llm_kit and bootstrap_lib onto it). The
 # interpreter that launched this script is caller-supplied (the compiled
 # workflow's ${inputs.workflowKitVenvPython}), and the Workflow tool expands
 # nothing in args, so this guard is the only runtime check that the interpreter
@@ -138,14 +138,14 @@ from bootstrap_guard import reexec_under_plugin_venv  # noqa: E402
 
 reexec_under_plugin_venv("workflow-kit")
 
-#: The llm-scripting-kit release that shipped create_transport_backend, the
-#: newest symbol this runner uses (with default_declaration and the
-#: declaration module's run/NoUsableRoutingTarget).
-_LLM_SCRIPTING_KIT_MIN = "0.46.0"
+#: The llm-kit release that first shipped ``llm_kit.dispatch.factory``
+#: (create_transport_backend) and ``llm_kit.dispatch.declaration``
+#: (run/NoUsableRoutingTarget): the newest modules this runner imports.
+_LLM_KIT_MIN = "0.1.5"
 
-#: The llm-scripting-kit release that shipped ``run(..., observer=...)``, the
-#: call --events makes.
-_LLM_SCRIPTING_KIT_OBSERVER = "0.56.0"
+#: The llm-kit release that shipped ``run(..., observer=...)``, the call
+#: --events makes. ``llm_kit.dispatch.declaration`` takes it from its first release.
+_LLM_KIT_OBSERVER = "0.1.5"
 
 #: The execution-event schema this runner writes. Its own literal, never read
 #: from the (possibly stale) linked module.
@@ -292,9 +292,9 @@ def _probe_run_observer(run):
     if param is not None and param.kind in _OBSERVER_KINDS:
         return None
     return (
-        "the linked llm_scripting_kit's declaration.run takes no `observer` keyword, which "
-        f"--events passes; this requires llm-scripting-kit >= {_LLM_SCRIPTING_KIT_OBSERVER}. "
-        "Run `claude plugin update llm-scripting-kit@plugins-kit` and restart so bootstrap "
+        "the linked llm_kit's dispatch.declaration.run takes no `observer` keyword, which "
+        f"--events passes; this requires llm-kit >= {_LLM_KIT_OBSERVER}. "
+        "Run `claude plugin update llm-kit@plugins-kit` and restart so bootstrap "
         "re-links the newer shared lib onto workflow-kit's venv."
     )
 
@@ -305,10 +305,10 @@ def _probe_backend_options(backend_options, checker):
         inspect.signature(backend_options).bind_partial(output_contract=None)
     except (TypeError, ValueError):
         return (
-            "the linked llm_scripting_kit's completion.BackendOptions takes no "
+            "the linked llm_kit's completion.types.BackendOptions takes no "
             "`output_contract`, which --provides --kind schema sends; this requires "
-            f"llm-scripting-kit >= {checker.output_contract_lsk()}. Run `claude plugin update "
-            "llm-scripting-kit@plugins-kit` and restart so bootstrap re-links the newer shared "
+            f"llm-kit >= {checker.output_contract_llm_kit()}. Run `claude plugin update "
+            "llm-kit@plugins-kit` and restart so bootstrap re-links the newer shared "
             "lib onto workflow-kit's venv."
         )
     return None
@@ -316,12 +316,12 @@ def _probe_backend_options(backend_options, checker):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="workflow-kit: one non-Claude model call via llm-scripting-kit's declaration API."
+        description="workflow-kit: one non-Claude model call via llm-kit's declaration API."
     )
     ap.add_argument(
         "--model",
         default=None,
-        help="A model declaration: one or more llm-scripting-kit transport entry ids, "
+        help="A model declaration: one or more llm-kit transport entry ids, "
         "comma-separated (e.g. or-qwen,or-gpt-mini). If omitted, the configured default "
         "declaration is used.",
     )
@@ -392,34 +392,36 @@ def main(argv=None):
             return 2
 
     # The package and the newest symbol are probed separately: a .pth links no
-    # version, so this venv can resolve an llm-scripting-kit predating the
-    # declaration API. An absent package and a too-old one are different
-    # repairs (enable the plugin vs. update it), so they get different messages.
+    # version, so this venv can resolve an llm-kit predating the declaration
+    # API. An absent package and a too-old one are different repairs (enable
+    # the plugin vs. update it), so they get different messages. Either one
+    # refuses here (exit 2), before any model call.
     try:
-        import llm_scripting_kit  # noqa: F401
+        import llm_kit  # noqa: F401
     except ImportError:
         print(
-            "llm_scripting_kit not importable. Enable the llm-scripting-kit plugin and run this "
-            "with workflow-kit's venv python (bootstrap links llm_scripting_kit onto it via "
+            "llm_kit not importable. Enable the llm-kit plugin and run this "
+            "with workflow-kit's venv python (bootstrap links llm_kit onto it via "
             "the shared-libs .pth).",
             file=sys.stderr,
         )
         return 2
     try:
-        from llm_scripting_kit import default_declaration
-        from llm_scripting_kit.completion import BackendOptions, create_transport_backend
-        from llm_scripting_kit.declaration import (
+        from llm_kit.completion.types import BackendOptions
+        from llm_kit.dispatch.declaration import (
             DeclarationSupportError,
             NoUsableRoutingTarget,
             RUN_COMPLETED,
             RunRequest,
             run,
         )
+        from llm_kit.dispatch.factory import create_transport_backend
+        from llm_kit.registry.models import default_declaration
     except ImportError:
         print(
-            "the linked llm_scripting_kit predates the model-declaration API "
-            "(create_transport_backend). This requires llm-scripting-kit >= "
-            f"{_LLM_SCRIPTING_KIT_MIN}. Run `claude plugin update llm-scripting-kit@plugins-kit` "
+            "the linked llm_kit predates the model-declaration API "
+            "(dispatch.factory.create_transport_backend). This requires llm-kit >= "
+            f"{_LLM_KIT_MIN}. Run `claude plugin update llm-kit@plugins-kit` "
             "and restart so bootstrap re-links the newer shared lib onto workflow-kit's venv.",
             file=sys.stderr,
         )

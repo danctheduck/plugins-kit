@@ -1,7 +1,7 @@
 {
   "name": "llm-scripting-kit",
-  "version": "0.67.0",
-  "description": "LLM access for scripts and pipelines: credentials, endpoint/model resolution, local Qwen server profiles, and one completion seam over HTTP, Claude, Codex, and OpenCode.",
+  "version": "0.68.0",
+  "description": "Frozen legacy provider. Use llm-kit for LLM access, credentials, endpoint/model resolution, and completion.",
   "author": {
     "name": "Christina"
   },

@@ -9,7 +9,7 @@
 # The agent-only families (detect, classify, coverage, generate, remediate) run
 # through Workflow agent() or the Agent tool; skills_kit_lib.lane_models.agent_route
 # drops any id those cannot run and reports the drop. audit_job runs through
-# job-kit and llm-scripting-kit, where every declared id can run.
+# llm-kit, where every declared id can run.
 #
 # classify and remediate apply already-decided edits, so they take the cheapest
 # Claude seat (haiku). detect, coverage and generate stay on sonnet.

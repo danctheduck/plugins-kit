@@ -8,7 +8,7 @@ that taxonomy id, and points at a line inside the audited file.
 
     check_project_doc_audit.py <subject-path> <repo-root> [--standards PATH]
 
-Designed as the `contract` command of an unattended runner (job-kit), so it
+Designed as the acceptance command of an unattended runner (llm-kit), so it
 reads THIS attempt's completion text on stdin rather than a file an earlier
 attempt may have left behind, and it is stdlib-only: it must run under whatever
 interpreter the runner has.

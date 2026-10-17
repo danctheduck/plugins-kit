@@ -63,11 +63,11 @@ function wkScript(command, out, opts) {
   return wkNode('{ ' + command + ' ; } > ' + shq(out), out, opts)
 }
 
-// openrouter strategy: one non-Claude model call via llm-scripting-kit's
-// declaration API (scripts/openrouter_run.py -> llm_scripting_kit.declaration.run),
+// openrouter strategy: one non-Claude model call via llm-kit's
+// declaration API (scripts/openrouter_run.py -> llm_kit.dispatch.declaration.run),
 // written to `out`. `runner` is the command prefix that runs that script under
 // workflow-kit's OWN venv python -- it declares `openai` (its pyproject) and gets
-// `llm_scripting_kit` on its path via the bootstrap shared-libs .pth, e.g.
+// `llm_kit` on its path via the bootstrap shared-libs .pth, e.g.
 //   '"<workflow-kit-venv-python>" "<pluginRoot>/scripts/openrouter_run.py"'
 // where <workflow-kit-venv-python> is, expanded in a shell first (the Workflow
 // tool expands nothing in args; under a claudx session CLAUDE_BOOTSTRAP_DATA_ROOT
@@ -82,9 +82,9 @@ function wkScript(command, out, opts) {
 // compiler always sets all three. `model` is a
 // model declaration of transport entry ids, comma-separated (e.g. 'or-qwen' or
 // 'or-qwen,or-gpt-mini'). When `model` is omitted the runner uses
-// llm-scripting-kit's configured default declaration and its 'default' model
+// llm-kit's configured default declaration and its 'default' model
 // (or 'defaultCheap' when `cheap` is true) -- configure those in
-// llm-scripting-kit's config.yaml instead of hardcoding a slug here.
+// llm-kit's config.yaml instead of hardcoding a slug here.
 function wkOpenRouter(runner, spec, opts) {
   opts = opts || {}
   // every spec value is shq-quoted: paths may contain spaces, and only single

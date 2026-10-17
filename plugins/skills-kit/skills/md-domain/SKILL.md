@@ -548,7 +548,7 @@ ambiguous, ask rather than guessing.
   `<path>` targets a file or directory; `<numbers>` selects by index from the
   last `list` output. `audit skill` also accepts `roster` / `hierarchy` (with an
   optional output path or `-` for stdout) for corpus inventory. `audit
-  project-doc` accepts `jobs <directory>` to emit an unattended job-kit run
+  project-doc` accepts `jobs <directory>` to emit an unattended llm-kit run
   over that directory's docs instead of auditing inline -- procedure and CLI
   flags: `references/lanes/audit-lane.md`. The grammar puts each of these
   under its audit lane because it shares that lane's subject; none of them

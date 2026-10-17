@@ -15,7 +15,7 @@
 //   at the openrouter strategy in preamble.js)
 // - `kind` is 'schema' or 'opaque-file'; 'schema' also takes `schema` (the
 //   schema's canonical JSON text) and `digest` (its sha256, the value
-//   llm-scripting-kit's OutputContract(...).schema_digest reports).
+//   llm-kit's OutputContract(...).schema_digest reports).
 // - `verdict` is where the node writes its workflow-kit.artifact-verdict/v1
 //   file, e.g. `./.workflow-kit/${runId}/<step>[.<i>].contract.json`.
 // - `events`, `runId`, `unitId` (script providers; all three or none): the

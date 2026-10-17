@@ -167,7 +167,7 @@ def test_guard_call_precedes_every_shared_lib_import(script):
                 else [alias.name for alias in node.names]
             )
             for name in names:
-                if name.split(".")[0] in {"llm_scripting_kit", "bootstrap_lib"}:
+                if name.split(".")[0] in {"llm_kit", "bootstrap_lib"}:
                     assert node.lineno > guard_line, (script, name, node.lineno)
 
 

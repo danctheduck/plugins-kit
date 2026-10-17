@@ -41,34 +41,37 @@ code. Anything `bash -c` can run is a script node.
 
 ## openrouter strategy
 
-One non-Claude model call via llm-scripting-kit's completion seam
+One non-Claude model call via llm-kit's completion seam
 (`scripts/openrouter_run.py`, which uses
-`llm_scripting_kit.completion.OpenRouterBackend.complete`), writing the reply
+`llm_kit.adapters.backends.OpenRouterBackend.complete`), writing the reply
 text to `$OUT`. The script does not build an `openai` client or call
 `chat.completions.create` itself -- the seam owns the transport, response
 normalization, and halt classification (auth / rate limit / insufficient
-credit); the script hands the node's model declaration to llm-scripting-kit's
-declaration API (`llm_scripting_kit.declaration.run`) and reports the result. workflow-kit reuses `llm_scripting_kit` (owned by
-the llm-scripting-kit plugin, which its bootstrap.json installs automatically) and
+credit); the script hands the node's model declaration to llm-kit's
+declaration API (`llm_kit.dispatch.declaration.run`) and reports the result. workflow-kit reuses `llm_kit` (owned by
+the llm-kit plugin, which its bootstrap.json installs automatically) and
 gets the library on its venv via the bootstrap shared-libs `.pth`. The one
 third-party dep the call needs, `openai`, IS declared by workflow-kit (its own
 `pyproject.toml`) -- the seam uses it internally; workflow-kit shares the source,
 not the SDK.
 
 When `--temperature` is omitted, the node leaves it unset on
-`llm_scripting_kit.completion.BackendOptions` (`temperature: Optional[float] =
+`llm_kit.completion.types.BackendOptions` (`temperature: Optional[float] =
 None`) so the provider's own mode-dependent default applies. When
 `--max-tokens` is omitted, the seam's `BackendOptions` default of `4096`
 applies. Pass either flag to override its value.
 
 Run the runner with **workflow-kit's own venv python** -- bootstrap provisions it
-with `openai` (declared) and links `llm_scripting_kit` onto it (declared via
-`shared_lib_imports`). The API key is resolved the llm-scripting-kit way; run
-`"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/bin/llm-scripting-kit set-key`
-(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-scripting-kit/.venv/Scripts/llm-scripting-kit.exe) once to provision it.
+with `openai` (declared) and links `llm_kit` onto it (declared via
+`shared_lib_imports`). llm-kit is REQUIRED for a model declaration and for a
+schema-typed artifact: when it is absent or too old, the runner, the checker
+and the compiler refuse (exit 2, or a compile error) with a message that names
+the repair, and never fall back to another provider. The API key is resolved the llm-kit way; run
+`"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-kit/.venv/bin/llm-kit account set-key`
+(Windows: "${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/llm-kit/.venv/Scripts/llm-kit.exe account set-key) once to provision it.
 
 ```js
-// workflow-kit's venv python: has openai + llm_scripting_kit (shared-libs .pth).
+// workflow-kit's venv python: has openai + llm_kit (shared-libs .pth).
 // The caller passes a resolved path, expanded in a shell first (the Workflow
 // tool expands nothing in args; under a claudx session CLAUDE_BOOTSTRAP_DATA_ROOT
 // is set and selects the redirected venv):
@@ -95,7 +98,7 @@ const r = await wkOpenRouter(runner, {
 
 ### Choosing the model
 
-Don't hardcode slugs. llm-scripting-kit owns a model **registry** in its
+Don't hardcode slugs. llm-kit owns a model **registry** in its
 `config.yaml`, resolved through bootstrap's layered config (shipped baseline,
 then the user file, then a per-project override; project wins). A node names
 registry ENTRIES -- a model declaration, in the one format bootstrap's
@@ -110,15 +113,16 @@ plugin-dev `references/model-declaration.md` specifies. `wkOpenRouter`'s `spec`:
   such as `sol` or `opus`, or one the registry does not know -- is skipped
   without comment. When no entry is usable, the node exits 2 and its status
   file itemises every declared id and why it could not run.
-- omit `model` -- use the configured default declaration (llm-scripting-kit's
+- omit `model` -- use the configured default declaration (llm-kit's
   `default_endpoint`), and its `default` model, or `defaultCheap` with
   `cheap: true`. This is the usual choice: pick the *role*, not the slug.
 - `model: 'qwen'` (an alias) or `model: 'qwen/qwen3-32b'` (a raw slug) -- not
   an entry id. It resolves to no entry, so the node exits 2 with the itemised
   status. Name the entry instead (`or-qwen`).
 
-Change the entries or the defaults once, in llm-scripting-kit's config, and
-every openrouter node across every plugin follows:
+Change the entries or the defaults once, in llm-kit's config, and
+every openrouter node across every plugin follows (llm-kit keeps the
+established `llm-scripting-kit` config directory names):
 
 - user (all projects): `~/.claude/plugins/data/plugins-kit/llm-scripting-kit/config.yaml`
 - per-project override: `<project_root>/.local-data/plugins-kit/llm-scripting-kit/config.yaml`
@@ -129,11 +133,11 @@ the OpenRouter call -- the cost-savings case is weaker than the model-diversity
 case (the reply still bypasses context via `$OUT`).
 
 Provisioning:
-- `llm_scripting_kit` (owned by the llm-scripting-kit plugin) is published as a
+- `llm_kit` (owned by the llm-kit plugin) is published as a
   shared library by the bootstrap engine and linked onto workflow-kit's venv because workflow-kit
-  declares `"shared_lib_imports": ["llm_scripting_kit"]` -- the runner imports it
+  declares `"shared_lib_imports": ["llm_kit", "bootstrap_lib"]` -- the runner imports it
   directly, with no path discovery. workflow-kit's bootstrap.json declares
-  llm-scripting-kit as a REQUIRED `install: "auto"` plugin edge, so bootstrap
+  llm-kit as a REQUIRED `install: "auto"` plugin edge, so bootstrap
   installs the owning plugin.
 - `openai` is a declared workflow-kit dependency (`pyproject.toml` +
   `venv.check_imports`), so bootstrap installs it into workflow-kit's venv.
@@ -150,7 +154,7 @@ is a usage error (exit 2).
 - Every event has `source.plugin` `workflow-kit` and the given run and unit
   ids. Per attempt, the stream holds `dispatch-selected`, `call-started`,
   `usage` (when the provider reported token counts) and `result`. One
-  `terminal` closes the node. llm-scripting-kit emits these through
+  `terminal` closes the node. llm-kit emits these through
   `run(..., observer=...)`.
 - The file records the node's LAST execution: a re-run replaces it, as it
   replaces `$OUT`.
@@ -206,7 +210,7 @@ the proof that the payload has the declared type.
 An artifact has one of two kinds:
 
 - `schema` -- `$OUT` holds JSON that conforms to a JSON Schema. The schema must
-  be inside the closed subset llm-scripting-kit's `OutputContract` accepts
+  be inside the closed subset llm-kit's `OutputContract` accepts
   (policy `validated-result`): keywords such as `pattern`, `format` and
   `oneOf` are refused, and the root must refuse `null`. It travels as JSON
   text with its digest: the sha256 of its canonical JSON (sorted keys, no
@@ -215,7 +219,7 @@ An artifact has one of two kinds:
   is the shell-expanded path `venvPy` holds above):
 
   ```sh
-  "<workflow-kit-venv-python>" -c "import json,sys; from llm_scripting_kit.completion import OutputContract; print(OutputContract(id='x', policy='validated-result', schema=json.load(open(sys.argv[1]))).schema_digest)" stats.schema.json
+  "<workflow-kit-venv-python>" -c "import json,sys; from llm_kit.completion.contract import OutputContract; print(OutputContract(id='x', policy='validated-result', schema=json.load(open(sys.argv[1]))).schema_digest)" stats.schema.json
   ```
 
   A digest that does not match the schema means the schema changed in
@@ -250,7 +254,7 @@ const r = await wkOpenRouter(typed, { promptFile: req, out, cheap: true }, { lab
 requires `--schema` and `--schema-digest`, which `--kind opaque-file`
 refuses. Any other combination is a usage error (exit 2).
 
-- `--kind schema`: the runner sends the schema to llm-scripting-kit as an
+- `--kind schema`: the runner sends the schema to llm-kit as an
   output contract. The seam uses only entries that can satisfy it, adds the
   schema instruction to the system message, and validates the answer. On
   success `$OUT` holds the validated value serialized as ASCII JSON, not the
@@ -304,11 +308,11 @@ runner (`--events` requires both ids; see "Execution events" for the
 - `schema` is `missing` when `--in` is not a readable regular file. The bytes
   must be strict UTF-8 JSON (`NaN` and `Infinity` refused), else `violated`
   with the one error `["", "unparseable"]`. A parsed value is validated with
-  llm-scripting-kit's `completion.json_schema.validate`.
+  llm-kit's `schema.json_schema.validate`.
 
 Checker exit codes: 0 `satisfied`; 1 `violated`, or `missing` after a command
 that exited 0; the command's own code when it failed; 2 a usage error, an
-absent or too-old llm-scripting-kit, a schema outside the subset, a digest
+absent or too-old llm-kit, a schema outside the subset, a digest
 mismatch, a previous verdict or events file that cannot be removed, or (with
 `--events`) a bootstrap_lib without execution-event schema v3.
 

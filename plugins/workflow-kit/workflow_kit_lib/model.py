@@ -207,7 +207,7 @@ class ScriptSpec:
 class OpenRouterSpec:
     """An `openrouter:` node -- one non-Claude model call whose reply lands in `$OUT`.
 
-    `model` is a model declaration of llm-scripting-kit transport entry ids
+    `model` is a model declaration of llm-kit transport entry ids
     (e.g. `or-qwen`), passed to the node runner unchanged; omit it to use the
     configured default declaration, and set `cheap: true` for that entry's
     `defaultCheap`. A model alias or raw slug is not an entry id.

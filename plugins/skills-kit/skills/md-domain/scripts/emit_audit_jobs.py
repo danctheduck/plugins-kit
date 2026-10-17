@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""emit_audit_jobs.py -- emit a job-kit job file auditing a directory of
+"""emit_audit_jobs.py -- emit an llm-kit job file auditing a directory of
 project docs against md-domain's project-doc standards.
 
 Discovers every project_doc under a subject directory (via
-discover_project_doc.py) and emits one job-kit job per doc. Each job's
+discover_project_doc.py) and emits one llm-kit job per doc. Each job's
 acceptance contract is the already-shipped check_project_doc_audit.py, run
 against that one doc; the model completing the job is expected to produce an
 audit report as its entire output, which the contract reads on stdin and
@@ -23,15 +23,15 @@ layered `lane_models` config slot (skills_kit_lib.lane_models), the same slot
 every other md-domain lane reads; there is no per-invocation override. Each
 entry is `{id, effort}`. Every emitted job carries the ids, in order, as its
 `models` declaration and each entry's effort in the `model_efforts` sidecar
-job-kit (>= 0.11.0) delivers per selected entry, so no effort is dropped. A
+llm-kit (>= 0.1.9) delivers per selected entry, so no effort is dropped. A
 slot that cannot be resolved fails the emit (exit 6).
 
-An older job-kit ignores `model_efforts` and would run every entry at its
+An older llm-kit ignores `model_efforts` and would run every entry at its
 registry effort, so before writing a job that carries it the emitter reads the
-version of the job-kit the printed `job-kit run` command will execute: the
-`job-kit` launcher on PATH, resolved to its plugin root, whose
+version of the llm-kit the printed `llm-kit jobs run` command will execute: the
+`llm-kit` launcher on PATH, resolved to its plugin root, whose
 .claude-plugin/plugin.json states the version. A launcher that is absent, a
-version that cannot be read, or one below 0.11.0 fails the emit (exit 7).
+version that cannot be read, or one below 0.1.9 fails the emit (exit 7).
 
 Each emitted job carries an `evidence_pack` record stating whether the md-audit
 evidence pack was attached to its prompt and, when it was, that pack's sha256 and
@@ -43,9 +43,9 @@ preference list mixing admitted and non-admitted endpoints is an error and fails
 the emit (exit 4), as is a pack-admitted list whose entries state an effort other
 than the one the pack was measured at.
 
-The emitted document is JSON (job-kit loads job files with yaml.safe_load, and
+The emitted document is JSON (llm-kit loads job files with yaml.safe_load, and
 every JSON document is valid YAML, so no YAML serializer is needed here). The
-runnable job-kit invocation, including the JOB_KIT_REPORT_DIR prefix, is
+runnable llm-kit invocation, including the JOB_KIT_REPORT_DIR prefix, is
 printed to stderr so `--out -` stays pipeable.
 """
 
@@ -92,56 +92,56 @@ DEFAULT_MAX_PARALLEL = 4
 PACK_MEASURED_EFFORT = "xhigh"
 
 
-# The first job-kit that reads a job's model_efforts sidecar. An older one
+# The first llm-kit that reads a job's model_efforts sidecar. An older one
 # accepts the key and ignores it, so the version is checked, not assumed.
-MIN_JOB_KIT_FOR_MODEL_EFFORTS = (0, 11, 0)
+MIN_LLM_KIT_FOR_MODEL_EFFORTS = (0, 1, 9)
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
 
-class JobKitTooOldError(RuntimeError):
-    """The job-kit the run will use cannot carry model_efforts (exit 7)."""
+class LlmKitTooOldError(RuntimeError):
+    """The llm-kit the run will use cannot carry model_efforts (exit 7)."""
 
 
-def _job_kit_launcher() -> str | None:
-    """The `job-kit` launcher the printed run command resolves to (the seam tests replace)."""
-    return shutil.which("job-kit")
+def _llm_kit_launcher() -> str | None:
+    """The `llm-kit` launcher the printed run command resolves to."""
+    return shutil.which("llm-kit")
 
 
-def require_job_kit_for_model_efforts() -> str:
-    """Return the version of the job-kit on PATH, or raise JobKitTooOldError.
+def require_llm_kit_for_model_efforts() -> str:
+    """Return the version of llm-kit on PATH, or raise LlmKitTooOldError.
 
-    The launcher lives at <plugin-root>/bin/job-kit and runs that plugin
+    The launcher lives at <plugin-root>/bin/llm-kit and runs that plugin
     root's own code, so the plugin root's .claude-plugin/plugin.json version
     is the version the run executes. No fallback: an absent launcher, an
-    unreadable or non-X.Y.Z version, or one below 0.11.0 all raise.
+    unreadable or non-X.Y.Z version, or one below 0.1.9 all raise.
     """
-    need = ".".join(str(part) for part in MIN_JOB_KIT_FOR_MODEL_EFFORTS)
-    launcher = _job_kit_launcher()
+    need = ".".join(str(part) for part in MIN_LLM_KIT_FOR_MODEL_EFFORTS)
+    launcher = _llm_kit_launcher()
     if launcher is None:
-        raise JobKitTooOldError(
-            f"cannot verify job-kit >= {need}: no `job-kit` launcher is on PATH. "
-            f"The emitted jobs carry model_efforts, which job-kit {need} is the "
-            "first to deliver; install or update plugins-kit:job-kit"
+        raise LlmKitTooOldError(
+            f"cannot verify llm-kit >= {need}: no `llm-kit` launcher is on PATH. "
+            f"The emitted jobs carry model_efforts, which llm-kit {need} is the "
+            "first to deliver; install or update plugins-kit:llm-kit"
         )
     manifest = Path(launcher).resolve().parents[1] / ".claude-plugin" / "plugin.json"
     try:
         version = json.loads(manifest.read_text(encoding="utf-8"))["version"]
     except (OSError, ValueError, KeyError, TypeError) as exc:
-        raise JobKitTooOldError(
-            f"cannot verify job-kit >= {need}: cannot read the version of the "
-            f"job-kit at {launcher} from {manifest} ({type(exc).__name__}: {exc})"
+        raise LlmKitTooOldError(
+            f"cannot verify llm-kit >= {need}: cannot read the version of the "
+            f"llm-kit at {launcher} from {manifest} ({type(exc).__name__}: {exc})"
         ) from exc
     match = _VERSION_RE.match(version) if isinstance(version, str) else None
     if match is None:
-        raise JobKitTooOldError(
-            f"cannot verify job-kit >= {need}: {manifest} states version "
+        raise LlmKitTooOldError(
+            f"cannot verify llm-kit >= {need}: {manifest} states version "
             f"{version!r}, not X.Y.Z"
         )
-    if tuple(int(part) for part in match.groups()) < MIN_JOB_KIT_FOR_MODEL_EFFORTS:
-        raise JobKitTooOldError(
-            f"job-kit {version} at {launcher} ignores model_efforts, so every "
-            f"entry would run at its registry effort; job-kit {need} is required. "
-            "Update plugins-kit:job-kit (`claude plugin update job-kit@plugins-kit`)"
+    if tuple(int(part) for part in match.groups()) < MIN_LLM_KIT_FOR_MODEL_EFFORTS:
+        raise LlmKitTooOldError(
+            f"llm-kit {version} at {launcher} ignores model_efforts, so every "
+            f"entry would run at its registry effort; llm-kit {need} is required. "
+            "Update plugins-kit:llm-kit (`claude plugin update llm-kit@plugins-kit`)"
         )
     return version
 
@@ -310,7 +310,7 @@ class AdapterEffortMismatchError(ValueError):
 class MixedAdapterEndpointsError(ValueError):
     """Raised when a preference list mixes admitted and non-admitted endpoints.
 
-    job-kit resolves the preference list at RUN time, so a pack chosen at emit
+    llm-kit resolves the preference list at RUN time, so a pack chosen at emit
     time against a mixed list is wrong for whichever endpoint the run does not
     pick: either an admitted endpoint loses the pack, or a non-admitted one is
     taxed with it. There is no per-job answer -- the emit itself is the error.
@@ -658,7 +658,7 @@ def build_job(
         "models": [entry["id"] for entry in models],
     }
     if pack is None:
-        # Per-entry effort as job-kit's model_efforts sidecar: job-kit sends
+        # Per-entry effort as llm-kit's model_efforts sidecar: llm-kit sends
         # the SELECTED entry's effort and refuses an entry that cannot carry
         # it. A pack-admitted job instead sends the measured effort as the
         # extras below (build_job_file has checked the slot states exactly
@@ -675,7 +675,7 @@ def build_job(
         # An adapter is admitted for a model-task pair AT A REQUEST
         # CONFIGURATION, so the shipped path has to reproduce the one the F1
         # figures were taken at -- max_tokens 60000 and reasoning_effort xhigh
-        # (2026-09-04, NInfer a140e7ae, model-default sampling). job-kit's
+        # (2026-09-04, NInfer a140e7ae, model-default sampling). llm-kit's
         # default of 4096 is exhausted by this model's reasoning before it emits
         # any content at all, which fails the job with finish_reason=length and
         # no report. Sending the pack at an untested configuration would make
@@ -880,8 +880,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if any("model_efforts" in job for job in document["jobs"]):
         try:
-            require_job_kit_for_model_efforts()
-        except JobKitTooOldError as exc:
+            require_llm_kit_for_model_efforts()
+        except LlmKitTooOldError as exc:
             print(exc, file=sys.stderr)
             return 7
 
@@ -907,7 +907,7 @@ def main(argv: list[str] | None = None) -> int:
     job_count = len(document["jobs"])
     print(f"discovered {job_count} project doc job(s)", file=sys.stderr)
     print(
-        f"JOB_KIT_REPORT_DIR={report_dir} job-kit run {out_display}",
+        f"JOB_KIT_REPORT_DIR={report_dir} llm-kit jobs run {out_display}",
         file=sys.stderr,
     )
     return 0
