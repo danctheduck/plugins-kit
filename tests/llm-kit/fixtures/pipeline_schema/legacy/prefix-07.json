@@ -1,0 +1,62 @@
+{
+  "journal_mode": "wal",
+  "schema_version": [
+    7
+  ],
+  "sqlite_master": [
+    [
+      "table",
+      "schema_version",
+      "schema_version",
+      "CREATE TABLE schema_version (\n            version INTEGER NOT NULL\n        )"
+    ],
+    [
+      "table",
+      "runs",
+      "runs",
+      "CREATE TABLE runs (\n            id TEXT PRIMARY KEY,\n            driver TEXT NOT NULL,\n            backend TEXT NOT NULL,\n            model TEXT NOT NULL,\n            adapter_version TEXT NOT NULL,\n            created_at REAL NOT NULL,\n            halted_kind TEXT,\n            halted_detail TEXT,\n            halted_at REAL\n        )"
+    ],
+    [
+      "index",
+      "sqlite_autoindex_runs_1",
+      "runs",
+      null
+    ],
+    [
+      "table",
+      "units",
+      "units",
+      "CREATE TABLE units (\n            run_id TEXT NOT NULL REFERENCES runs(id),\n            unit_id TEXT NOT NULL,\n            ordinal INTEGER NOT NULL,\n            state TEXT NOT NULL,\n            created_at REAL NOT NULL,\n            updated_at REAL NOT NULL,\n            claimed_by TEXT,\n            claimed_at REAL,\n            fencing_token INTEGER NOT NULL DEFAULT 0,\n            lease_expires_at REAL,\n            accepted_at REAL,\n            failed_at REAL, accepted_text TEXT,\n            PRIMARY KEY (run_id, unit_id)\n        )"
+    ],
+    [
+      "index",
+      "sqlite_autoindex_units_1",
+      "units",
+      null
+    ],
+    [
+      "index",
+      "idx_units_run_state",
+      "units",
+      "CREATE INDEX idx_units_run_state ON units(run_id, state)"
+    ],
+    [
+      "table",
+      "attempts",
+      "attempts",
+      "CREATE TABLE attempts (\n            id INTEGER PRIMARY KEY AUTOINCREMENT,\n            run_id TEXT NOT NULL,\n            unit_id TEXT NOT NULL,\n            kind TEXT NOT NULL,\n            at REAL NOT NULL,\n            worker_id TEXT,\n            fencing_token INTEGER,\n            error TEXT,\n            input_tokens INTEGER,\n            output_tokens INTEGER,\n            cache_hit_tokens INTEGER,\n            FOREIGN KEY (run_id, unit_id) REFERENCES units(run_id, unit_id)\n        )"
+    ],
+    [
+      "table",
+      "sqlite_sequence",
+      "sqlite_sequence",
+      "CREATE TABLE sqlite_sequence(name,seq)"
+    ],
+    [
+      "index",
+      "idx_attempts_run_unit",
+      "attempts",
+      "CREATE INDEX idx_attempts_run_unit ON attempts(run_id, unit_id)"
+    ]
+  ]
+}

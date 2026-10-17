@@ -1,0 +1,14 @@
+{
+  "journal_mode": "wal",
+  "schema_version": [
+    1
+  ],
+  "sqlite_master": [
+    [
+      "table",
+      "schema_version",
+      "schema_version",
+      "CREATE TABLE schema_version (\n            version INTEGER NOT NULL\n        )"
+    ]
+  ]
+}

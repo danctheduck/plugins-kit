@@ -1,0 +1,32 @@
+{
+  "connection_pragmas": {
+    "EXTRA": {
+      "busy_timeout": 2500,
+      "isolation_level": null,
+      "journal_mode": "wal",
+      "row_factory": "Row",
+      "synchronous": 3
+    },
+    "FULL": {
+      "busy_timeout": 2500,
+      "isolation_level": null,
+      "journal_mode": "wal",
+      "row_factory": "Row",
+      "synchronous": 2
+    },
+    "NORMAL": {
+      "busy_timeout": 2500,
+      "isolation_level": null,
+      "journal_mode": "wal",
+      "row_factory": "Row",
+      "synchronous": 1
+    },
+    "OFF": {
+      "busy_timeout": 2500,
+      "isolation_level": null,
+      "journal_mode": "wal",
+      "row_factory": "Row",
+      "synchronous": 0
+    }
+  }
+}

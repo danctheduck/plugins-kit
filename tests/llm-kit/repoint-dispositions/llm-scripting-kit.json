@@ -1,0 +1,712 @@
+{
+  "suite": "llm-scripting-kit",
+  "rows": [
+    {
+      "path": "tests/llm-scripting-kit/test_account.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 28,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_api_key.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, plugins/<kit> path to plugins/llm-kit.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 28,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_bootstrap_manifest_floor.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, plugins/<kit> path to plugins/llm-kit; 1 declared difference(s) below.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 3,
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_bootstrap_manifest_floor.py::test_skill_material_floor_is_pinned_literally": {
+          "mirror_status": "skipped",
+          "reason": "Pins requires_bootstrap to the literal 0.146.0 of llm-scripting-kit's manifest. llm-kit's manifest floor is 0.157.0 (the bootstrap that first recognizes llm_kit); the skill-material constant is pinned by tests/llm-kit/test_manifest.py together with the at-least relation."
+        }
+      }
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_claude_backend_claudx.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_cli_command_contract.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements; 4 declared difference(s) below.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import"
+      ],
+      "collection_count": 4,
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_cli_command_contract.py::test_cli_command_branches_on_win32": {
+          "mirror_status": "failed",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264)"
+        },
+        "llm-scripting-kit/test_cli_command_contract.py::test_cli_command_is_a_display_string_not_a_resolved_path": {
+          "mirror_status": "failed",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264)"
+        },
+        "llm-scripting-kit/test_cli_command_contract.py::test_redirected_command_branches_on_win32_like_the_contract": {
+          "mirror_status": "failed",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264)"
+        },
+        "llm-scripting-kit/test_cli_command_contract.py::test_contract_path_exists_on_a_provisioned_host": {
+          "mirror_status": "skipped",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264); the llm-kit venv is not provisioned on every host"
+        }
+      }
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_cli_json_repair.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, test_text_edits rows; 1 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
+      "rewrite_classes": [
+        "import",
+        "text-edit"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_cli_redirect.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, skips injected on declared-difference tests, import statements, module-name strings, test_text_edits rows, global wording_edits; 5 test_text_edits row(s) in repoint-map.json adapt the test to the final layout; 2 declared difference(s) below.",
+      "rewrite_classes": [
+        "code-string",
+        "declared-skip",
+        "import",
+        "module-string",
+        "text-edit",
+        "wording-edit"
+      ],
+      "collection_count": 12,
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_cli_redirect.py::TestEntryPointsRefuseInASubprocess::test_launcher_script_exits_2_before_importing_the_cli": {
+          "mirror_status": "skipped",
+          "reason": "Launches scripts/llm_scripting_kit_cli.py, the legacy launcher. llm-kit's launchers (bin/llm-kit, bin/llm-kit.cmd, bin/llm_kit_entrypoint.py) are not scripts of this plugin; their redirected-root refusal and cached-copy refusal are asserted in tests/llm-kit/test_launchers.py."
+        },
+        "llm-scripting-kit/test_cli_redirect.py::TestCliCommandIsRedirectAware::test_redirected_returns_the_redirect_aware_form": {
+          "mirror_status": "failed",
+          "reason": "design: CLI_COMMAND names the llm-kit venv (architecture line 264)"
+        }
+      }
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_cli_requirements_fallback.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 16,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_client.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 7,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_backends.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 68,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_capabilities.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 90,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_claude_runner.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 11,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_codex_backend.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 44,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_contract.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings, test_text_edits rows; 2 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
+      "rewrite_classes": [
+        "import",
+        "module-string",
+        "text-edit"
+      ],
+      "collection_count": 72,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_contract_adapters.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_contract_conformance.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 38,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_contract_strict.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 21,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_endpoint_profile.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_factory.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_halt.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 31,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_json_schema.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 77,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_opencode_backend.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 23,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_requirements.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 28,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_skill_context.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, module-name strings, plugins/<kit> path to plugins/llm-kit.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "module-string",
+        "path-plugin-dir"
+      ],
+      "collection_count": 36,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_skill_context_adapters.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 22,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_completion_truthful_results.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 49,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_contract_json_repair.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 102,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_custom_bootstrap.py",
+      "disposition": "legacy-only",
+      "reason": "Tests plugins/llm-scripting-kit/custom_bootstrap.py (OpenRouter key check, deferred requirements, legacy .env and data-dir migration). llm-kit carries the key check and the deferred-requirement reporting (plugins/llm-kit/custom_bootstrap.py, hooked in its bootstrap.json) and asserts them natively, under a temporary HOME and a fake network, in tests/llm-kit/test_custom_bootstrap.py. It drops the loc-ops .env migration and the pre-rename data-directory move, and seeds no config layer: decision 7 makes the legacy credential and config locations the shared ones, so llm-kit reads them and moves none. The legacy file stays the frozen plugin's own test.",
+      "rewrite_classes": [],
+      "collection_count": 19,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_declaration.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, global wording_edits.",
+      "rewrite_classes": [
+        "import",
+        "wording-edit"
+      ],
+      "collection_count": 66,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_declaration_observer.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, lib/<pkg> path to the llm_kit tree, plugins/<kit> path to plugins/llm-kit, test_text_edits rows; 1 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-package-dir",
+        "path-plugin-dir",
+        "text-edit"
+      ],
+      "collection_count": 29,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_declaration_skill_context.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_deprecated_names_removed.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_effort.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 37,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_effort_menu.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 12,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_endpoints.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 45,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_env_file.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 19,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_frontdoor.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, module-name strings.",
+      "rewrite_classes": [
+        "import",
+        "module-string"
+      ],
+      "collection_count": 66,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_frontdoor_acceptance.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 10,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_halt_backpressure.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 15,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_harness_adapters.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements, plugins/<kit> path to plugins/llm-kit.",
+      "rewrite_classes": [
+        "code-string",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 12,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_llm_scripting_cli.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 92,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_llm_scripting_kit_cli_script.py",
+      "disposition": "legacy-only",
+      "reason": "Drives scripts/llm_scripting_kit_cli.py, the legacy launcher. llm-kit's launchers (bin/llm-kit, bin/llm-kit.cmd, bin/llm_kit_entrypoint.py) are asserted natively, including both refusals, in tests/llm-kit/test_launchers.py.",
+      "rewrite_classes": [],
+      "collection_count": 1,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_model_endpoints.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 59,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_model_resolve.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements; 1 declared difference(s) below.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import"
+      ],
+      "collection_count": 43,
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_model_resolve.py::TestBaselineSync::test_default_yaml_matches_constant": {
+          "mirror_status": "skipped",
+          "reason": "Compares the shipped default_config.yaml seed file with DEFAULT_MODEL_CONFIG. llm-kit carries no seed file by design (decision 7: it seeds no user config and reads the legacy locations unchanged), so there is nothing to compare; the constant itself is exercised by the rest of this file."
+        }
+      }
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_model_server_script.py",
+      "disposition": "legacy-only",
+      "reason": "Drives the qwen and model-server shell launchers under plugins/llm-scripting-kit/{scripts,bin} and asserts the legacy interpreter overrides and sibling bin/llm-scripting-kit. llm-kit carries the launchers (plugins/llm-kit/{scripts,bin}) re-pointed at bin/llm-kit; they are asserted natively, with a differential run against the frozen scripts, in tests/llm-kit/test_local_launchers.py.",
+      "rewrite_classes": [],
+      "collection_count": 27,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_openrouter_account_skill_verb_table.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, plugins/<kit> path to plugins/llm-kit; 1 declared difference(s) below.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 2,
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_openrouter_account_skill_verb_table.py::test_table_verbs_are_all_real_cli_subcommands": {
+          "mirror_status": "skipped",
+          "reason": "Compares the SKILL.md verb table with the legacy CLI's flat subcommands. llm-kit's table is in group form (account status, ...); tests/llm-kit/test_registrations.py (test_cli_invocations_name_a_fixed_group) checks every group/verb it names against the built CLI."
+        }
+      }
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_reachability.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 45,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_readme_exit_code_summary.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: skips injected on declared-difference tests, import statements, plugins/<kit> path to plugins/llm-kit; 1 declared difference(s) below.",
+      "rewrite_classes": [
+        "declared-skip",
+        "import",
+        "path-plugin-dir"
+      ],
+      "collection_count": 1,
+      "baseline_failures": [],
+      "declared_differences": {
+        "llm-scripting-kit/test_readme_exit_code_summary.py::test_every_exit_constant_is_named_in_the_readme_summary": {
+          "mirror_status": "skipped",
+          "reason": "Reads vars() of the legacy CLI module for its EXIT_* constants, which now live in the CLI groups. tests/llm-kit/test_manifest.py (test_readme_exit_code_summary_names_every_exit_constant) pins the llm-kit README paragraph against the constants of every group."
+        }
+      }
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_request_protocol.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 26,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_request_protocol_skill_context.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 9,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_review_lane.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, lib/<pkg> path to the llm_kit tree, plugins/<kit> path to plugins/llm-kit, test_text_edits rows; 1 test_text_edits row(s) in repoint-map.json adapt the test to the final layout.",
+      "rewrite_classes": [
+        "import",
+        "path-package-dir",
+        "path-plugin-dir",
+        "text-edit"
+      ],
+      "collection_count": 86,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_risk_drill.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements, global wording_edits.",
+      "rewrite_classes": [
+        "import",
+        "wording-edit"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_seats.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 26,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_swapper.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: module names inside subprocess/exec code strings, import statements.",
+      "rewrite_classes": [
+        "code-string",
+        "import"
+      ],
+      "collection_count": 98,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_swapper_acceptance.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 6,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_swapper_cli.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 44,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_swapper_process.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 22,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_text_only_arming.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 34,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_text_only_cli_path.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 3,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_text_only_codex.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 14,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_text_only_mode.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 8,
+      "baseline_failures": []
+    },
+    {
+      "path": "tests/llm-scripting-kit/test_usage_budget.py",
+      "disposition": "rewrite",
+      "reason": "Re-pointed at llm-kit's final module names: import statements.",
+      "rewrite_classes": [
+        "import"
+      ],
+      "collection_count": 60,
+      "baseline_failures": []
+    }
+  ],
+  "collection_total": 1926
+}

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "purpose": "Legacy edits made after the repoint map recorded a module (its legacy_sha256 in repoint-map.json): one entry per edit, ported to the final module or rejected with evidence. No entry means the legacy trees are unchanged since the map recorded them; tests/llm-kit/test_copy_inventory.py and scripts/llm_kit_repoint.py check refuse an unrecorded edit.",
+  "entry_fields": [
+    "legacy_path",
+    "legacy_commit",
+    "legacy_sha256",
+    "final_target",
+    "disposition",
+    "validating_test"
+  ],
+  "dispositions": [
+    "ported",
+    "rejected"
+  ],
+  "entries": []
+}
