@@ -86,7 +86,7 @@ unconfigurable opinion whose test passes is a finding.
   same audit. Optional-tier rules and thresholds ARE configurable, and
   `skills-kit/skills/md-domain/references/configuring-standards.md` documents the boundary. A team disagreeing with a
   contract adds its own criteria via an additive standards file.
-- **awesome-kit:task privileges git as the automated VCS.** `archive` commits a
+- **task-kit:task privileges git as the automated VCS.** `archive` commits a
   dev/tasks folder's final state and removes it only where git is present. This is imposed
   rather than configured because a second VCS backend would be carried without being
   exercised: the maintainers track tasks in git, so a p4 path would ship untested and its
@@ -132,7 +132,7 @@ unconfigurable opinion whose test passes is a finding.
 
 - **job-kit privileges git as the only workspace-isolation VCS.** Per-attempt worktrees,
   which a job requests with `workspace.isolate: true`, are git-only, for the same reason as
-  awesome-kit:task's entry: a second VCS backend would ship untested and fail first on a
+  task-kit:task's entry: a second VCS backend would ship untested and fail first on a
   consumer's machine. The degradation is bounded and recorded, never silent -- a job that
   requests isolation in a directory that is not a git repo runs with cwd set to that
   directory and the attempt row says `workspace: none`. A Perforce team gets a working
@@ -411,6 +411,8 @@ new positional slot), not the version that first exported the symbol.
 
 **Plugin boundaries are hard boundaries for cohesion work.** Never move content between plugins -- or into another plugin -- to achieve skill cohesion. Plugins are independently versioned, installed, and bootstrapped units; relocating a skill/reference across a plugin boundary to satisfy CCP/CRP/ADP breaks that independence (cross-plugin caches, dependency edges, version coupling) and is never worth the cohesion gain. Cohesion refactors operate *within* a plugin only. When you spot a genuine cohesion opportunity that spans plugins -- two doer-skills in different plugins sharing a subject (e.g. git-kit `git-code-review` + p4-kit `p4-code-review`), a reference duplicated across plugins, a shared substrate two plugins both consume -- **surface it as an insight** (a `claude_md:` insight or a note in the relevant skill), do **not** act on it by relocation or by spawning a unifying plugin. Sharing across plugins is done through a library both depend on (e.g. `bootstrap_lib.code_review`), not by merging the skills.
 
+**Approved consolidation exception: llm-kit.** The llm-kit merge, signed off in `docs/reference/llm-kit-architecture.md`, may copy and restructure behavior from llm-scripting-kit, content-pipeline-kit and job-kit into llm-kit. The old plugins retain their source during migration and freeze. This exception does not generalize to other plugin-boundary cohesion work. Every renamed or removed public name follows `docs/reference/deprecation-policy.md`.
+
 **Reference file design** (within a skill): each reference serves a single audience and changes for a single reason (same cohesion framework). See `plugins/bootstrap/skills/bootstrap/` for the gold standard -- references split by audience with clean change boundaries.
 
 ## The bootstrap-provisioned venv and shared libs
@@ -457,7 +459,9 @@ the version the symbol first shipped in, and the `claude plugin install` or
 `update` command that fixes it -- never a manifest the consumer cannot edit --
 rather than crash on a raw `AttributeError` deep in a call path. job-kit's
 `select.py` is the worked example of this guard against
-`llm_scripting_kit.completion`. This is the one statement of that rule; the
+`llm_scripting_kit.completion`; the frozen job-kit plugin keeps it, and llm-kit's
+`llm_kit.jobs.select` has no such guard because jobs and completion ship in one
+library. This is the one statement of that rule; the
 optional-dependency section above defers to it.
 
 #### Who talks to an LLM, and through what
@@ -710,7 +714,7 @@ os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 ```
 
 Current setters: `tests/awesome-kit`, `tests/git-kit`, `tests/job-kit`,
-`tests/llm-scripting-kit`, `tests/p4-kit`, `tests/pdf-kit`, `tests/skills-kit`,
+`tests/llm-kit`, `tests/llm-scripting-kit`, `tests/p4-kit`, `tests/pdf-kit`, `tests/skills-kit`, `tests/task-kit`,
 `tests/unreal-kit`, `tests/workflow-kit`. A dir whose tests import a re-execing script and which does
 NOT set this is a latent false green, and the failure hides itself: in a
 full-suite run an earlier conftest (alphabetically, `tests/awesome-kit`) sets
@@ -732,9 +736,9 @@ location. `tests/bootstrap/test_bootstrap_guard.py` asserts every copy matches
 the canonical, and the guard must never `import bootstrap_lib`. Current vendored
 copies: `git-kit/scripts`, `p4-kit/scripts`, `skills-kit/scripts`,
 `unreal-kit/lib`, `hue-kit/scripts`, `job-kit/lib`,
-`awesome-kit/skills/task/scripts`,
+`task-kit/skills/task/scripts`,
 `awesome-kit/skills/orchestrate/scripts`,
-`llm-scripting-kit/lib/llm_scripting_kit`, `workflow-kit/scripts`,
+`llm-scripting-kit/lib/llm_scripting_kit`, `llm-kit/lib/llm_kit`, `workflow-kit/scripts`,
 `pdf-kit/skills/html-pdf/scripts`.
 
 **The test globs `plugins/**/bootstrap_guard.py`, so it is the authority on that

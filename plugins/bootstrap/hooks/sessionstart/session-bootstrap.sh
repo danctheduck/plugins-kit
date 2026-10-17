@@ -46,10 +46,13 @@ for arg in "$@"; do
     esac
 done
 
-# Derive marketplace name from plugin root path.
-# Works for both dev layout (~/Dev/<marketplace>/plugins/bootstrap/)
-# and cache layout (~/.claude/plugins/cache/<marketplace>/bootstrap/<version>/).
-MARKETPLACE_NAME="$(basename "$(cd "$PLUGIN_ROOT/../.." && pwd)")"
+# Derive marketplace name from plugin root path: `name` in the checkout's
+# .claude-plugin/marketplace.json for a dev layout (<checkout>/plugins/bootstrap/),
+# the directory name for the cache layout
+# (~/.claude/plugins/cache/<marketplace>/bootstrap/<version>/).
+# Shared with bootstrap-display.sh and mirrored by bootstrap_lib/marketplace_name.py.
+. "$PLUGIN_ROOT/hooks/marketplace-name.sh"
+MARKETPLACE_NAME="$(bootstrap_marketplace_name "$PLUGIN_ROOT")"
 BOOTSTRAP_LABEL="${MARKETPLACE_NAME}:bootstrap"
 # CLAUDE_BOOTSTRAP_DATA_ROOT redirects everything bootstrap owns -- venvs,
 # _shared_libs, logs, stamps, cooldowns, config -- to an alternate tree for the

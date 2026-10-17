@@ -1,10 +1,10 @@
 # Claude Code plugin platform reference
 
-Static Claude Code platform facts that plugin development in this repo relies on but rarely needs inline: the hook-JSON output contract and the plugin cache/registry layout on disk. These are CC platform behavior, not plugins-kit-specific — the root `CLAUDE.md` links here instead of carrying the tables. When in doubt, the upstream docs are the source of truth.
+Static Claude Code platform facts that plugin development in this repo relies on but rarely needs inline: the hook-JSON output contract and the plugin cache/registry layout on disk. These are CC platform behavior, not plugins-kit-specific -- the root `CLAUDE.md` links here instead of carrying the tables. When in doubt, the upstream docs are the source of truth.
 
 ## Hook JSON Format
 
-**Official docs**: https://code.claude.com/docs/en/hooks (canonical reference). When in doubt, fetch this URL — it is the source of truth.
+**Official docs**: https://code.claude.com/docs/en/hooks (canonical reference). When in doubt, fetch this URL -- it is the source of truth.
 
 On exit 0, stdout is parsed as JSON. Exit 2 = blocking error (stderr fed to Claude). Other exits = non-blocking error. JSON is only processed on exit 0.
 
@@ -15,7 +15,7 @@ On exit 0, stdout is parsed as JSON. Exit 2 = blocking error (stderr fed to Clau
 | `continue` | `true` | If `false`, Claude stops entirely. Takes precedence over other decisions |
 | `stopReason` | none | Message shown to user when `continue` is `false`. Not shown to Claude |
 | `suppressOutput` | `false` | If `true`, hides stdout from verbose mode |
-| `systemMessage` | none | Shown to user only — Claude never sees it |
+| `systemMessage` | none | Shown to user only -- Claude never sees it |
 
 **Event-specific decision control**:
 
@@ -26,15 +26,27 @@ On exit 0, stdout is parsed as JSON. Exit 2 = blocking error (stderr fed to Clau
 | PreToolUse | `hookSpecificOutput.permissionDecision` (allow/deny/ask) | `hookSpecificOutput.additionalContext` |
 | PostToolUse | `decision: "block"` + `reason` | `hookSpecificOutput.additionalContext` |
 | PostToolUseFailure | None | `hookSpecificOutput.additionalContext` |
-| Stop / SubagentStop | `decision: "block"` + `reason` | `reason` only (no `hookSpecificOutput`) |
+| Stop | `decision: "block"` + `reason` | `reason`, or `hookSpecificOutput.additionalContext` (shown as "Stop hook feedback") |
+| SubagentStop | `decision: "block"` + `reason` | `reason` (`hookSpecificOutput` not probed) |
 | SubagentStart | None | `hookSpecificOutput.additionalContext` |
 | Notification | None | `hookSpecificOutput.additionalContext` |
-| PermissionRequest | `hookSpecificOutput.decision.behavior` (allow/deny) | — |
-| ConfigChange | `decision: "block"` + `reason` | — |
+| PermissionRequest | `hookSpecificOutput.decision.behavior` (allow/deny) | -- |
+| ConfigChange | `decision: "block"` + `reason` | -- |
 
 `hookSpecificOutput` always requires `hookEventName` set to the event name.
 
-> **plugins-kit note — bootstrap background mode.** The bootstrap engine writes output to a pending file, which the UserPromptSubmit hook reads and re-emits as its own stdout. Stop hooks do not support `hookSpecificOutput`, so UserPromptSubmit is used to inject `additionalContext` for Claude. (This wrinkle is also summarized inline in the root `CLAUDE.md`.)
+> **plugins-kit note -- bootstrap background mode.** The bootstrap engine writes output to a pending file, which the UserPromptSubmit hook reads and re-emits as its own stdout. Stop hooks accept `hookSpecificOutput.additionalContext` (see below), but the engine re-emits through UserPromptSubmit, which runs at the start of a turn. (This wrinkle is also summarized inline in the root `CLAUDE.md`.)
+
+### Stop and UserPromptSubmit payloads and limits
+
+Observed on Claude Code 2.1.302 (Windows, 2026-10-16) with scratch Stop and UserPromptSubmit hooks that dump stdin, under `claude -p` with one background `sleep`:
+
+- Every payload carries `prompt_id`. The Stop and UserPromptSubmit payloads of one prompt share it; the turn started by the background task's completion notice got a new one.
+- The Stop payload carries `stop_hook_active`, `last_assistant_message`, `background_tasks` and `session_crons`. `background_tasks` is an array of `{id, type, status, description, command}`; it held one `running` shell task when Claude ended its first turn, and `[]` at the final stop. `session_crons` was `[]`.
+- Stop fires when a turn ends even while a background task runs, and again after the task's notice starts a new turn.
+- The task-completion notice arrived as a UserPromptSubmit whose `prompt` is a `<task-notification>` block. The payload has no field that marks a human origin.
+
+From the canonical hooks reference only (not probed): UserPromptSubmit also fires for scheduled tasks, background-agent reports and inter-session messages, so none of these payloads separates a human prompt from an injected one. Stop continuations (`decision: "block"`) are capped at 8 consecutive (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`); the count resets when Claude calls a tool. Stop `additionalContext` support also comes from that reference; the probe only dumped payloads, so the "Stop hook feedback" display was not observed here.
 
 ## Session environment: telling an attended session from an unattended one
 
@@ -79,7 +91,7 @@ Claude Code stores plugin data under `~/.claude/plugins/`:
 
 ### installed_plugins.json format (canonical statement)
 
-Several scripts in this repo parse the registry independently (`scripts/dev-tree.py`, `scripts/cache_status.py`, awesome-kit's `generate.py`, the bootstrap engine); this section is the canonical description of its shape. A consumer that guesses the key format wrong fails with a `KeyError` at runtime (that was cache-kit's X1 bug — it assumed `plugins-kit:cache-kit`).
+Several scripts in this repo parse the registry independently (`scripts/dev-tree.py`, `scripts/cache_status.py`, awesome-kit's `generate.py`, the bootstrap engine); this section is the canonical description of its shape. A consumer that guesses the key format wrong fails with a `KeyError` at runtime (that was cache-kit's X1 bug -- it assumed `plugins-kit:cache-kit`).
 
 ```json
 {
@@ -99,6 +111,6 @@ Several scripts in this repo parse the registry independently (`scripts/dev-tree
 }
 ```
 
-- **Keys are `<plugin>@<marketplace>`** (e.g. `bootstrap@plugins-kit`) — *not* `<marketplace>:<plugin>` (that colon form is the *display/settings* ref used by `enabledPlugins` and skill names). Split on the first `@`.
+- **Keys are `<plugin>@<marketplace>`** (e.g. `bootstrap@plugins-kit`) -- *not* `<marketplace>:<plugin>` (that colon form is the *display/settings* ref used by `enabledPlugins` and skill names). Split on the first `@`.
 - **Each value is a list** of install entries; the first entry is the active install. Code must index `[0]`, not treat the value as a dict.
-- `installPath` points into the version-keyed cache dir — reading a manifest through `installPath` always sees the *published* content for that version, never the dev tree.
+- `installPath` points into the version-keyed cache dir -- reading a manifest through `installPath` always sees the *published* content for that version, never the dev tree.

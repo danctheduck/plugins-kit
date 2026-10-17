@@ -5,5 +5,5 @@ Step 1 ships the typed-unit schemas (schemas.py), the Task Type registry
 (validate.py). Later steps add the remaining verbs.
 
 Spec (the implementation contract):
-plugins/awesome-kit/skills/task/design/task-system-design.md
+plugins/task-kit/skills/task/design/task-system-design.md
 """

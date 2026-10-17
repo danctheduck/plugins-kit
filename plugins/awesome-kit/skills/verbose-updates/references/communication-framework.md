@@ -106,7 +106,7 @@ Modes must be orthogonal -- the user should never have to decide which of two ov
 ## How the skills use this framework
 
 - **`/verbose-updates`** operationalizes the three-part template, State A/B, and orientation-moment-after-invocation for end-of-turn communication. It is the per-turn protocol.
-- **The `task` skill** (the evolved `/hand-off`) operationalizes auto-loaded vs on-demand, the hand-off baton, and orientation-moment-on-resume for cross-session communication via hand-off task folders (see its `references/handoff-template.md`). It is the per-session-boundary protocol; the template's *Communication protocol* section sets `/verbose-updates` as the default for the next agent's turns.
+- **The `task` skill** (task-kit; the evolved `/hand-off`) operationalizes auto-loaded vs on-demand, the hand-off baton, and orientation-moment-on-resume for cross-session communication via hand-off task folders (see its `references/handoff-template.md` in task-kit). It is the per-session-boundary protocol; the template's *Communication protocol* section sets `/verbose-updates` as the default for the next agent's turns.
 - **`/knowledge-encoding`** is the meta-skill: when an insight emerges that should evolve the framework itself (a new term, a new principle, a new anti-pattern), it directs the encoding back into this document or its referencing skills.
 
 ## Extending the framework

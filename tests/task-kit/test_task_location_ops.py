@@ -37,7 +37,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _TASK_CLI = (
     _REPO_ROOT
     / "plugins"
-    / "awesome-kit"
+    / "task-kit"
     / "skills"
     / "task"
     / "scripts"

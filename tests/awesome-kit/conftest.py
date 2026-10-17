@@ -10,9 +10,7 @@ import os
 import sys
 from pathlib import Path
 
-import pytest
-
-# Scripts that re-exec into the plugin venv (task.py, orchestration_guidance.py)
+# Scripts that re-exec into the plugin venv (orchestration_guidance.py)
 # call os.execv at import time, which abandons the pytest process itself and
 # yields a false green. This env var makes the re-exec a no-op, matching how the
 # real script behaves once the guard has already fired. See plugins/CLAUDE.md.
@@ -21,8 +19,6 @@ os.environ.setdefault("_BOOTSTRAP_GUARD_SKIP_REEXEC", "1")
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SYS_PATHS = (
     _REPO_ROOT / "plugins" / "skills-kit",  # skills_kit_lib
-    # task_system package + vendored bootstrap_guard
-    _REPO_ROOT / "plugins" / "awesome-kit" / "skills" / "task" / "scripts",
     # orchestration_guidance + its vendored bootstrap_guard
     _REPO_ROOT / "plugins" / "awesome-kit" / "skills" / "orchestrate" / "scripts",
 )
@@ -35,27 +31,3 @@ for _p in _SYS_PATHS:
 # current balance -- a test that passes or fails by how much Fable was spent
 # this week. Off by default here; the quota tests re-enable it deliberately.
 os.environ.setdefault("ORCHESTRATE_QUOTA_ROUTING", "0")
-
-
-@pytest.fixture
-def symlinked_root(tmp_path: Path) -> tuple[Path, Path]:
-    """A project root whose ``dev/tasks`` is a REAL symlink to an external
-    directory -- the standard multi-repo task-folder topology (a task repo
-    linked in at ``dev/tasks``). Yields ``(project_root, link_target)``.
-
-    A real symlink is the only way to reproduce the topology; creating one
-    needs no elevated privilege on macOS/Linux (``os.symlink`` works as an
-    unprivileged user there), so this is skipped only on Windows, where it
-    does.
-    """
-    if os.name == "nt":
-        pytest.skip(
-            "real symlinks need an elevated privilege (SeCreateSymbolicLinkPrivilege) "
-            "on Windows; this fixture is exercised on macOS/Linux"
-        )
-    project_root = tmp_path / "project"
-    link_target = tmp_path / "tasks-repo"
-    (project_root / "dev").mkdir(parents=True)
-    link_target.mkdir()
-    os.symlink(link_target, project_root / "dev" / "tasks", target_is_directory=True)
-    return project_root, link_target

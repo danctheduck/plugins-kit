@@ -26,7 +26,7 @@ root is a missing link, not a missing task.
 
 ## Task CLI contract and durable outputs
 
-The `awesome-kit:task` skill owns the `dev/tasks` contract and the
+The `task-kit:task` skill owns the `dev/tasks` contract and the
 `durable_outputs` rule; read it there rather than here. Only the
 repository-specific consequence belongs in this document: the contract applies
 to the LINKED task root, and it was not in effect while that root was ignored.

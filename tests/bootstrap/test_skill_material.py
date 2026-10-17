@@ -30,6 +30,17 @@ MODULE_PATH = Path(sm.__file__)
 REPO_ROOT = MODULE_PATH.parents[3]
 REPO_SKILLS = sorted(REPO_ROOT.glob("plugins/*/skills/*/SKILL.md"))
 
+# Skill names that intentionally exist in two plugins: (name, legacy plugin,
+# llm-kit). llm-kit carryover during the legacy freeze; remove an entry when
+# the legacy plugin is deleted.
+EXPECTED_DUPLICATE_SKILLS = frozenset({
+    ("background-pipeline", "content-pipeline-kit", "llm-kit"),
+    ("content-pipeline-domain", "content-pipeline-kit", "llm-kit"),
+    ("execute-work-unit", "content-pipeline-kit", "llm-kit"),
+    ("workflow-pipeline", "content-pipeline-kit", "llm-kit"),
+    ("openrouter-account", "llm-scripting-kit", "llm-kit"),
+})
+
 BIG = 1_000_000
 
 PREAMBLE = (
@@ -1334,5 +1345,11 @@ def test_every_repo_skill_passes_the_strict_reader() -> None:
     for path in REPO_SKILLS:
         document = sm.read_skill(path)
         names.setdefault(document.name, []).append(path)
-    assert {name: paths for name, paths in names.items() if len(paths) > 1} == {}
-    assert len(names) == len(REPO_SKILLS)
+    found = {
+        (name, *sorted(path.parents[2].name for path in paths))
+        for name, paths in names.items()
+        if len(paths) > 1
+    }
+    assert found == {(n, *sorted(rest)) for n, *rest in EXPECTED_DUPLICATE_SKILLS}
+    assert all(len(paths) <= 2 for paths in names.values())
+    assert len(names) == len(REPO_SKILLS) - len(EXPECTED_DUPLICATE_SKILLS)

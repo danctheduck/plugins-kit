@@ -264,8 +264,8 @@ Verified against the tree on the survey date, before migration: the hooks.json
 lines, the `repair-registry.sh` line, the four generator constants, the engine
 export line and the hook-script interpreter block, and every site in cache-kit,
 hue-kit, print_version.py, the git-kit SKILL.md and configuration.md, plus
-per-file line lists for pdf-kit, awesome-kit (task, orchestrate,
-plugin-ecosystem), llm-scripting-kit, skills-kit CLAUDE.md, md-domain SKILL.md,
+per-file line lists for pdf-kit, awesome-kit (orchestrate,
+plugin-ecosystem), task-kit (task), llm-scripting-kit, skills-kit CLAUDE.md, md-domain SKILL.md,
 update-documentation, fix-up-redirectors, ue-python-api SKILL.md,
 workflow-yaml.md, and the p4-kit SKILL.md and declined-ledger.md.
 

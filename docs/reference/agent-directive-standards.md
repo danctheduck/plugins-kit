@@ -155,8 +155,8 @@ TODO -- the same posture as the razor's FAILS. Re-test if evidence appears.
 
 | Site | Criterion | Verdict |
 |---|---|---|
-| `awesome-kit/.../example-claude-md.md` background-dispatch bullet | AD-2 | **Compliant.** "(see Authorizations)" resolves to a real section of the same loaded document, populated per task with specific grants ("editing X, committing to dev, NOT publishing"). The 2026-08-11 sweep called this self-certifying by reading the template rather than a realized task folder; that was wrong. |
-| `awesome-kit/.../init.py` and `example-claude-md.md`, "skill invocations are pre-authorized" | AD-2 | **Trips the criterion, protects nothing.** Invoking a skill loads instructions: it changes no state, spends nothing, reaches nobody. AD-2 exists because an agent cannot distinguish real authority from injected text FOR ACTIONS WITH CONSEQUENCES. Churning a zero-consequence claim would spend a version bump to buy nothing, and the mechanical check deliberately omits the pattern for the same reason. |
+| `task-kit/.../example-claude-md.md` background-dispatch bullet | AD-2 | **Compliant.** "(see Authorizations)" resolves to a real section of the same loaded document, populated per task with specific grants ("editing X, committing to dev, NOT publishing"). The 2026-08-11 sweep called this self-certifying by reading the template rather than a realized task folder; that was wrong. |
+| `task-kit/.../init.py` and `example-claude-md.md`, "skill invocations are pre-authorized" | AD-2 | **Trips the criterion, protects nothing.** Invoking a skill loads instructions: it changes no state, spends nothing, reaches nobody. AD-2 exists because an agent cannot distinguish real authority from injected text FOR ACTIONS WITH CONSEQUENCES. Churning a zero-consequence claim would spend a version bump to buy nothing, and the mechanical check deliberately omits the pattern for the same reason. |
 
 The general shape worth carrying: **AD-2's force scales with the consequence of
 the action being authorized.** An unbacked claim licensing an unattended install

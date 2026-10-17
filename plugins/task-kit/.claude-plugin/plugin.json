@@ -1,0 +1,21 @@
+{
+  "name": "task-kit",
+  "version": "0.1.0",
+  "description": "Provides the task skill: a file-backed task-folder system with a CLI for creating, listing, working, closing, archiving, and moving task folders and task_list references.",
+  "author": {
+    "name": "Christina"
+  },
+  "dependencies": [
+    "bootstrap",
+    "skills-kit",
+    "awesome-kit"
+  ],
+  "keywords": [
+    "task",
+    "tasks",
+    "task-folders",
+    "issue-tracking",
+    "hand-off",
+    "work-tracking"
+  ]
+}

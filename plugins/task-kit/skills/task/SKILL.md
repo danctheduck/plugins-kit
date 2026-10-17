@@ -51,7 +51,7 @@ from a foreign cwd:
 
 ```bash
 # macOS/Linux (Windows: .venv/Scripts/python.exe instead of .venv/bin/python)
-"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/awesome-kit/.venv/bin/python \
+"${CLAUDE_BOOTSTRAP_DATA_ROOT:-$HOME/.claude/plugins/data}"/plugins-kit/task-kit/.venv/bin/python \
   "${CLAUDE_SKILL_DIR}/scripts/task.py" <verb> [args]
 ```
 
@@ -88,7 +88,7 @@ capability_skill:
     references:
       - "handoff-template.md -- how to fill in and rotate a scaffolded folder's CLAUDE.md / plan.md / log.md"
       - "example-claude-md.md -- worked example of a fully-populated task-folder CLAUDE.md"
-      - "communication-framework.md -- shared vocabulary (work-unit, auto-loaded vs on-demand, hand-off baton)"
+      - "the communication framework in the awesome-kit:verbose-updates skill (references/communication-framework.md) -- shared vocabulary (work-unit, auto-loaded vs on-demand, hand-off baton)"
       - "design/task-system-design.md -- the full design spec (entities, states, per-verb contracts, validation rules)"
   capabilities:
     - id: init
@@ -143,7 +143,7 @@ capability_skill:
         - n: 3
           action: "Self-verify per handoff-template.md 'Self-verify': read CLAUDE.md + plan.md cold, as the next agent, and fix what a cold reader could not resolve."
         - n: 4
-          action: "End the turn with the hand-off baton -- exactly two lines, `CWD: <project root>` then `Continue: /task work <CWD-relative task-folder path>` (communication-framework.md 'hand-off baton'). The script emits neither line; both are your job, and they belong to this turn only."
+          action: "End the turn with the hand-off baton -- exactly two lines, `CWD: <project root>` then `Continue: /task work <CWD-relative task-folder path>` (the awesome-kit:verbose-updates communication framework, 'hand-off baton'). The script emits neither line; both are your job, and they belong to this turn only."
       gotchas:
         - "Do not pass hand-off to task.py as a verb -- the CLI has no such verb, and hand-off is also the task TYPE name (--type flag). The dispatch is skill-level: the step-2 update call is the only script invocation."
     - id: close
@@ -289,10 +289,6 @@ references:
     path: references/example-claude-md.md
     keywords: [worked example, produced CLAUDE.md, template made concrete]
     summary: "A fully-populated example of the task-folder CLAUDE.md the hand-off template prescribes. Load when the template feels abstract."
-  - id: communication_framework
-    path: references/communication-framework.md
-    keywords: [glossary, work-unit, auto-loaded vs on-demand, hand-off baton, provenance triad]
-    summary: "Canonical shared vocabulary for cross-turn and cross-session communication; cited by this skill and verbose-updates."
   - id: design_spec
     path: design/task-system-design.md
     keywords: [design spec, entities, states, verb contracts, validation rules, discovery algorithm]

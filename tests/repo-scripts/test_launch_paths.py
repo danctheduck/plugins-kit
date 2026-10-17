@@ -1264,6 +1264,28 @@ EXEMPT: list[Exempt] = [
            "by test_forced_interpreter_order.py"),
 ]
 
+# llm-kit is a dev-only plugin whose source master does not carry, so its entries
+# are present only where its files are; an entry for an absent file would be stale.
+EXEMPT.extend(
+    entry for entry in [
+        *_p("plugins/llm-kit/lib/llm_kit/registry/constants.py",
+            "CLI_COMMAND is the human contract: the literal ~/-prefixed display string an agent-facing "
+            "message tells a reader to run for the llm-kit console script (the plugin venv's "
+            "bin/llm-kit, Scripts/llm-kit.exe on Windows). It is text, not a launch path; the "
+            "redirect-aware form is REDIRECTED_CLI_COMMAND, selected by cli_command() under a redirected "
+            "data root",
+            "CLI_COMMAND ="),
+        *_p("plugins/llm-kit/skills/openrouter-account/SKILL.md", _RECORD_PROSE,
+            "~/.claude/plugins/data/plugins-kit/llm-kit/deferred_requirements.json"),
+        *_p("plugins/llm-kit/references/llm-access.md",
+            "the human CLI contract: llm_kit.registry.constants.CLI_COMMAND is the stable path a person "
+            "types; agent-facing text uses cli_command(), which returns the redirect-aware form under claudx",
+            "~/.claude/plugins/data/plugins-kit/llm-kit/.venv/bin/llm-kit",
+            "(Windows: ~/.claude/plugins/data/plugins-kit/llm-kit/.venv/Scripts/llm-kit.exe)"),
+    ]
+    if (_REPO_ROOT / entry.path).is_file()
+)
+
 
 # --------------------------------------------------------------------------
 # Verdict
@@ -1890,6 +1912,32 @@ def test_unguarding_job_kit_cli_main_reopens_its_console_finding():
     call = '        reexec_under_plugin_venv("job-kit")\n'
     assert text.count(call) == 1
     removed = tree.with_text(entry.module_path, text.replace(call, "        pass\n"))
+    assert "never calls" in (console_problem(removed, entry) or "")
+    head = "    if argv is None:\n"
+    assert text.count(head) == 1
+    off_path = tree.with_text(entry.module_path, text.replace(head, "    if True:\n"))
+    assert "argv is None" in (console_problem(off_path, entry) or "")
+
+
+# ---- the llm-kit console script ----------------------------------------------------------
+
+
+def test_llm_kit_cli_main_is_guarded_on_its_console_path():
+    tree = real_tree()
+    entry = next(c for c in console_entries(tree) if c.name == "llm-kit")
+    assert entry.target == "llm_kit.cli:main"
+    assert console_problem(tree, entry) is None
+    assert not any(e.kind == "C" and e.anchor == "llm-kit" for e in EXEMPT), "llm-kit needs no exemption"
+
+
+def test_unguarding_llm_kit_cli_main_reopens_its_console_finding():
+    """MUTATION: remove the guard, or move it off the ``argv is None`` path."""
+    tree = real_tree()
+    entry = next(c for c in console_entries(tree) if c.name == "llm-kit")
+    text = tree.text(entry.module_path)
+    call = '            reexec_under_plugin_venv("llm-kit")\n'
+    assert text.count(call) == 1
+    removed = tree.with_text(entry.module_path, text.replace(call, "            pass\n"))
     assert "never calls" in (console_problem(removed, entry) or "")
     head = "    if argv is None:\n"
     assert text.count(head) == 1

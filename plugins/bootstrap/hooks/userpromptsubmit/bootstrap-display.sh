@@ -16,7 +16,9 @@
 # If the engine needs to show new content, it writes a new .pending file.
 
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MARKETPLACE_NAME="$(basename "$(cd "$PLUGIN_ROOT/../.." && pwd)")"
+# Same derivation as session-bootstrap.sh: both must name the same data dir.
+. "$PLUGIN_ROOT/hooks/marketplace-name.sh"
+MARKETPLACE_NAME="$(bootstrap_marketplace_name "$PLUGIN_ROOT" 2>/dev/null)"
 # Honors CLAUDE_BOOTSTRAP_DATA_ROOT for the same reason session-bootstrap.sh does:
 # this hook reads the display handshake files the engine wrote, so it must look in
 # whichever tree that engine was pointed at.

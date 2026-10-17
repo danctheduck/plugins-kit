@@ -32,6 +32,7 @@ from .atomic_write import write_atomic as _write_atomic
 # selection instead of truncation. See messages.py / engine-internals.md.
 from .messages import item_label as _item_label, numbered as _numbered
 from .records import reprefix as _reprefix
+from .marketplace_name import marketplace_name_for
 
 
 def main():
@@ -339,7 +340,7 @@ def _run_with_containment(lock_args: tuple) -> None:
 # cache download can land some of a package's modules before others, so the
 # SessionStart hook may import one of these and hit a submodule that has not been
 # written YET -- a ModuleNotFoundError that self-heals once the download finishes.
-_FIRST_PARTY_LIBS = ("bootstrap_lib", "skills_kit_lib", "llm_scripting_kit")
+_FIRST_PARTY_LIBS = ("bootstrap_lib", "skills_kit_lib", "llm_scripting_kit", "llm_kit")
 _MAX_TRANSIENT_IMPORT_RETRIES = 3
 _IMPORT_RETRY_STATE_FILENAME = "import_retry_state.json"
 
@@ -842,10 +843,11 @@ def _main_pass():
     # Dev layout: ~/Dev/<marketplace>/plugins/bootstrap → one up
     # Cache layout: ~/.claude/plugins/cache/<marketplace>/bootstrap/<ver> → walk up to ~/.claude/plugins/
     plugins_dir = _find_plugins_dir(plugin_root)
-    # Marketplace name: go 2 levels up from plugin_root and take basename.
-    # Dev: plugins-kit/plugins/bootstrap → up 2 → plugins-kit
-    # Cache: cache/plugins-kit/bootstrap/0.5.0 → up 2 → plugins-kit
-    marketplace_name = os.path.basename(os.path.normpath(os.path.join(plugin_root, "..", "..")))
+    # Marketplace name: `name` in <checkout>/.claude-plugin/marketplace.json for a
+    # dev layout, else the basename two levels up (the cache layout:
+    # cache/plugins-kit/bootstrap/0.5.0 -> plugins-kit). A manifest that exists
+    # but yields no name raises here and surfaces through the crash path.
+    marketplace_name = marketplace_name_for(plugin_root)
     plugin_json_path = os.path.join(plugin_root, ".claude-plugin", "plugin.json")
     boot_plugin_name = "bootstrap"
     version = ""
@@ -1034,12 +1036,20 @@ def _main_pass():
     home = os.environ.get("HOME") or os.path.expanduser("~")
     prod_registry = os.path.normpath(os.path.join(home, ".claude", "plugins", "installed_plugins.json"))
     is_dev_layout = os.path.normpath(registry_path) != prod_registry
-    enabled_refs = _load_enabled_refs(args.project_dir) if is_dev_layout else None
+    # A claudx session (CLAUDE_PLUGIN_TEST) is the exception: claude_plugin_test.py
+    # already filtered by enablement before writing the synthetic registry (or
+    # took everything for --all), so that registry IS the selection and the real
+    # settings must not narrow it (dev-only plugins are enabled nowhere).
+    is_claudx_session = is_dev_layout and bool(os.environ.get("CLAUDE_PLUGIN_TEST"))
+    enabled_refs = (
+        _load_enabled_refs(args.project_dir)
+        if is_dev_layout and not is_claudx_session else None
+    )
 
     # Registry-v2 fallback filter: newer Claude Code keeps installed_plugins.json
     # at {"plugins": {}} for marketplace installs, so cache-derived fallback
     # entries need their own enablement source (settings enabledPlugins). In the
-    # dev layout enabled_refs already carries it; in production load it here.
+    # dev layout enabled_refs already carries it; otherwise load it here.
     fallback_refs = enabled_refs if enabled_refs is not None else _load_enabled_refs(args.project_dir)
 
     # Sort: bootstrap plugin first, then same-marketplace plugins, then others
