@@ -1,5 +1,14 @@
 # llm-scripting-kit
 
+> **Frozen legacy plugin:** use [llm-kit](../llm-kit/) for the maintained API,
+> CLI, and account skill. This plugin receives pointer-only releases.
+
+| Legacy surface | llm-kit equivalent |
+| --- | --- |
+| Python API (`llm_scripting_kit`) | `llm_kit` (`registry`, `completion`, `dispatch`, and related packages) |
+| `llm-scripting-kit` CLI | `llm-kit` grouped commands, including `models describe`, `models resolve`, and `completion` |
+| `llm-scripting-kit:openrouter-account` | `llm-kit:openrouter-account` |
+
 The installed `llm-scripting-kit` command is the host-neutral interface to the
 shared endpoint registry and completion backends.
 

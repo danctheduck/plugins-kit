@@ -1,7 +1,7 @@
 {
   "name": "job-kit",
-  "version": "0.13.4",
-  "description": "Durable execution for heterogeneous agent jobs through a bounded worker pool, with advertisement-based endpoint selection and command-shaped acceptance.",
+  "version": "0.14.0",
+  "description": "Frozen legacy provider. Use llm-kit for durable agent jobs, the jobs API, and jobs commands.",
   "author": {
     "name": "Christina"
   },
