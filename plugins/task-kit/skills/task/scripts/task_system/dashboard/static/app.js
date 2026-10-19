@@ -473,32 +473,26 @@ function rowHtml(task) {
     '<span class="c-meta"><span>' + n + ' item' + (n === 1 ? '' : 's') + '</span><span>' + esc(ago(task.last_activity)) + '</span></span></button>' +
     (open ? taskBody(task) : '') + '</div>';
 }
-function closedHtml(task) {
-  return '<div class="closed-row" data-age="' + brightness(task.last_activity).toFixed(2) + '">' + chipPri(task.priority) +
-    '<span class="task-name-wrap"><button type="button" class="linkbtn task-title" data-action="selecttask" data-key="' + esc(tkey(task)) + '">' + esc(task.title) + '</button>' +
-    (task.summary ? '<span class="summary-card" role="tooltip"><strong>Summary:</strong> ' + esc(task.summary) + '</span>' : '') + '</span>' +
-    '<button type="button" class="task-id-copy" data-action="copy" data-text="' + esc(task.id) + '" title="Copy task path">' + esc(task.repo + ':' + task.stub) + '</button>' +
-    '<span class="grow"></span><span class="muted fs12">' + esc(task.classification) + ' - ' + esc(ago(task.last_activity)) + '</span></div>';
+function foldSection(key, title, count, body, openByDefault, note) {
+  var isOpen = S.open[key] === undefined ? !!openByDefault : S.open[key];
+  return '<details class="sec" data-open="' + esc(key) + '"' + (isOpen ? ' open' : '') + '><summary>' + esc(title) +
+    ' <span class="count">' + count + (note ? ' - ' + esc(note) : '') + '</span></summary><div class="sec-body">' + body + '</div></details>';
 }
-function foldSection(key, title, count, body) {
-  if (!count) return '';
-  return '<details class="sec" data-open="' + esc(key) + '"' + (S.open[key] ? ' open' : '') + '><summary>' + esc(title) +
-    ' <span class="count">' + count + '</span></summary><div class="sec-body">' + body + '</div></details>';
-}
+function rowList(tasks) { return '<div class="tlist">' + tasks.map(rowHtml).join('') + '</div>'; }
 function renderTaskList() {
   var tasks = S.snap.tasks, srt = activeSort();
   var open = sorted(tasks.filter(function (t) { return t.section === 'open'; }));
   var def = sorted(tasks.filter(function (t) { return t.section === 'deferred'; }));
-  var closed = tasks.filter(function (t) { return t.section === 'closed'; });
+  var closed = tasks.filter(function (t) { return t.section === 'closed'; });  // newest activity first, as served
   var other = sorted(tasks.filter(function (t) { return t.section === 'other'; }));
-  var h = '<div class="listbar"><div class="sec-title">Open tasks <span class="count">' + open.length + ' - sorted by ' + esc(srt.label) + ': ' + esc(srt.desc) + '</span></div>' +
-    '<span class="grow"></span><div class="legend">Markers:<span class="mk need">' + ic('tri') + 'needs you</span> blocked items or tasks' +
+  var legend = '<div class="listbar"><div class="legend">Markers:<span class="mk need">' + ic('tri') + 'needs you</span> blocked items or tasks' +
     '<span class="mk run">' + ic('spin', 'spin') + 'in flight</span> a job is running</div></div>';
-  h += open.length ? '<div class="tlist">' + open.map(rowHtml).join('') + '</div>' :
-    '<p class="nomatch">' + (tasks.length ? 'No open tasks match the current filter.' : 'No tasks match the current filter.') + '</p>';
-  h += foldSection('deferred', 'Deferred tasks', def.length, '<div class="tlist">' + def.map(rowHtml).join('') + '</div>');
-  h += foldSection('closed', 'Closed tasks', closed.length, closed.map(closedHtml).join(''));
-  h += foldSection('other', 'Other (invalid, remote, orphaned)', other.length, '<div class="tlist">' + other.map(rowHtml).join('') + '</div>');
+  var h = foldSection('open', 'Open tasks', open.length, legend + (open.length ? rowList(open) :
+    '<p class="nomatch">' + (tasks.length ? 'No open tasks match the current filter.' : 'No tasks match the current filter.') + '</p>'),
+    true, 'sorted by ' + srt.label + ': ' + srt.desc);
+  if (def.length) h += foldSection('deferred', 'Deferred tasks', def.length, rowList(def), false);
+  if (closed.length) h += foldSection('closed', 'Closed tasks', closed.length, rowList(closed), false);
+  if (other.length) h += foldSection('other', 'Other (invalid, remote, orphaned)', other.length, rowList(other), false);
   if (S.snap.hidden_closed_tasks) h += '<p class="hidden-note">' + S.snap.hidden_closed_tasks + ' older closed task(s) are not listed.</p>';
   return h;
 }

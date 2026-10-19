@@ -165,7 +165,6 @@ h1,h2,h3,h4,p { margin:0; }
 @keyframes pulse { 0% { box-shadow:0 0 0 0 color-mix(in srgb,var(--run) 45%,transparent); } 100% { box-shadow:0 0 0 9px transparent; } }
 @media (prefers-reduced-motion: reduce) { .st-running .bubble, .live::before, .spin { animation:none; } .bubble, .bar > i, .chev { transition:none; } }
 
-.closed-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--line); border-radius:7px; padding:5px 10px; margin:5px 0; opacity:var(--age,1); }
 .empty { color:var(--muted); padding:8px 2px; }
 
 /* ---------- history ---------- */

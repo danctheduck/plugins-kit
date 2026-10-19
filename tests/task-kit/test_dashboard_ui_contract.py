@@ -237,7 +237,7 @@ def _rows(html: str) -> dict[str, str]:
     out = {}
     for chunk in html.split('<div class="trow')[1:]:
         key = re.search(r'data-row="([^"]+)"', chunk).group(1)
-        out[key.split("|", 1)[1].split("/")[-1]] = '<div class="trow' + chunk.split("<details")[0]
+        out[key.split("|", 1)[1].split("/")[-1]] = '<div class="trow' + chunk.split('<details class="sec"')[0]
     return out
 
 
@@ -248,7 +248,9 @@ def _text(html: str) -> str:
 
 def _open_list_order(html: str) -> list[str]:
     """Stubs of the open-task list, in display order (before the deferred/closed folds)."""
-    head = html.split("<details")[0]
+    start = html.index('data-open="open"')
+    ends = [html.find(f'data-open="{k}"', start) for k in ("deferred", "closed", "other", "activity")]
+    head = html[start:min(e for e in ends if e >= 0)]
     return [k.split("|", 1)[1].split("/")[-1] for k in re.findall(r'data-row="([^"]+)"', head)]
 
 
@@ -363,6 +365,8 @@ def test_recent_activity_and_the_other_lists_are_collapsed_by_default(rendered):
     for key in ("activity", "closed", "deferred"):
         tag = re.search(rf'<details class="sec" data-open="{key}"[^>]*>', main).group(0)
         assert " open" not in tag, key
+    # Open tasks is expanded by default; every group has the same collapse control.
+    assert " open" in re.search(r'<details class="sec" data-open="open"[^>]*>', main).group(0)
     assert 'data-open="activity"' in main and "Recent activity" in main
 
 
@@ -456,3 +460,39 @@ def test_the_run_panel_shows_the_log_tail_and_its_own_controls(live):
     panel = live["runPanel"]
     assert "Run log" in panel and "log line" in panel and "run-fail" in panel
     assert 'data-action="retry"' in panel  # a failed run is retryable from its own panel
+
+
+@needs_node
+def test_every_task_group_has_the_same_section_header_control(rendered):
+    main = rendered["main"]
+    for key, title in (("open", "Open tasks"), ("deferred", "Deferred tasks"), ("closed", "Closed tasks")):
+        assert re.search(rf'<details class="sec" data-open="{key}"[^>]*><summary>{title} <span class="count">', main), key
+
+
+@needs_node
+def test_closed_and_deferred_rows_are_the_same_compact_row_as_open_rows(rendered):
+    main = rendered["main"]
+    rows = _rows(main)
+    assert "closed-row" not in main and "closed-row" not in CSS and "closedHtml" not in JS
+    def shape(row):  # the row's markup with everything task-specific removed
+        row = re.sub(r'data-(row|key|fk|age)="[^"]*"|title="[^"]*"|aria-expanded="[^"]*"', "", row)
+        return re.sub(r">[^<]*<", "><", row)
+    for stub in ("old", "parked-task"):
+        row = rows[stub]
+        assert 'class="row-main"' in row and 'data-action="toggletask"' in row and row.count("<button") == 1, stub
+        assert 'class="mk' not in row  # no markers: the counts are zero
+        assert '<span class="repo">webapp</span>:' + stub in row
+    assert "closed" in _text(rows["old"]) and "deferred" in _text(rows["parked-task"])
+    columns = lambda row: re.findall(r'class="(chev|pri[^"]*|c-title|c-marks|c-meta)"', row)
+    assert columns(rows["old"])[:1] == ["chev"] and [c.split()[0] for c in columns(rows["old"])] == \
+        [c.split()[0] for c in columns(rows["open-one"])]
+    assert shape(rows["old"]).startswith(shape(rows["calm-p1"])[:60])
+
+
+@needs_node
+def test_one_task_is_expanded_across_the_whole_page_closed_rows_included(rendered):
+    opened = rendered["mainClosedOpened"]
+    assert opened.count('class="tbody"') == 1 and opened.count('aria-expanded="true"') == 1
+    assert 'class="tbody"' in _rows(opened)["old"] and 'class="tbody"' not in _rows(opened)["open-one"]
+    assert "Task details" in _rows(opened)["old"] and "webapp:old" in _text(_rows(opened)["old"])
+    assert "Add item" not in _rows(opened)["old"]  # a closed task is not extended

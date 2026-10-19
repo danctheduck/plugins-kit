@@ -84,6 +84,9 @@ function click(attrs) {
   const other = payload.tasks.filter((t) => t.section === 'open' && t.key !== taskKey)[0].key;
   click({ 'data-action': 'toggletask', 'data-key': taskKey });
   report.mainOpen = els.main.innerHTML;
+  const closedKey = payload.tasks.filter((t) => t.section === 'closed')[0].key;
+  click({ 'data-action': 'toggletask', 'data-key': closedKey });
+  report.mainClosedOpened = els.main.innerHTML;
   click({ 'data-action': 'toggletask', 'data-key': other });
   report.mainSwitched = els.main.innerHTML;
   report.otherKey = other;
