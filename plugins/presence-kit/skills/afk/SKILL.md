@@ -51,6 +51,16 @@ technique_skill:
             or when the user is not actually leaving (for example "afk" appears
             in a quotation or in a question about afk). If the user typed
             `/presence-kit:afk`, continue whatever the configuration says.
+            One exception: when a presence-kit hook line for this prompt (id
+            `afk-on-departure`, beginning "set the user afk" or "kept the user
+            afk") already set afk and the user is not leaving, undo it with
+            the tool below, tell the user once in one line, follow that line's
+            own return-recap instruction if it has one, and end here.
+          tool: '"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" "${CLAUDE_PLUGIN_ROOT}/scripts/presence.py" state set present'
+          expected: '`{"written": true, "by": "user", "state": {...}}` with presence present; run only in the undo case.'
+          on_failure: >-
+            An `{"error": ...}` reply: report its `message` once and change
+            nothing further.
         - n: 3
           action: >-
             Only when the user typed `/presence-kit:afk`: set the state with
