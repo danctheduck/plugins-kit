@@ -25,8 +25,8 @@ one line each, with a marker for tasks that need you (blocked tasks and items)
 and for tasks with a job in flight. Click a task to open its items as a
 pipeline (one at a time). A sort control (priority, needs you first, in progress
 first, latest activity), a project dropdown and a search box shape the list;
-closed tasks and recent activity sit below, collapsed. A side panel opens only
-when you select an item. A project is a git repository: every checkout of one
+closed tasks and recent activity sit below, collapsed. Selecting an item (a stage bubble)
+opens its detail under the stage map; everything stays inline and full width. A project is a git repository: every checkout of one
 repository is one project, and a task is shown as `<repo>:<task>`. The dashboard
 lists `dev/tasks` tasks only. `Resolve in Claude Code` shows the commands that
 open a task in Claude Code; it does not run them.

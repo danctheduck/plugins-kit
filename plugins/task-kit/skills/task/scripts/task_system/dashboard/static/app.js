@@ -10,10 +10,12 @@
  * visible and cannot be clicked. Queue and Retry also stay disabled, with the
  * server's reason, whenever the server reports autonomous runs unavailable.
  *
- * One flat task list across projects: a row per open task (priority, title,
+ * One flat task list across projects: a row per task (priority, title,
  * <repo>:<task>, item count, age) with a needs-you marker and an in-flight
- * marker; clicking a row opens its stage map (one at a time). The side panel
- * exists only while an item, task or run is selected.
+ * marker; clicking a row opens its stage map (one at a time). Everything else
+ * renders inline, full width, under its parent: the selected item's detail
+ * and the task's details sit below the stage map, and a run's result and log
+ * open in place in Recent activity. Nothing opens beside the list.
  *
  * The page is served under a CSP that forbids inline styles and scripts, so no
  * markup carries a style attribute: dynamic values travel as data-* attributes
@@ -32,10 +34,8 @@ var S = {
   sort: 'priority',    // one of SORTS; exactly one is active
   openTask: null,      // the one expanded task key "checkout|task"
   q: '',               // text filter
-  sel: null,           // selected item key  "checkout|task|item"
-  selTask: null,       // selected task key  "checkout|task"
-  mode: 'none',        // none | item | task | run  (none: no side panel)
-  selRun: null,        // selected run id
+  sel: null,           // selected item key "checkout|task|item"; its detail shows in the open task
+  runOpen: {},         // run id -> true while its result and log are shown inline
   runLog: {},          // run id -> { text, cursor }
   notice: null,        // { kind, title, text } shown with the banners after an action
   detail: {},          // item key -> detail payload
@@ -43,7 +43,6 @@ var S = {
   resolve: {},         // keys whose command box is expanded
   conn: 'connecting',  // connecting | ok | offline | auth
   connDetail: '',
-  panelOpen: false,
   renderedRev: null,
   polling: false,
   refreshNext: false,
@@ -207,19 +206,19 @@ function send(path, body) {
   });
 }
 function fetchRunLog(id) {
-  var cur = (S.runLog[id] || { cursor: 0 }).cursor;
+  var cur = (S.runLog[id] || { cursor: 0 }).cursor, first = !S.runLog[id];
   return api('/api/v1/runs/' + encodeURIComponent(id) + '/log?after=' + cur).then(function (r) {
     var old = S.runLog[id] ? S.runLog[id].text : '';
     S.runLog[id] = { text: (old + r.text).slice(-20000), cursor: r.cursor };
-    if (S.mode === 'run' && S.selRun === id) renderPanel();
-  }, function (e) { S.runLog[id] = { text: '(log unavailable: ' + e.message + ')', cursor: 0 }; });
+    if (S.runOpen[id] && (first || r.text)) render();
+  }, function (e) { S.runLog[id] = { text: '(log unavailable: ' + e.message + ')', cursor: 0 }; if (S.runOpen[id]) render(); });
 }
 function fetchDetail(k) {
   var p = splitIKey(k);
   return api('/api/v1/items/' + encodeURIComponent(p.project) + '/' + encodeURIComponent(p.task) + '/' + encodeURIComponent(p.item))
-    .then(function (d) { S.detail[k] = d; renderPanel(); }, function (e) {
+    .then(function (d) { S.detail[k] = d; render(); }, function (e) {
       S.detail[k] = { error: e.message };
-      renderPanel();
+      render();
     });
 }
 function poll() {
@@ -234,11 +233,11 @@ function poll() {
     if (changed) {
       S.renderedRev = snap.revision;
       render();
-      if (S.mode === 'item' && S.sel) fetchDetail(S.sel);
+      if (S.sel) fetchDetail(S.sel);
     } else {
       renderStatus();
     }
-    if (S.mode === 'run' && S.selRun) fetchRunLog(S.selRun);
+    Object.keys(S.runOpen).forEach(function (id) { if (S.runOpen[id]) fetchRunLog(id); });
   }, function (e) {
     S.conn = e.auth ? 'auth' : 'offline'; S.connDetail = e.message;
     renderBanners(); renderStatus();
@@ -354,21 +353,22 @@ function renderRuns() {
       esc(RUN_LABEL[r.state] || r.state) + '</span></div><div class="ttl">' + esc(r.item_title) + '</div>' +
       '<div class="sub">' + esc(r.worker || '') + (r.entry ? ' (' + esc(r.entry) + ')' : '') +
       (r.started_at ? ' - running for ' + esc(elapsed(r.started_at)) : ' - waiting to start') + '</div>' +
-      '<div class="row"><button type="button" class="btn sm" data-action="selectrun" data-key="' + esc(r.id) + '">' + ic('eye') + 'Log</button>' +
-      laterButton('Cancel run', 'sm danger', 'stop', 'cancel') + '</div></div>';
+      '<div class="row"><button type="button" class="btn sm" data-action="togglerun" data-key="' + esc(r.id) + '" aria-expanded="' + !!S.runOpen[r.id] + '">' + ic('eye') + (S.runOpen[r.id] ? 'Hide log' : 'Log') + '</button>' +
+      laterButton('Cancel run', 'sm danger', 'stop', 'cancel') + '</div>' + (S.runOpen[r.id] ? runDetailHtml(r) : '') + '</div>';
   });
   return h + '</div>';
 }
 function renderRecent() {
   var rows = S.snap.recent_runs || [];
   if (!rows.length) return '';
-  var h = '<div class="sec-title">Recent runs <span class="count">newest first; the run log keeps the details</span></div>' +
+  var h = '<div class="sec-title">Recent runs <span class="count">newest first; click a run for its result and log</span></div>' +
     '<table class="runs-table"><thead><tr><th>Ended</th><th>Item</th><th>Result</th><th></th></tr></thead><tbody>';
   rows.forEach(function (r) {
-    h += '<tr class="click" data-action="selectrun" data-key="' + esc(r.id) + '"><td class="muted when">' + esc(ago(r.ended_at)) + '</td>' +
+    h += '<tr class="click" data-action="togglerun" data-key="' + esc(r.id) + '" aria-expanded="' + !!S.runOpen[r.id] + '"><td class="muted when">' + esc(ago(r.ended_at)) + '</td>' +
       '<td>' + esc(r.item_title) + '<div class="muted mono fs11">' + esc(identOf(r.project_name, r.task)) + '</div></td>' +
       '<td><span class="chip' + (r.state === 'accepted' ? '' : ' warnchip') + '">' + esc(RUN_LABEL[r.state] || r.state) + '</span> ' +
-      '<span class="muted fs12">' + esc(r.code || '') + '</span></td><td></td></tr>';
+      '<span class="muted fs12">' + esc(r.code || '') + '</span></td><td class="muted fs12">' + (S.runOpen[r.id] ? 'hide' : 'details') + '</td></tr>';
+    if (S.runOpen[r.id]) h += '<tr class="run-detail"><td colspan="4">' + runDetailHtml(r) + '</td></tr>';
   });
   return h + '</tbody></table>';
 }
@@ -404,7 +404,7 @@ function iconFor(item) {
   }
 }
 function nodeHtml(task, item) {
-  var k = ikey(task, item), sel = S.mode === 'item' && S.sel === k, sub = '';
+  var k = ikey(task, item), sel = S.sel === k, sub = '';
   switch (item.ui_state) {
     case 'available':
       if (item.run && (item.run.state === 'queued' || item.run.state === 'starting' || item.run.state === 'running')) {
@@ -450,15 +450,16 @@ function taskBody(task) {
   var empty = task.items.length ? '' :
     '<p class="muted fs12 mb0">' + (task.has_items_block ? 'No open items.' : 'No task_items block in plan.md (a pre-contract folder).') + '</p>';
   var ident = task.repo + ':' + task.stub;
-  return '<div class="tbody"><div class="tmeta"><p class="tsum">' + (task.summary ? esc(task.summary) : '<span class="muted">No summary recorded.</span>') + '</p>' +
+  var sel = S.sel && findItem(S.sel);
+  return '<div class="tbody"><div class="tmeta">' +
     '<dl class="idl"><dt>Identifier</dt><dd><button type="button" class="task-id-copy" data-action="copy" data-text="' + esc(ident) + '" title="Copy identifier">' + esc(ident) + '</button></dd>' +
     '<dt>Task path</dt><dd><button type="button" class="task-id-copy" data-action="copy" data-text="' + esc(task.id) + '" title="Copy task path">' + esc(task.id) + '</button></dd>' +
     '<dt>Working in</dt><dd class="mono">' + esc(task.working_root) + '</dd></dl>' +
-    '<div class="tacts"><button type="button" class="btn sm" data-action="selecttask" data-key="' + esc(tkey(task)) + '">' + ic('eye') + 'Task details</button>' +
-    (open && avail > 1 ? laterButton('Queue all available (' + avail + ')', 'sm', null, 'queueall') : '') + '</div></div>' +
+    '<div class="tacts">' + (open && avail > 1 ? laterButton('Queue all available (' + avail + ')', 'sm', null, 'queueall') : '') + '</div></div>' +
     needsHtml(task) +
-    (nodes ? '<div class="pipeline" role="list">' + nodes + '</div>' : '') +
-    empty + findingsHtml(task) + '</div>';
+    (nodes ? '<div class="pipeline" role="list">' + nodes + '</div>' : '') + empty +
+    (sel && tkey(sel.task) === tkey(task) ? itemDetailHtml(sel.task, sel.item) : '') +
+    taskDetailsHtml(task) + '</div>';
 }
 function rowHtml(task) {
   var k = tkey(task), open = S.openTask === k, need = needN(task), run = runN(task);
@@ -522,36 +523,6 @@ function cmdBox(handoff) {
   }).join('');
   return '<div class="cmdbox">' + rows + '<div class="cmdcap">' + esc(handoff.caption) + '</div></div>';
 }
-function taskPanelBody(task) {
-  var h = '';
-  if (task.classification === 'blocked' || task.classification === 'invalid') {
-    var rec = (task.needs || []).filter(function (n) { return !n.item; })[0];
-    h += '<div class="callout"><strong>' + (task.classification === 'blocked' ? 'This task is blocked' : 'This task does not validate') + '</strong><p>' +
-      esc(rec ? rec.detail : task.findings.errors[0] || '') + '</p></div>';
-  }
-  if (task.summary) h += '<div class="sec-title">Task summary</div><p class="fs13">' + esc(task.summary) + '</p>';
-  var key = 'T:' + tkey(task);
-  h += '<div class="acts"><button type="button" class="btn warn" data-action="resolve" data-key="' + esc(key) + '" aria-expanded="' + !!S.resolve[key] + '">' + ic('term') + 'Resolve in Claude Code</button></div>';
-  if (S.resolve[key]) h += cmdBox(task.handoff);
-  h += findingsHtml(task);
-  h += '<div class="sec-title">Recent activity on this task</div>';
-  h += task.updates.length ? task.updates.map(function (u) {
-    return '<div class="mini-run"><span class="m">' + esc(u.date + (u.time ? ' ' + u.time : '')) + '</span><span class="t">' + esc(u.detail) + '</span></div>';
-  }).join('') : '<p class="muted fs13">No dated log entries.</p>';
-  return h;
-}
-function panelTask() {
-  var task = findTask(S.selTask);
-  if (!task) return '';
-  var h = '<div class="p-head"><div class="crumbs"><button type="button" class="task-id-copy" data-action="copy" data-text="' + esc(task.id) + '" title="Copy task path">' + esc(task.repo + ':' + task.stub) + '</button></div>' +
-    '<span class="grow"></span><button type="button" class="btn sm" data-action="closepanel" aria-label="Close panel">' + ic('close') + '</button></div>' +
-    '<h2>' + esc(task.title) + '</h2><div class="badges"><span class="badge" data-color="' + (task.classification === 'blocked' ? 'warn' : 'accent') + '">' + esc(task.classification) + '</span>' + chipPri(task.priority) + '</div>';
-  h += taskPanelBody(task);
-  h += '<div class="sec-title">Items</div><ul class="item-list">' + (task.items.length ? task.items.map(function (it) {
-    return '<li><span class="chip">' + esc(STATE_LABEL[it.ui_state] || it.state) + '</span><span class="t"><button type="button" class="linkbtn" data-action="select" data-key="' + esc(ikey(task, it)) + '">' + esc(it.title) + '</button></span></li>';
-  }).join('') : '<li class="muted">No open items.</li>') + '</ul>';
-  return h;
-}
 function planBlock(detail) {
   var ps = detail.plan_section;
   if (ps.error) return '<div class="callout bad"><strong>plan.md could not be read</strong><p>' + esc(ps.error) + '</p></div>';
@@ -563,92 +534,86 @@ function planBlock(detail) {
   return '<div class="callout"><strong>' + esc(why) + '</strong><p>An autonomous run needs exactly one non-empty section headed with the item id ' +
     '(for example <span class="mono">### ' + esc(detail.item.id) + ' -- title</span>) in ' + esc(ps.source) + '.</p></div>';
 }
-function panelItem() {
-  var f = findItem(S.sel);
-  if (!f) return '';
-  var task = f.task, it = f.item, detail = S.detail[S.sel];
-  var ui = it.ui_state, color = STATE_COLOR[ui] || 'var(--muted)';
-  var h = '<div class="p-head"><div class="crumbs"><button type="button" class="task-id-copy" data-action="copy" data-text="' + esc(task.id) + '" title="Copy task path">' + esc(task.repo + ':' + task.stub) + '</button></div>' +
-    '<span class="grow"></span><button type="button" class="btn sm" data-action="closepanel" aria-label="Close panel">' + ic('close') + '</button></div>' +
-    '<h2>' + esc(it.title) + '</h2><div class="badges"><span class="badge" data-color="' + esc(ui) + '">' + esc(STATE_LABEL[ui] || it.state) + '</span>' +
+function logPre(id) {
+  var log = S.runLog[id];
+  return '<pre class="logtail">' + esc(log ? log.text : 'Loading...') + '</pre>';
+}
+/* A run's result, controls and log, shown in place (Recent activity and item detail). */
+function runDetailHtml(run) {
+  var h = '<div class="run-inline">';
+  if (run.code || run.detail) h += '<div class="callout"><strong>' + esc(run.code || run.state) + '</strong><p>' + esc(run.detail || '') + '</p></div>';
+  h += '<div class="acts">';
+  if (run.retryable) h += runButton('Retry', '', 'retry', 'retry', run.id + '|' + run.checkout + '|' + run.task);
+  if (run.state === 'blocked' || run.state === 'crashed') h += '<span class="hint">Resolve it in Claude Code, then Re-check the item.</span>';
+  if (run.state === 'queued' || run.state === 'starting' || run.state === 'running') h += laterButton('Cancel run', 'sm danger', 'stop', 'cancel');
+  return h + '</div><div class="sec-title">Run log</div>' + logPre(run.id) + '</div>';
+}
+function updatesHtml(task) {
+  return task.updates.length ? task.updates.map(function (u) {
+    return '<div class="mini-run"><span class="m">' + esc(u.date + (u.time ? ' ' + u.time : '')) + '</span><span class="t">' + esc(u.detail) + '</span></div>';
+  }).join('') : '<p class="muted fs13">No dated log entries.</p>';
+}
+/* Task details: why it is blocked, the summary, findings, the log, and the commands that open it in Claude Code. */
+function taskDetailsHtml(task) {
+  var key = 'T:' + tkey(task), left = '';
+  if (task.classification === 'blocked' || task.classification === 'invalid') {
+    var rec = (task.needs || []).filter(function (n) { return !n.item; })[0];
+    left += '<div class="callout"><strong>' + (task.classification === 'blocked' ? 'This task is blocked' : 'This task does not validate') + '</strong><p>' +
+      esc(rec ? rec.detail : task.findings.errors[0] || '') + '</p></div>';
+  }
+  left += '<div class="sec-title">Summary</div><p class="fs13">' + (task.summary ? esc(task.summary) : '<span class="muted">No summary recorded.</span>') + '</p>';
+  left += '<div class="acts"><button type="button" class="btn warn" data-action="resolve" data-key="' + esc(key) + '" aria-expanded="' + !!S.resolve[key] + '">' + ic('term') + 'Resolve in Claude Code</button></div>';
+  if (S.resolve[key]) left += cmdBox(task.handoff);
+  left += findingsHtml(task);
+  return '<div class="tdetails"><div class="sec-title">Task details</div><div class="cols2"><div>' + left + '</div><div><div class="sec-title">Recent log entries</div>' +
+    updatesHtml(task) + '</div></div></div>';
+}
+/* Item detail: shown under the stage map of the task that holds the selected item. */
+function itemDetailHtml(task, it) {
+  var key = ikey(task, it), detail = S.detail[key], ui = it.ui_state;
+  var left = '<div class="badges"><span class="badge" data-color="' + esc(ui) + '">' + esc(STATE_LABEL[ui] || it.state) + '</span>' +
     chipPri(it.priority) + '<span class="chip mono">' + esc(it.id) + '</span></div>';
   if (ui === 'blocked') {
-    h += '<div class="callout"><strong>Waiting for you</strong><p>' + esc(it.note || 'The item is blocked on you; no note was recorded.') + '</p></div>';
+    left += '<div class="callout"><strong>Waiting for you</strong><p>' + esc(it.note || 'The item is blocked on you; no note was recorded.') + '</p></div>';
   } else if (ui === 'in-flight') {
-    h += '<div class="callout info"><strong>In flight</strong><p>' + esc(it.note || 'This item is being worked in Claude Code.') + '</p></div>';
+    left += '<div class="callout info"><strong>In flight</strong><p>' + esc(it.note || 'This item is being worked in Claude Code.') + '</p></div>';
   } else if (ui === 'deferred') {
-    h += '<div class="callout"><strong>Deferred</strong><p>' + esc(it.note || 'Not eligible to run until it is made available again.') + '</p></div>';
+    left += '<div class="callout"><strong>Deferred</strong><p>' + esc(it.note || 'Not eligible to run until it is made available again.') + '</p></div>';
   } else if (ui === 'unknown') {
-    h += '<div class="callout bad"><strong>Unknown item state</strong><p>State ' + esc(it.state) + ' is not in the task vocabulary; <span class="mono">task validate</span> reports it.</p></div>';
+    left += '<div class="callout bad"><strong>Unknown item state</strong><p>State ' + esc(it.state) + ' is not in the task vocabulary; <span class="mono">task validate</span> reports it.</p></div>';
   } else if (it.note) {
-    h += '<p class="fs13">' + esc(it.note) + '</p>';
+    left += '<p class="fs13">' + esc(it.note) + '</p>';
   }
-  var key = S.sel;
-  h += '<div class="acts">';
-  h += '<button type="button" class="btn warn" data-action="resolve" data-key="' + esc(key) + '" aria-expanded="' + !!S.resolve[key] + '">' + ic('term') + 'Resolve in Claude Code</button>';
+  left += '<div class="acts"><button type="button" class="btn warn" data-action="resolve" data-key="' + esc(key) + '" aria-expanded="' + !!S.resolve[key] + '">' + ic('term') + 'Resolve in Claude Code</button>';
   var live = it.run && (it.run.state === 'queued' || it.run.state === 'starting' || it.run.state === 'running');
-  if (ui === 'available' && !live) h += runButton('Queue', 'primary', 'play', 'queue', key) + laterButton('Defer', '', null, 'defer');
-  if (ui === 'available' && live) h += '<span class="chip">' + esc(RUN_LABEL[it.run.state]) + '</span>';
-  if (ui === 'available' && it.run && it.run.retryable) h += runButton('Retry', '', 'retry', 'retry', it.run.id + '|' + task.checkout + '|' + task.id);
-  if (ui === 'deferred') h += laterButton('Undefer', 'primary', null, 'undefer');
-  if (ui === 'blocked') h += recheckButton({ item: it.id, project: task.project, task: task.id }, '');
-  h += '</div>';
-  if (S.resolve[key]) {
-    h += detail && detail.handoff ? cmdBox(detail.handoff) : (task.handoff ? cmdBox(task.handoff) : '');
-  }
-  h += '<div class="sec-title">Run controls</div><div class="card"><dl class="kv mb0">' +
+  if (ui === 'available' && !live) left += runButton('Queue', 'primary', 'play', 'queue', key) + laterButton('Defer', '', null, 'defer');
+  if (ui === 'available' && live) left += '<span class="chip">' + esc(RUN_LABEL[it.run.state]) + '</span>';
+  if (ui === 'available' && it.run && it.run.retryable) left += runButton('Retry', '', 'retry', 'retry', it.run.id + '|' + task.checkout + '|' + task.id);
+  if (ui === 'deferred') left += laterButton('Undefer', 'primary', null, 'undefer');
+  if (ui === 'blocked') left += recheckButton({ item: it.id, project: task.project, checkout: task.checkout, task: task.id }, '');
+  left += '</div>';
+  if (S.resolve[key]) left += detail && detail.handoff ? cmdBox(detail.handoff) : (task.handoff ? cmdBox(task.handoff) : '');
+  left += '<div class="sec-title">Run controls</div><div class="card"><dl class="kv mb0">' +
     '<dt>Model</dt><dd><span class="seg" role="group" aria-label="Model"><button type="button" disabled aria-disabled="true" data-later="model">Claude</button><button type="button" disabled aria-disabled="true" data-later="model">Codex</button></span></dd>' +
     '<dt>Effort</dt><dd><select disabled aria-label="Effort" data-later="effort"><option>medium</option></select></dd>' +
     '<dt>Runs in</dt><dd class="mono fs12">' + esc(task.working_root) + '</dd></dl>' +
     '<div class="acts">' + laterButton('Cancel run', 'sm danger', 'stop', 'cancel') + '</div>' +
     '<p class="hint">Model, effort and run options arrive in a later increment: a run uses the machine defaults from ' +
     'task.local.yaml. Cancel run arrives with them; a run ends by itself or at its time limit.</p></div>';
+  var right = '';
   if (it.run) {
-    h += '<div class="sec-title">Latest run</div><div class="card"><dl class="kv mb0"><dt>State</dt><dd>' + esc(RUN_LABEL[it.run.state] || it.run.state) +
+    right += '<div class="sec-title">Latest run</div><div class="card"><dl class="kv mb0"><dt>State</dt><dd>' + esc(RUN_LABEL[it.run.state] || it.run.state) +
       '</dd><dt>Result</dt><dd>' + esc(it.run.code || '') + (it.run.detail ? ' - ' + esc(it.run.detail) : '') + '</dd></dl>' +
-      '<div class="acts"><button type="button" class="btn sm" data-action="selectrun" data-key="' + esc(it.run.id) + '">' + ic('eye') + 'Run log</button></div></div>';
+      '<div class="acts"><button type="button" class="btn sm" data-action="togglerun" data-key="' + esc(it.run.id) + '" aria-expanded="' + !!S.runOpen[it.run.id] + '">' + ic('eye') +
+      (S.runOpen[it.run.id] ? 'Hide run log' : 'Run log') + '</button></div>' + (S.runOpen[it.run.id] ? logPre(it.run.id) : '') + '</div>';
   }
-  h += '<div class="sec-title">plan.md section</div>';
-  if (!detail) h += '<p class="muted fs13">Loading...</p>';
-  else if (detail.error) h += '<div class="callout bad"><strong>Could not load the item</strong><p>' + esc(detail.error) + '</p></div>';
-  else h += planBlock(detail);
-  if (task.summary) h += '<div class="sec-title">Task summary</div><p class="fs13">' + esc(task.summary) + '</p>';
-  h += '<div class="sec-title">Recent activity on this task</div>';
-  h += task.updates.length ? task.updates.map(function (u) {
-    return '<div class="mini-run"><span class="m">' + esc(u.date + (u.time ? ' ' + u.time : '')) + '</span><span class="t">' + esc(u.detail) + '</span></div>';
-  }).join('') : '<p class="muted fs13">No dated log entries.</p>';
-  return h;
-}
-function panelRun() {
-  var run = null, rows = (S.snap.runs || []).concat(S.snap.recent_runs || []);
-  rows.forEach(function (r) { if (r.id === S.selRun) run = r; });
-  if (!run) return '';
-  var log = S.runLog[run.id];
-  var h = '<div class="p-head"><div class="crumbs"><span class="mono">' + esc(identOf(run.project_name, run.task)) + '</span></div>' +
-    '<span class="grow"></span><button type="button" class="btn sm" data-action="closepanel" aria-label="Close panel">' + ic('close') + '</button></div>' +
-    '<h2>' + esc(run.item_title) + '</h2><div class="badges"><span class="badge" data-color="' + (run.state === 'accepted' ? 'good' : run.state === 'running' ? 'run' : 'warn') + '">' +
-    esc(RUN_LABEL[run.state] || run.state) + '</span><span class="chip mono">' + esc(run.id) + '</span></div>';
-  if (run.code || run.detail) h += '<div class="callout"><strong>' + esc(run.code || run.state) + '</strong><p>' + esc(run.detail || '') + '</p></div>';
-  h += '<div class="acts">';
-  if (run.retryable) h += runButton('Retry', '', 'retry', 'retry', run.id + '|' + run.checkout + '|' + run.task);
-  if (run.state === 'blocked' || run.state === 'crashed') h += '<span class="hint">Resolve it in Claude Code, then Re-check the item.</span>';
-  if (run.state === 'queued' || run.state === 'starting' || run.state === 'running') h += laterButton('Cancel run', 'sm danger', 'stop', 'cancel');
-  h += '</div><div class="sec-title">Run log</div><pre class="logtail">' + esc(log ? log.text : 'Loading...') + '</pre>';
-  return h;
-}
-function panelHtml() {
-  return S.mode === 'item' ? panelItem() : S.mode === 'task' ? panelTask() : S.mode === 'run' ? panelRun() : '';
-}
-function renderPanel() {
-  var pn = $('panel');
-  if (!S.snap) { pn.innerHTML = ''; return; }
-  var scroll = pn.scrollTop, html = panelHtml(), has = html !== '';
-  pn.innerHTML = html;
-  pn.scrollTop = scroll;
-  pn.classList.toggle('open', S.panelOpen && has);
-  $('layout').classList.toggle('has-panel', has);
-  $('scrim').classList.toggle('on', S.panelOpen && has);
-  applyDynamic(pn);
+  right += '<div class="sec-title">plan.md section</div>';
+  if (!detail) right += '<p class="muted fs13">Loading...</p>';
+  else if (detail.error) right += '<div class="callout bad"><strong>Could not load the item</strong><p>' + esc(detail.error) + '</p></div>';
+  else right += planBlock(detail);
+  return '<div class="idetail" data-item="' + esc(key) + '"><div class="idhead"><span class="mono fs12 muted">' + esc(task.repo + ':' + task.stub) + '</span>' +
+    '<h3>' + esc(it.title) + '</h3><span class="grow"></span><button type="button" class="btn sm" data-action="select" data-key="' + esc(key) + '" aria-label="Close item details">' + ic('close') + '</button></div>' +
+    '<div class="cols2"><div>' + left + '</div><div>' + right + '</div></div></div>';
 }
 function applyDynamic(root) {
   var nodes = root.querySelectorAll('[data-age]'), i;
@@ -666,7 +631,6 @@ function render(opts) {
   var main = $('main');
   main.innerHTML = renderTaskList() + renderActivity();
   applyDynamic(main);
-  renderPanel();
   if (fk) {
     var again = document.querySelector('[data-fk="' + fk.replace(/"/g, '\\"') + '"]');
     if (again) again.focus({ preventScroll: true });
@@ -695,15 +659,24 @@ function copyText(el) {
 function selectItem(k, withResolve) {
   var p = splitIKey(k);
   S.openTask = p.project + '|' + p.task;
-  S.sel = k; S.mode = 'item'; S.panelOpen = true;
+  S.sel = k;
   if (withResolve) S.resolve[k] = true;
-  render();
+  render({ scrollTo: withResolve ? S.openTask : null });
   fetchDetail(k);
 }
-function selectTask(k, withResolve) {
-  S.selTask = k; S.mode = 'task'; S.panelOpen = true;
+/* A bubble toggles its item detail: select, swap to another bubble, or close the selected one. */
+function toggleItem(k) {
+  if (S.sel === k) { S.sel = null; render(); } else selectItem(k, false);
+}
+/* Open a task in the main list (one at a time), reveal its group and scroll it into view. */
+function openTaskInList(k, withResolve) {
+  var task = findTask(k);
+  if (!task) return;
+  if (S.sel && S.sel.split('|').slice(0, 2).join('|') !== k) S.sel = null;
+  S.openTask = k;
+  S.open[task.section] = true;
   if (withResolve) S.resolve['T:' + k] = true;
-  render();
+  render({ scrollTo: k });
 }
 function actionResult(label, r) {
   if (r.status >= 200 && r.status < 300) {
@@ -735,30 +708,29 @@ function doRetry(el) {
 function toggleTask(el) {
   var k = el.getAttribute('data-key'), was = S.openTask;
   S.openTask = was === k ? null : k;
-  if (S.mode === 'item' && S.sel) {
+  if (S.sel) {
     var p = splitIKey(S.sel);
-    if (S.openTask !== p.project + '|' + p.task) { S.sel = null; S.mode = 'none'; S.panelOpen = false; }
+    if (S.openTask !== p.project + '|' + p.task) S.sel = null;
   }
   render({ scrollTo: S.openTask });
 }
-function selectRun(id) {
-  S.selRun = id; S.mode = 'run'; S.panelOpen = true;
+function toggleRun(id) {
+  S.runOpen[id] = !S.runOpen[id];
   render();
-  fetchRunLog(id);
+  if (S.runOpen[id]) fetchRunLog(id);
 }
 var ACTIONS = {
   queue: doQueue,
   recheck: doRecheck,
   retry: doRetry,
-  selectrun: function (el) { selectRun(el.getAttribute('data-key')); },
-  select: function (el) { selectItem(el.getAttribute('data-key'), false); },
-  selecttask: function (el) { selectTask(el.getAttribute('data-key'), false); },
+  togglerun: function (el) { toggleRun(el.getAttribute('data-key')); },
+  select: function (el) { toggleItem(el.getAttribute('data-key')); },
+  selecttask: function (el) { openTaskInList(el.getAttribute('data-key'), false); },
   resolvesel: function (el) { selectItem(el.getAttribute('data-key'), true); },
-  resolvetask: function (el) { selectTask(el.getAttribute('data-key'), true); },
-  resolve: function (el) { var k = el.getAttribute('data-key'); S.resolve[k] = !S.resolve[k]; renderPanel(); },
+  resolvetask: function (el) { openTaskInList(el.getAttribute('data-key'), true); },
+  resolve: function (el) { var k = el.getAttribute('data-key'); S.resolve[k] = !S.resolve[k]; render(); },
   toggletask: toggleTask,
   sort: function (el) { S.sort = el.getAttribute('data-v'); render(); },
-  closepanel: function () { S.sel = null; S.selTask = null; S.selRun = null; S.mode = 'none'; S.panelOpen = false; render(); },
   copy: function (el) { copyText(el); },
   refresh: function () { S.refreshNext = true; pollNow(); }
 };
@@ -774,9 +746,6 @@ document.addEventListener('toggle', function (e) {
   var k = e.target.getAttribute && e.target.getAttribute('data-open');
   if (k) S.open[k] = e.target.open;
 }, true);
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape' && S.mode !== 'none') ACTIONS.closepanel();
-});
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState === 'visible') pollNow(); else schedule();
 });

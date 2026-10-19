@@ -28,12 +28,12 @@ function makeEl(id) {
   return el;
 }
 const els = {};
-['serverChip', 'status', 'banners', 'projectSelect', 'main', 'panel', 'scrim', 'search', 'sortSeg', 'layout']
+['serverChip', 'status', 'banners', 'projectSelect', 'main', 'search', 'sortSeg']
   .forEach((id) => { els[id] = makeEl(id); });
 const docListeners = {};
 const document = {
   getElementById: (id) => els[id],
-  querySelector: () => null,
+  querySelector: (sel) => ({ focus() {}, scrollIntoView() { scrolls.push(sel); } }),
   addEventListener: (t, f) => { (docListeners[t] = docListeners[t] || []).push(f); },
   visibilityState: 'visible',
   createElement: () => makeEl('x'),
@@ -41,6 +41,7 @@ const document = {
   execCommand: () => true,
 };
 const requests = [];
+const scrolls = [];
 function fakeFetch(url, opts) {
   requests.push({ url, headers: opts.headers, method: opts.method || 'GET', body: opts.body || null });
   if (opts.method === 'POST') {
@@ -73,8 +74,6 @@ function click(attrs) {
   report.status = els.status.innerHTML;
   report.select = els.projectSelect.innerHTML;
   report.sortBar = els.sortSeg.innerHTML;
-  report.panelInitial = els.panel.innerHTML;
-  report.layoutInitial = [...els.layout.classes];
   report.sorted = {};
   for (const id of ['priority', 'needs', 'progress', 'latest']) {
     click({ 'data-action': 'sort', 'data-v': id });
@@ -92,25 +91,48 @@ function click(attrs) {
   report.otherKey = other;
   click({ 'data-action': 'toggletask', 'data-key': other });
   report.mainCollapsed = els.main.innerHTML;
+  const stuck = payload.tasks.filter((t) => t.id.endsWith('/stuck'))[0];
+  if (stuck) {
+    click({ 'data-action': 'toggletask', 'data-key': stuck.key });
+    report.mainStuck = els.main.innerHTML;
+    click({ 'data-action': 'toggletask', 'data-key': stuck.key });
+  }
+  // Item detail: select, swap, toggle closed, all inline under the open task.
+  click({ 'data-action': 'toggletask', 'data-key': taskKey });
+  const task = payload.tasks.filter((t) => t.key === taskKey)[0];
+  const otherItem = taskKey + '|' + task.items.filter((i) => taskKey + '|' + i.id !== itemKey)[0].id;
+  click({ 'data-action': 'select', 'data-key': itemKey });
+  report.itemLoading = els.main.innerHTML;
+  await flush();
+  report.itemOpen = els.main.innerHTML;
+  click({ 'data-action': 'select', 'data-key': otherItem });
+  await flush();
+  report.itemSwapped = els.main.innerHTML;
+  click({ 'data-action': 'select', 'data-key': otherItem });
+  report.itemClosed = els.main.innerHTML;
+  click({ 'data-action': 'select', 'data-key': itemKey });
+  await flush();
+  click({ 'data-action': 'toggletask', 'data-key': other });
+  report.itemAfterSwitch = els.main.innerHTML;
   click({ 'data-action': 'toggletask', 'data-key': taskKey });
   click({ 'data-action': 'select', 'data-key': itemKey });
   await flush();
-  report.itemPanel = els.panel.innerHTML;
-  report.layoutSelected = [...els.layout.classes];
-  report.mainSelected = els.main.innerHTML;
-  click({ 'data-action': 'toggletask', 'data-key': other });
-  report.layoutAfterSwitch = [...els.layout.classes];
-  click({ 'data-action': 'select', 'data-key': itemKey });
-  await flush();
   click({ 'data-action': 'resolve', 'data-key': itemKey });
-  report.itemResolve = els.panel.innerHTML;
-  click({ 'data-action': 'selecttask', 'data-key': taskKey });
-  report.taskPanel = els.panel.innerHTML;
+  report.itemResolve = els.main.innerHTML;
+  click({ 'data-action': 'resolve', 'data-key': 'T:' + taskKey });
+  report.taskResolve = els.main.innerHTML;
+  // Entry points that used to open the panel now open the task in the list and scroll to it.
+  scrolls.length = 0;
+  click({ 'data-action': 'selecttask', 'data-key': closedKey });
+  report.afterTaskClick = els.main.innerHTML;
+  report.taskClickScrolls = scrolls.slice();
+  scrolls.length = 0;
   click({ 'data-action': 'resolvetask', 'data-key': taskKey });
-  report.taskResolve = els.panel.innerHTML;
-  click({ 'data-action': 'closepanel' });
-  report.afterClose = els.panel.innerHTML;
-  report.layoutClosed = [...els.layout.classes];
+  report.afterResolveTask = els.main.innerHTML;
+  report.resolveTaskScrolls = scrolls.slice();
+  click({ 'data-action': 'resolvesel', 'data-key': itemKey });
+  await flush();
+  report.afterResolveSel = els.main.innerHTML;
   if (queueKey) {
     click({ 'data-action': 'queue', 'data-key': queueKey });
     await flush();
@@ -118,9 +140,19 @@ function click(attrs) {
     await flush();
     click({ 'data-action': 'retry', 'data-key': retryKey });
     await flush();
-    click({ 'data-action': 'selectrun', 'data-key': retryKey.split('|')[0] });
+    click({ 'data-action': 'togglerun', 'data-key': retryKey.split('|')[0] });
     await flush();
-    report.runPanel = els.panel.innerHTML;
+    report.runInline = els.main.innerHTML;
+    click({ 'data-action': 'togglerun', 'data-key': retryKey.split('|')[0] });
+    report.runClosed = els.main.innerHTML;
+    const runId = retryKey.split('|')[0];
+    const runItem = task.items.filter((i) => i.run && i.run.id === runId)[0];
+    click({ 'data-action': 'select', 'data-key': taskKey + '|' + runItem.id });
+    await flush();
+    report.itemWithRun = els.main.innerHTML;
+    click({ 'data-action': 'togglerun', 'data-key': runId });
+    await flush();
+    report.itemRunLog = els.main.innerHTML;
   }
   report.posts = requests.filter((r) => r.method === 'POST');
   console.log(JSON.stringify(report));

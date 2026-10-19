@@ -79,10 +79,14 @@ def test_the_project_filter_is_a_dropdown_and_the_needs_filter_chip_is_replaced_
     assert "needsBtn" not in HTML and "fchip" not in HTML and "needsfilter" not in JS and "needs=1" not in JS
 
 
-def test_the_page_has_no_idle_panel_markup_or_overview_renderer():
-    assert "panelOverview" not in JS and "How blocked work behaves" not in JS
-    assert re.search(r"\.layout:not\(\.has-panel\)\s+\.panel\s*\{\s*display:none", CSS)
-    assert re.search(r"\.layout\s*\{[^}]*grid-template-columns:minmax\(0,1fr\);", CSS)  # full width by default
+def test_there_is_no_side_panel_anywhere():
+    for text in (HTML, JS, CSS):
+        assert not re.search(r"\bid=\"(panel|scrim|layout)\"|<aside|has-panel|\.panel\b|\.scrim\b|slide-?over", text), text[:40]
+    for name in ("renderPanel", "panelHtml", "panelItem", "panelTask", "panelRun", "panelOverview", "closepanel",
+                 "selectrun", "panelOpen", "S.mode", "Escape", "'panel'", "'scrim'"):
+        assert name not in JS, name
+    assert "translateX(104%)" not in CSS  # the narrow-window slide-over is gone
+    assert not re.search(r"\.layout\s*\{[^}]*grid-template-columns", CSS)  # one full-width column, always
 
 
 def test_the_prototype_scaffolding_is_gone():
@@ -317,7 +321,7 @@ def test_blocked_info_and_resolve_and_recheck_stay_reachable_in_the_expanded_tas
     assert "need-list" in body and "Needs decision" in body and "pick &lt;one&gt; or two" in body
     assert "Resolve in Claude Code" in body and 'data-action="resolvesel"' in body
     assert 'data-later="recheck"' in body  # drawn, disabled while runs are unavailable
-    assert "Task details" in body  # the task-level panel (summary, activity, findings) is one click away
+    assert 'class="tdetails"' in body and 'data-action="selecttask"' not in body  # task details are inline, not a button
 
 
 @needs_node
@@ -344,19 +348,65 @@ def test_the_sort_is_one_single_choice_control_and_orders_the_list(rendered):
         assert re.search(rf'aria-pressed="true">{labels_by_id[sort_id]}<', got["bar"]), sort_id
 
 
-@needs_node
-def test_no_side_panel_until_something_is_selected_and_closing_returns_to_full_width(rendered):
-    assert rendered["panelInitial"] == "" and "has-panel" not in rendered["layoutInitial"]
-    assert "has-panel" in rendered["layoutSelected"] and rendered["itemPanel"] != ""
-    assert "has-panel" not in rendered["layoutAfterSwitch"]  # opening another task drops the other task's selection
-    assert rendered["afterClose"] == "" and "has-panel" not in rendered["layoutClosed"]
-    assert "Projects" not in rendered["afterClose"] and "How blocked work behaves" not in rendered["afterClose"]
+def _item_detail(html: str) -> str:
+    """The inline item-detail block (it sits between the stage map and the task details)."""
+    m = re.search(r'<div class="idetail".*?<div class="tdetails">', html, re.S)
+    assert m, "no inline item detail rendered"
+    return m.group(0)
+
+
+def _task_details(html: str, stub: str = "open-one") -> str:
+    row = _rows(html)[stub]
+    return row[row.index('<div class="tdetails">'):]
 
 
 @needs_node
-def test_selecting_an_item_opens_its_task_and_marks_the_selected_stage(rendered):
-    assert 'class="node st-blocked sel"' in rendered["mainSelected"]
-    assert _rows(rendered["mainSelected"])["open-one"].count('aria-expanded="true"') == 1
+def test_nothing_renders_beside_the_list_and_task_details_are_inline_under_the_stage_map(rendered):
+    body = _rows(rendered["mainOpen"])["open-one"]
+    assert 'class="idetail"' not in body  # no item selected yet
+    assert body.index('class="pipeline"') < body.index('class="tdetails"')  # below the stage map
+    details = _text(_task_details(rendered["mainOpen"]))
+    for text in ("Task details", "Summary", "Does the open thing.", "Resolve in Claude Code", "Recent log entries", "began"):
+        assert text in details, text
+    assert "Items" not in details  # the stage map already lists the items
+    assert 'class="tdetails"' in _rows(rendered["mainClosedOpened"])["old"]  # closed tasks get the same section
+
+
+@needs_node
+def test_a_blocked_task_states_its_reason_in_its_details(rendered):
+    details = _text(_task_details(rendered["mainStuck"], "stuck"))
+    assert "This task is blocked" in details and "Blocked by: dev/tasks/open-one" in details
+    assert "No summary recorded." in details
+
+
+@needs_node
+def test_a_bubble_opens_its_item_inline_swaps_and_a_second_click_closes_it(rendered):
+    detail = _item_detail(rendered["itemOpen"])
+    assert 'data-item="' in detail and "Wait" in detail and "webapp:open-one" in detail
+    assert 'class="node st-blocked sel"' in rendered["itemOpen"]  # the clicked bubble is highlighted
+    assert rendered["itemOpen"].count(' sel"') == 1
+    assert "Loading..." in _item_detail(rendered["itemLoading"])  # shown at once, filled in when the detail arrives
+    # Another bubble swaps the detail and moves the highlight.
+    swapped = rendered["itemSwapped"]
+    assert 'class="node st-blocked sel"' not in swapped and swapped.count('class="idetail"') == 1 and swapped.count(' sel"') == 1
+    # Clicking the selected bubble again closes it.
+    assert 'class="idetail"' not in rendered["itemClosed"] and ' sel"' not in rendered["itemClosed"]
+    # Opening another task drops the other task's selection.
+    assert 'class="idetail"' not in rendered["itemAfterSwitch"]
+    # The detail does not repeat what task details already show.
+    assert "Task summary" not in detail and "Recent activity on this task" not in detail
+    assert _rows(rendered["itemOpen"])["open-one"].count('aria-expanded="true"') == 1
+
+
+@needs_node
+def test_entry_points_open_the_task_in_the_list_and_scroll_to_it(rendered):
+    opened = rendered["afterTaskClick"]
+    assert 'data-open="closed" open' in opened  # its group was collapsed: revealed
+    assert opened.count('aria-expanded="true"') == 1 and 'class="tbody"' in _rows(opened)["old"]
+    assert any("dev/tasks/old" in s for s in rendered["taskClickScrolls"])
+    assert "cmdbox" in _task_details(rendered["afterResolveTask"]) and rendered["resolveTaskScrolls"]
+    after = rendered["afterResolveSel"]
+    assert 'class="idetail"' in after and "cmdbox" in _item_detail(after)  # Resolve commands expanded as before
 
 
 @needs_node
@@ -373,20 +423,20 @@ def test_recent_activity_and_the_other_lists_are_collapsed_by_default(rendered):
 @needs_node
 def test_every_state_changing_action_is_drawn_and_disabled(rendered):
     """Queue, Cancel run, Retry, New task, Add item, ... are visible and cannot be clicked."""
-    for surface in ("mainOpen", "itemPanel", "taskPanel"):
+    for surface in ("mainOpen", "itemOpen"):
         for tag in _buttons(rendered[surface], "data-later"):
             assert " disabled" in tag and 'aria-disabled="true"' in tag, (surface, tag)
-    drawn = {m for surface in ("mainOpen", "itemPanel") for m in re.findall(r'data-later="(\w+)"', rendered[surface])}
+    drawn = {m for surface in ("mainOpen", "itemOpen") for m in re.findall(r'data-later="(\w+)"', rendered[surface])}
     assert {"queue", "cancel", "additem", "queueall", "recheck"} <= drawn
     assert "arrives in a later increment" in rendered["mainOpen"]
     # With llm-kit unavailable the autonomous controls say why and cannot be clicked.
     assert "Autonomous runs are unavailable" in rendered["banners"]
-    assert 'data-action="queue"' not in rendered["mainOpen"] + rendered["itemPanel"]
+    assert 'data-action="queue"' not in rendered["mainOpen"] + rendered["itemOpen"]
 
 
 @needs_node
 def test_no_rendered_markup_carries_a_style_attribute_or_handler(rendered):
-    for surface in ("main", "mainOpen", "sortBar", "banners", "itemPanel", "itemResolve", "taskPanel", "taskResolve", "select"):
+    for surface in ("main", "mainOpen", "sortBar", "banners", "itemOpen", "itemResolve", "taskResolve", "afterResolveSel", "select"):
         html = rendered[surface]
         assert not re.search(r"\sstyle\s*=", html), surface
         assert not re.search(r"\son[a-z]+\s*=", html), surface
@@ -394,19 +444,19 @@ def test_no_rendered_markup_carries_a_style_attribute_or_handler(rendered):
 
 @needs_node
 def test_resolve_in_claude_code_only_shows_commands_to_copy(rendered):
-    assert "cmdbox" not in rendered["itemPanel"]
-    box = rendered["itemResolve"]
+    assert "cmdbox" not in _item_detail(rendered["itemOpen"])
+    box = _item_detail(rendered["itemResolve"])
     assert "cmdbox" in box and "/task work dev/tasks/open-one" in box and "claude" in box
     assert box.count('data-action="copy"') >= 3
-    for surface in ("itemResolve", "taskResolve"):
-        assert "data-action=\"queue\"" not in rendered[surface] and "POST" not in rendered[surface]
-    assert "/task work dev/tasks/open-one" in rendered["taskResolve"]
+    for surface in (_item_detail(rendered["itemResolve"]), _task_details(rendered["taskResolve"])):
+        assert "data-action=\"queue\"" not in surface and "POST" not in surface
+    assert "/task work dev/tasks/open-one" in _task_details(rendered["taskResolve"])
     assert f"cd {rendered['root']}" in box or f'cd "{rendered["root"]}"' in box  # the concrete checkout it runs in
 
 
 @needs_node
 def test_item_drawer_shows_state_note_plan_section_and_disabled_run_controls(rendered):
-    panel = rendered["itemPanel"]
+    panel = _item_detail(rendered["itemOpen"])
     assert "Waiting for you" in panel and "pick &lt;one&gt; or two" in panel
     assert "Run controls" in panel and "Model, effort and run options arrive in a later increment" in panel
     assert "webapp:open-one" in panel and "Runs in" in panel and rendered["root"] in panel
@@ -419,10 +469,10 @@ def test_item_drawer_shows_state_note_plan_section_and_disabled_run_controls(ren
 def test_with_runs_available_queue_retry_and_recheck_are_live_and_the_rest_stay_disabled(live):
     assert "Autonomous runs are on" in live["banners"]
     assert 'data-action="queue"' in live["mainOpen"] and 'data-action="recheck"' in live["mainOpen"]
-    for surface in ("mainOpen", "itemPanel"):
+    for surface in ("mainOpen", "itemWithRun"):
         for tag in _buttons(live[surface], "data-later"):
             assert " disabled" in tag and 'aria-disabled="true"' in tag, (surface, tag)
-    later = {m for surface in ("mainOpen", "itemPanel") for m in re.findall(r'data-later="(\w+)"', live[surface])}
+    later = {m for surface in ("mainOpen", "itemWithRun") for m in re.findall(r'data-later="(\w+)"', live[surface])}
     assert {"cancel", "additem", "queueall"} <= later and not later & {"queue", "recheck"}
     assert "Now running" in live["main"] and "Title of go-too" in live["main"]  # inside the collapsed activity section
     # A live run counts as in flight on its task's row; a queued one shows the queued chip.
@@ -456,43 +506,20 @@ def test_the_three_actions_post_with_the_revision_the_page_saw(live):
 
 
 @needs_node
-def test_the_run_panel_shows_the_log_tail_and_its_own_controls(live):
-    panel = live["runPanel"]
-    assert "Run log" in panel and "log line" in panel and "run-fail" in panel
-    assert 'data-action="retry"' in panel  # a failed run is retryable from its own panel
+def test_a_run_row_expands_in_place_with_its_result_retry_and_log(live):
+    closed = live["runClosed"]
+    assert "log line" not in closed and 'class="run-detail"' not in closed
+    opened = live["runInline"]
+    row = opened[opened.index('class="run-detail"'):]
+    row = row[:row.index("</tr>")]
+    for text in ("timeout", "reached its limit", "Run log", "log line"):
+        assert text in row, text
+    assert 'data-action="retry"' in row  # a failed run is retryable from its own row
 
 
 @needs_node
-def test_every_task_group_has_the_same_section_header_control(rendered):
-    main = rendered["main"]
-    for key, title in (("open", "Open tasks"), ("deferred", "Deferred tasks"), ("closed", "Closed tasks")):
-        assert re.search(rf'<details class="sec" data-open="{key}"[^>]*><summary>{title} <span class="count">', main), key
-
-
-@needs_node
-def test_closed_and_deferred_rows_are_the_same_compact_row_as_open_rows(rendered):
-    main = rendered["main"]
-    rows = _rows(main)
-    assert "closed-row" not in main and "closed-row" not in CSS and "closedHtml" not in JS
-    def shape(row):  # the row's markup with everything task-specific removed
-        row = re.sub(r'data-(row|key|fk|age)="[^"]*"|title="[^"]*"|aria-expanded="[^"]*"', "", row)
-        return re.sub(r">[^<]*<", "><", row)
-    for stub in ("old", "parked-task"):
-        row = rows[stub]
-        assert 'class="row-main"' in row and 'data-action="toggletask"' in row and row.count("<button") == 1, stub
-        assert 'class="mk' not in row  # no markers: the counts are zero
-        assert '<span class="repo">webapp</span>:' + stub in row
-    assert "closed" in _text(rows["old"]) and "deferred" in _text(rows["parked-task"])
-    columns = lambda row: re.findall(r'class="(chev|pri[^"]*|c-title|c-marks|c-meta)"', row)
-    assert columns(rows["old"])[:1] == ["chev"] and [c.split()[0] for c in columns(rows["old"])] == \
-        [c.split()[0] for c in columns(rows["open-one"])]
-    assert shape(rows["old"]).startswith(shape(rows["calm-p1"])[:60])
-
-
-@needs_node
-def test_one_task_is_expanded_across_the_whole_page_closed_rows_included(rendered):
-    opened = rendered["mainClosedOpened"]
-    assert opened.count('class="tbody"') == 1 and opened.count('aria-expanded="true"') == 1
-    assert 'class="tbody"' in _rows(opened)["old"] and 'class="tbody"' not in _rows(opened)["open-one"]
-    assert "Task details" in _rows(opened)["old"] and "webapp:old" in _text(_rows(opened)["old"])
-    assert "Add item" not in _rows(opened)["old"]  # a closed task is not extended
+def test_the_item_detail_run_log_toggle_shows_the_same_log_inline(live):
+    before = _item_detail(live["itemWithRun"])
+    assert "Latest run" in before and "Run log" in before and "log line" not in before
+    after = _item_detail(live["itemRunLog"])
+    assert "Hide run log" in after and "log line" in after
