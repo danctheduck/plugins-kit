@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bootstrap_lib.code_review.lane_prompts import section_for_quote
+from bootstrap_lib.code_review.sections import section_for_quote
 
 FIXTURE = Path(__file__).parent / "fixtures" / "spiritcrossing_CLAUDE.md"
 
@@ -76,7 +76,7 @@ def test_crlf_file_keeps_its_line_endings():
 
 
 def test_cli_prints_section_and_reports_not_found(capsys):
-    from bootstrap_lib.code_review.lane_prompts import main
+    from bootstrap_lib.code_review.sections import main
 
     assert main(["--claude-md", str(FIXTURE), "--quote", "Never `p4 obliterate` -- destroys history."]) == 0
     out = capsys.readouterr().out
@@ -86,3 +86,36 @@ def test_cli_prints_section_and_reports_not_found(capsys):
     assert capsys.readouterr().out == ""
 
     assert main(["--claude-md", str(FIXTURE) + ".missing", "--quote", "x"]) == 2
+
+
+def test_lane_prompts_still_exports_the_lookup():
+    from bootstrap_lib.code_review import lane_prompts, sections
+
+    assert lane_prompts.section_for_quote is sections.section_for_quote
+
+
+def test_cli_runs_on_an_interpreter_without_pyyaml():
+    """Step 7 runs the CLI under bootstrap's own interpreter, which has no pyyaml.
+
+    lane_prompts imports the mechanical checks and through them yaml, so this
+    module must not import it, directly or through a package import.
+    """
+    import subprocess
+    import sys
+
+    import bootstrap_lib
+
+    lib_root = Path(bootstrap_lib.__file__).resolve().parents[1]
+    code = (
+        "import runpy, sys\n"
+        "sys.modules['yaml'] = None\n"
+        f"sys.path.insert(0, {str(lib_root)!r})\n"
+        f"sys.argv = ['sections', '--claude-md', {str(FIXTURE)!r},"
+        " '--quote', 'Never `p4 obliterate` -- destroys history.']\n"
+        "runpy.run_module('bootstrap_lib.code_review.sections', run_name='__main__')\n"
+    )
+    done = subprocess.run(
+        [sys.executable, "-I", "-c", code], capture_output=True, text=True, encoding="utf-8"
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.startswith("### Submit safety")

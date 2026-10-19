@@ -409,7 +409,7 @@ technique_skill:
             The selected profile's `validator_models[reason]` (from the RESOLVED table fetched in
             step 0) is an ordered list of one or more `{id, effort}` entries, chosen per issue by
             its reason. Read it in declared order.
-            - Build each validator's input. For a `claude_md` issue, run `"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" -m bootstrap_lib.code_review.lane_prompts
+            - Build each validator's input. For a `claude_md` issue, run `"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" -m bootstrap_lib.code_review.sections
               --claude-md <path of the CLAUDE.md that governs the issue's file, from step 4> --quote '<issue.citation>'`
               (single-quote the citation) and pass its stdout (the section containing the quoted
               rule) plus that CLAUDE.md path, never the whole file. When the citation is missing or the command exits 3 (quote not found),
