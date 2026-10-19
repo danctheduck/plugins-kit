@@ -11,8 +11,8 @@ NAMES = ("afk", "autonomous", "recap")
 
 DESCRIPTIONS = {
     "afk": (
-        "Use when the user says afk or steps away while work runs: cover jobs, "
-        "park questions, end with a recap. Do NOT use for a hand-over "
+        "Use when the user says afk or steps away, even with nothing running: "
+        "cover jobs, park questions, recap. Do NOT use for a hand-over "
         "(presence-kit:autonomous)."
     ),
     "autonomous": (
