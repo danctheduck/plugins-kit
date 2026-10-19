@@ -277,6 +277,7 @@ unconfigurable opinion whose test passes is a finding.
   it changes how every verb addresses a scene for a case a rename resolves.
   Registered rather than made configurable: an identity scheme is not a
   preference a team can hold two of at once, and a seam here would mean two
+  incompatible YAML dialects.
 
 - **task-kit's dashboard lists `dev/tasks` tasks only; `tmp/` tasks are not shown.** The
   dashboard identifies a project as a git repository (the `origin` remote URL basename,
@@ -289,7 +290,6 @@ unconfigurable opinion whose test passes is a finding.
   `task move <ref> dev/tasks`. The task CLI (list, review, work) is unaffected and still
   sees `tmp/` tasks. User ruling 2026-10-19: "let's say we don't support tmp/ tasks at all
   in the dashboard I think that's the easiest thing to do".
-  incompatible YAML dialects.
 
 An opinion that FAILS the test needs neither a register entry nor a seam -- it is simply a
 good default. Opinions that PASS and are still unconfigurable are findings, tracked with
