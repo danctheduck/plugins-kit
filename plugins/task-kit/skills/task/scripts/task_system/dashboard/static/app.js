@@ -520,12 +520,13 @@ function renderActivity() {
   return '<details class="sec" data-open="activity"' + (S.open.activity ? ' open' : '') + '><summary>Recent activity <span class="count">' + counts +
     '</span></summary><div class="sec-body">' + (body || '<p class="empty">No runs or dated log entries yet.</p>') + '</div></details>';
 }
+/* Resolve in Claude Code: exactly two boxes, each with its own copy button. */
 function cmdBox(handoff) {
-  var rows = handoff.commands.map(function (c, i) {
-    return '<div class="cmdrow"><span class="n">' + (i + 1) + '</span><code>' + esc(c) + '</code>' +
-      '<button type="button" class="btn sm" data-action="copy" data-text="' + esc(c) + '">' + ic('copy') + 'Copy</button></div>';
+  var rows = handoff.commands.map(function (c) {
+    return '<div class="cmdrow"><div class="cmdmain"><div class="cmdlabel">' + esc(c.label) + '</div><code>' + esc(c.command) + '</code></div>' +
+      '<button type="button" class="btn sm" data-action="copy" data-text="' + esc(c.command) + '">' + ic('copy') + 'Copy</button></div>';
   }).join('');
-  return '<div class="cmdbox">' + rows + '<div class="cmdcap">' + esc(handoff.caption) + '</div></div>';
+  return '<div class="cmdbox">' + rows + '</div>';
 }
 function planBlock(detail) {
   var ps = detail.plan_section;

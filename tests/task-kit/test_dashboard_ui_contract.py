@@ -448,15 +448,17 @@ def test_no_rendered_markup_carries_a_style_attribute_or_handler(rendered):
 
 
 @needs_node
-def test_resolve_in_claude_code_only_shows_commands_to_copy(rendered):
+def test_resolve_in_claude_code_only_shows_two_commands_to_copy(rendered):
     assert "cmdbox" not in _item_detail(rendered["itemOpen"])
-    box = _item_detail(rendered["itemResolve"])
-    assert "cmdbox" in box and "/task work dev/tasks/open-one" in box and "claude" in box
-    assert box.count('data-action="copy"') >= 3
     for surface in (_item_detail(rendered["itemResolve"]), _task_details(rendered["taskResolve"])):
-        assert "data-action=\"queue\"" not in surface and "POST" not in surface
-    assert "/task work dev/tasks/open-one" in _task_details(rendered["taskResolve"])
-    assert f"cd {rendered['root']}" in box or f'cd "{rendered["root"]}"' in box  # the concrete checkout it runs in
+        box = surface[surface.index('class="cmdbox"'):]
+        box = box[:box.index("</div></div></div>") + 18] if "</div></div></div>" in box else box
+        assert box.count('class="cmdrow"') == 2 and box.count('data-action="copy"') == 2  # one copy button per box
+        assert "Start Claude Code on this task" in box and "Or paste into a running session" in box
+        assert f'cd &quot;{rendered["root"]}&quot; &amp;&amp; claude &quot;/task-kit:task work dev/tasks/open-one&quot;' in box
+        assert "<code>/task-kit:task work dev/tasks/open-one</code>" in box
+        assert "cmdcap" not in box and "/task work dev/tasks" not in box.replace("/task-kit:task work", "")  # the old form is gone
+        assert 'data-action="queue"' not in surface and "POST" not in surface
 
 
 @needs_node

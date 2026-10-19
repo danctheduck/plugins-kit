@@ -327,24 +327,41 @@ def dashboard_payload(
     }
 
 
+_SHELL_SPECIAL = set('\\"$`!\n\r')
+
+
+def shell_quote(text: str) -> str:
+    """``text`` as one shell word: double-quoted (so it reads like the commands a person
+    types, and works in cmd.exe too), or POSIX single-quoted when it holds a character
+    that is live inside double quotes (backslash, quote, $, backtick, !) or a newline."""
+    if not any(c in _SHELL_SPECIAL for c in text):
+        return f'"{text}"'
+    return "'" + text.replace("'", "'\\''") + "'"
+
+
+# The Claude Code command that runs the task skill's work verb for a task. The
+# namespaced form is the one that resolves from any project.
+TASK_WORK_COMMAND = "/task-kit:task work"
+
+
 def handoff_commands(task: TaskEntry) -> dict:
-    """The commands that open this task in Claude Code. Shown, never run."""
+    """The two ways to open this task in Claude Code. Shown for copying, never run.
 
-    def quote(path: str) -> str:
-        return f'"{path}"' if any(c.isspace() for c in path) else path
-
+    ``commands`` is exactly two entries: a shell line that starts Claude Code in the
+    task's working root with the work command already queued, and the bare slash
+    command for a session that is already running.
+    """
+    slash = f"{TASK_WORK_COMMAND} {task.id}"
     return {
         "task": task.id,
         "project_root": task.project_root,
         "commands": [
-            f"cd {quote(task.project_root)}",
-            "claude",
-            f"/task work {task.id}",
+            {
+                "label": "Start Claude Code on this task",
+                "command": f"cd {shell_quote(task.project_root)} && claude {shell_quote(slash)}",
+            },
+            {"label": "Or paste into a running session", "command": slash},
         ],
-        "caption": (
-            "Run the first two in a terminal, then paste the third at the Claude prompt. "
-            "Fix it there; the dashboard picks up the change by itself."
-        ),
     }
 
 

@@ -296,15 +296,15 @@ def test_item_detail_returns_the_plan_section_and_handoff(srv, world):
     assert body["plan_section"]["status"] == "found"
     assert body["plan_section"]["body"] == SECTION
     root = str(world / "alpha")
-    assert body["handoff"]["commands"] == [
-        f'cd "{root}"' if " " in root else f"cd {root}", "claude", "/task work dev/tasks/open-one"]
+    assert [c["command"] for c in body["handoff"]["commands"]] == [
+        f'cd "{root}" && claude "/task-kit:task work dev/tasks/open-one"', "/task-kit:task work dev/tasks/open-one"]
     _s, _h, missing = srv.json("GET", _item_path(srv, "alpha", "dev/tasks/open-one", "no-section"))
     assert missing["plan_section"]["status"] == "missing"
 
 
 def test_handoff_endpoint_and_unknown_items(srv):
     status, _h, body = srv.json("GET", _item_path(srv, "alpha", "dev/tasks/open-one", "needs-me", "/handoff"))
-    assert status == 200 and body["commands"][1] == "claude"
+    assert status == 200 and len(body["commands"]) == 2 and body["commands"][1]["command"].startswith("/task-kit:task work ")
     for path in (_item_path(srv, "alpha", "dev/tasks/open-one", "nope"),
                  _item_path(srv, "alpha", "dev/tasks/missing", "needs-me"),
                  "/api/v1/items/0000/x/y"):

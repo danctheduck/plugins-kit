@@ -202,9 +202,9 @@ select:focus-visible, textarea:focus-visible, input.f:focus-visible { outline:2p
 .cmdbox { border:1px solid var(--line); border-radius:7px; background:var(--panel2); margin:8px 0; overflow:hidden; }
 .cmdrow { display:flex; align-items:center; gap:8px; padding:6px 8px; }
 .cmdrow + .cmdrow { border-top:1px solid var(--line); }
-.cmdrow .n { color:var(--muted); font-size:11px; width:14px; }
-.cmdrow code { flex:1; font:12.5px ui-monospace,Consolas,monospace; overflow-wrap:anywhere; }
-.cmdcap { font-size:12px; color:var(--muted); padding:6px 8px; border-top:1px solid var(--line); }
+.cmdmain { flex:1; min-width:0; }
+.cmdlabel { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
+.cmdrow code { display:block; font:12.5px ui-monospace,Consolas,monospace; overflow-wrap:anywhere; }
 .secbody { font-size:13px; white-space:pre-wrap; overflow-wrap:anywhere; }
 .qrow { display:flex; align-items:center; gap:8px; padding:4px 0; border-top:1px solid var(--line); font-size:13px; }
 .qrow:first-of-type { border-top:0; }
