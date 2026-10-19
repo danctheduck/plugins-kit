@@ -43,6 +43,18 @@ CAPABILITIES = {
 }
 
 
+def display_path(path: str) -> str:
+    """A directory as the page shows it: home-relative (``~/Dev/x``) when it is
+    under the user's home, as given otherwise. Rendering only; nothing parses it."""
+    home = os.path.normcase(os.path.normpath(os.path.expanduser("~")))
+    full = os.path.normcase(os.path.normpath(path))
+    if full == home:
+        return "~"
+    if full.startswith(home + os.sep):
+        return "~/" + os.path.normpath(path)[len(home) + 1:].replace(os.sep, "/")
+    return path
+
+
 def section_of(classification: str) -> str:
     if classification in OPEN_CLASSIFICATIONS:
         return "open"
@@ -60,7 +72,9 @@ def needs_records(task: TaskEntry) -> list[dict]:
         return []
     base = {
         "project": task.project_id,
+        "checkout": task.checkout_id,
         "project_name": task.project_name,
+        "stub": task.stub,
         "task": task.id,
         "task_title": core.title or task.stub,
         "last_activity": core.last_activity,
@@ -103,8 +117,11 @@ def _item_json(item: ItemView) -> dict:
 def task_json(task: TaskEntry) -> dict:
     core = task.core
     return {
-        "key": f"{task.project_id}|{task.id}",
+        "key": f"{task.checkout_id}|{task.id}",
         "project": task.project_id,
+        "checkout": task.checkout_id,
+        "repo": task.project_name,
+        "working_root": display_path(task.project_root),
         "id": task.id,
         "stub": task.stub,
         "revision": core.revision,
@@ -120,6 +137,7 @@ def task_json(task: TaskEntry) -> dict:
         ],
         "items": [_item_json(i) for i in core.items],
         "has_items_block": core.has_items_block,
+        "needs": needs_records(task),
         "handoff": handoff_commands(task),
         "findings": {
             "errors": list(core.errors),
@@ -132,7 +150,7 @@ def task_json(task: TaskEntry) -> dict:
 def _matches(task: TaskEntry, query: str) -> bool:
     core = task.core
     haystack = " ".join(
-        [task.stub, core.title or "", task.project_name]
+        [task.stub, core.title or "", task.project_name, f"{task.project_name}:{task.stub}"]
         + [f"{i.title} {i.id}" for i in core.items]
     ).lower()
     return query in haystack
@@ -200,7 +218,9 @@ def dashboard_payload(
                 in_flight.append(
                     {
                         "project": task.project_id,
+                        "checkout": task.checkout_id,
                         "project_name": task.project_name,
+                        "stub": task.stub,
                         "task": task.id,
                         "task_title": task.core.title or task.stub,
                         "item": item.id,
@@ -217,7 +237,9 @@ def dashboard_payload(
                 {
                     "timestamp": update.timestamp,
                     "project": task.project_id,
+                    "checkout": task.checkout_id,
                     "project_name": task.project_name,
+                    "stub": task.stub,
                     "task": task.id,
                     "task_title": task.core.title or task.stub,
                     "detail": update.detail,
@@ -231,7 +253,7 @@ def dashboard_payload(
             {
                 "id": entry.id,
                 "name": entry.name,
-                "root": entry.root,
+                "checkouts": [display_path(r) for r in entry.roots],
                 "counts": _counts(list(entry.tasks)),
             }
         )
@@ -255,8 +277,10 @@ def dashboard_payload(
     recent_json: list[dict] = []
     revision = inventory.revision
     if runtime is not None:
-        names = {p.id: p.name for p in all_projects}
-        shown = {p.id for p in selected}
+        # A run belongs to the checkout it executes in (its project_id is the
+        # checkout id), so match on the checkout, not on the repository.
+        names = {t.checkout_id: t.project_name for p in all_projects for t in p.tasks}
+        shown = {t.checkout_id for p in selected for t in p.tasks}
         latest: dict[tuple, dict] = {}
         for run in runtime["runs"]:  # newest first
             if run.project_id not in shown:
@@ -270,7 +294,7 @@ def dashboard_payload(
         runs_json.sort(key=lambda r: r["seq"])
         for task_row in task_rows:
             for item_row in task_row["items"]:
-                item_row["run"] = latest.get((task_row["project"], task_row["id"], item_row["id"]))
+                item_row["run"] = latest.get((task_row["checkout"], task_row["id"], item_row["id"]))
         revision = hashlib.sha256(
             json.dumps([inventory.revision, runtime["capabilities"], runs_json, recent_json], sort_keys=True).encode("utf-8")
         ).hexdigest()[:16]
@@ -338,7 +362,13 @@ def item_detail(task: TaskEntry, item_id: str) -> dict | None:
     truncated = len(body) > PLAN_BODY_LIMIT
     return {
         "schema": SCHEMA,
-        "project": {"id": task.project_id, "name": task.project_name, "root": task.project_root},
+        "project": {
+            "id": task.project_id,
+            "name": task.project_name,
+            "checkout": task.checkout_id,
+            "root": task.project_root,
+            "working_root": display_path(task.project_root),
+        },
         "task": {
             "id": task.id,
             "stub": task.stub,
@@ -374,6 +404,7 @@ def run_json(run, project_name: str) -> dict:
         "id": run.id,
         "seq": run.seq,
         "project": run.project_id,
+        "checkout": run.project_id,
         "project_name": project_name,
         "task": run.task_ref,
         "item": run.item_id,

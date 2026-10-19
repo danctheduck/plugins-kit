@@ -2,6 +2,8 @@
 // prints what it rendered as JSON. Used by test_dashboard_ui_contract.py.
 // Usage: node ui_harness.js <app.js> <dashboard.json> <item-detail.json> <item-key> <task-key>
 //        [<queue-item-key> <recheck-item-key> <retry-key>]
+// <task-key> must be an open task; the harness derives a second open task from the payload to
+// exercise the one-at-a-time expansion.
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -10,22 +12,28 @@ const payload = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
 const detail = JSON.parse(fs.readFileSync(detailPath, 'utf8'));
 
 function makeEl(id) {
-  return {
+  const el = {
     id, innerHTML: '', textContent: '', value: '', className: '', attrs: {}, scrollTop: 0,
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
-    classList: { toggle() {} },
+    classes: new Set(),
+    classList: {
+      toggle(name, on) { if (on === undefined ? !this.owner.classes.has(name) : on) this.owner.classes.add(name); else this.owner.classes.delete(name); },
+    },
     addEventListener() {},
     querySelectorAll() { return []; },
     style: { setProperty() {} },
   };
+  el.classList.owner = el;
+  return el;
 }
 const els = {};
-['serverChip', 'status', 'needsCount', 'banners', 'projectSelect', 'main', 'panel', 'scrim', 'needsBtn', 'search']
+['serverChip', 'status', 'banners', 'projectSelect', 'main', 'panel', 'scrim', 'search', 'sortSeg', 'layout']
   .forEach((id) => { els[id] = makeEl(id); });
 const docListeners = {};
 const document = {
   getElementById: (id) => els[id],
+  querySelector: () => null,
   addEventListener: (t, f) => { (docListeners[t] = docListeners[t] || []).push(f); },
   visibilityState: 'visible',
   createElement: () => makeEl('x'),
@@ -64,10 +72,36 @@ function click(attrs) {
   report.banners = els.banners.innerHTML;
   report.status = els.status.innerHTML;
   report.select = els.projectSelect.innerHTML;
-  report.overview = els.panel.innerHTML;
+  report.sortBar = els.sortSeg.innerHTML;
+  report.panelInitial = els.panel.innerHTML;
+  report.layoutInitial = [...els.layout.classes];
+  report.sorted = {};
+  for (const id of ['priority', 'needs', 'progress', 'latest']) {
+    click({ 'data-action': 'sort', 'data-v': id });
+    report.sorted[id] = { main: els.main.innerHTML, bar: els.sortSeg.innerHTML };
+  }
+  click({ 'data-action': 'sort', 'data-v': 'priority' });
+  const other = payload.tasks.filter((t) => t.section === 'open' && t.key !== taskKey)[0].key;
+  click({ 'data-action': 'toggletask', 'data-key': taskKey });
+  report.mainOpen = els.main.innerHTML;
+  const closedKey = payload.tasks.filter((t) => t.section === 'closed')[0].key;
+  click({ 'data-action': 'toggletask', 'data-key': closedKey });
+  report.mainClosedOpened = els.main.innerHTML;
+  click({ 'data-action': 'toggletask', 'data-key': other });
+  report.mainSwitched = els.main.innerHTML;
+  report.otherKey = other;
+  click({ 'data-action': 'toggletask', 'data-key': other });
+  report.mainCollapsed = els.main.innerHTML;
+  click({ 'data-action': 'toggletask', 'data-key': taskKey });
   click({ 'data-action': 'select', 'data-key': itemKey });
   await flush();
   report.itemPanel = els.panel.innerHTML;
+  report.layoutSelected = [...els.layout.classes];
+  report.mainSelected = els.main.innerHTML;
+  click({ 'data-action': 'toggletask', 'data-key': other });
+  report.layoutAfterSwitch = [...els.layout.classes];
+  click({ 'data-action': 'select', 'data-key': itemKey });
+  await flush();
   click({ 'data-action': 'resolve', 'data-key': itemKey });
   report.itemResolve = els.panel.innerHTML;
   click({ 'data-action': 'selecttask', 'data-key': taskKey });
@@ -76,6 +110,7 @@ function click(attrs) {
   report.taskResolve = els.panel.innerHTML;
   click({ 'data-action': 'closepanel' });
   report.afterClose = els.panel.innerHTML;
+  report.layoutClosed = [...els.layout.classes];
   if (queueKey) {
     click({ 'data-action': 'queue', 'data-key': queueKey });
     await flush();
