@@ -215,7 +215,7 @@
     {
       "name": "task-kit",
       "description": "Provides the task skill (a file-backed task-folder system with a CLI for creating, listing, working, closing, archiving, and moving task folders and task_list references) and the task-kit dashboard, a local browser view over every configured project's tasks that can also run one queued item at a time as an unattended Claude job when llm-kit is available.",
-      "version": "0.5.0",
+      "version": "0.6.2",
       "author": {
         "name": "Christina"
       },
@@ -230,7 +230,7 @@
     {
       "name": "presence-kit",
       "description": "Is the user at the keyboard, away, or has the work been handed over, and how should Claude wait, ask and recap in each case? Sits above bootstrap, which provisions the environment, because presence is a policy question bootstrap cannot answer for any session.",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "author": {
         "name": "Christina"
       },
