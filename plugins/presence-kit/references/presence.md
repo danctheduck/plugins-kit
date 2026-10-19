@@ -24,7 +24,8 @@ each names the behavior ids that produced it. The UserPromptSubmit prompt hook
 is not part of this release; it arrives in a later one. Until then
 `departure_words` and the prompt-hook half of `afk-on-departure` and
 `recap-on-return` have no effect, and no hook line announces a departure word
-or a return before you answer.
+or a return before you answer. The Stop hook still detects a return at the end
+of the turn and records it (section Return).
 
 ## Presence
 
