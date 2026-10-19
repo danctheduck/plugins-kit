@@ -203,11 +203,11 @@ Without `--user`/`--project`, the target is the state's own `write_target`
 the converging pass, the selection is still written and reported, but the
 command exits 1 and says to run `bootstrap run` manually.
 
-When the new selection changes this project's effective profile (another
+When the selection being applied changes this project's effective profile (another
 profile, or `none`), `set` also writes `uninstall: true` entries into
 `<project>/.claude/bootstrap.local.json` for the plugins the previous profile
-required or recommended that the new selection does not list, and drops the
-entries for plugins the new profile requires or recommends (rules:
+required or recommended that the selection being applied does not list, and drops the
+entries for plugins the profile being switched to requires or recommends (rules:
 manifest-reference.md, "Switching profiles retires plugins"). The entries share
 the selection's atomic write when that file is the target; with `--user` (or a
 user-level `write_target`) they go to the project file in their own write. The
@@ -269,8 +269,8 @@ writes the selection and the answers in ONE atomic replace of
 lock, then runs the same pass `bootstrap run` runs, streaming its output. The
 pass acts on the recorded answers: it installs wanted recommended plugins and
 uninstalls unwanted not-recommended ones. The same write also adds the
-`uninstall: true` entries a profile switch needs and drops the ones the new
-profile wants (see `set` above); the pass carries them out and the CLI prints
+`uninstall: true` entries a profile switch needs and drops the ones the profile being
+switched to wants (see `set` above); the pass carries them out and the CLI prints
 which entries it wrote or removed. `--answers` is a JSON object or the path of a
 file holding one:
 
