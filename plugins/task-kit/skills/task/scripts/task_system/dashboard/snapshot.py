@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 
+from . import findings as findings_mod
 from . import plan_sections
 from .inventory import (
     NEEDS_CLASSIFICATIONS,
@@ -141,8 +142,10 @@ def task_json(task: TaskEntry) -> dict:
         "handoff": handoff_commands(task),
         "findings": {
             "errors": list(core.errors),
-            "warnings": list(core.warnings),
+            "warnings": findings_mod.gating(core.warnings),
             "item_errors": list(core.item_errors),
+            # Shown as information, never a blocker (see findings.py).
+            "info": findings_mod.informational(core.warnings),
         },
     }
 

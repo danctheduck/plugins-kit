@@ -79,6 +79,11 @@ def test_the_project_filter_is_a_dropdown_and_the_needs_filter_chip_is_replaced_
     assert "needsBtn" not in HTML and "fchip" not in HTML and "needsfilter" not in JS and "needs=1" not in JS
 
 
+def test_the_uncommitted_folder_warning_is_shown_as_information_not_as_a_finding():
+    assert "Not a blocker" in JS and "f.info" in JS
+    assert not re.search(r"concat\(f\.warnings, f\.item_errors, f\.info", JS)  # info is never counted as a finding
+
+
 def test_there_is_no_side_panel_anywhere():
     for text in (HTML, JS, CSS):
         assert not re.search(r"\bid=\"(panel|scrim|layout)\"|<aside|has-panel|\.panel\b|\.scrim\b|slide-?over", text), text[:40]

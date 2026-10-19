@@ -38,6 +38,7 @@ from typing import Callable
 import yaml
 
 from ..validate import validate_ref
+from . import findings as findings_mod
 from . import floor, proctree, redact
 from .blocker import BlockOutcome, concise, record_block
 from .config import DashboardConfig, DashboardConfigError, load_config
@@ -256,7 +257,7 @@ class Scheduler:
         if expected_revision is not None and current != expected_revision:
             raise QueueRefused(409, "stale-revision", "the task changed since this page last loaded it", current_revision=current)
         result = validate_ref(task_ref, Path(project_root))
-        findings = list(result.errors) + list(result.warnings)
+        findings = findings_mod.gating_of(result)
         plan = (folder / "plan.md").read_text(encoding="utf-8") if (folder / "plan.md").is_file() else ""
         blocked_items = [i.get("id") for i in (raw_items(plan) or []) if i.get("state") == "blocked-user"]
         problems = [Reason("validation", f) for f in findings] + [

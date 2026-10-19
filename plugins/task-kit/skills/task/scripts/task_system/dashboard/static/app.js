@@ -427,10 +427,14 @@ function nodeHtml(task, item) {
     '<div class="nlabel" title="' + esc(item.title) + '">' + esc(item.title) + '</div><div class="nsub">' + sub + '</div></div>';
 }
 function findingsHtml(task) {
-  var f = task.findings, all = f.errors.concat(f.warnings, f.item_errors);
-  if (!all.length) return '';
-  return '<details class="findings"><summary>' + all.length + ' validation finding(s)</summary><ul>' +
-    all.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul></details>';
+  var f = task.findings, all = f.errors.concat(f.warnings, f.item_errors), h = '';
+  if (all.length) {
+    h += '<details class="findings"><summary>' + all.length + ' validation finding(s)</summary><ul>' +
+      all.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul></details>';
+  }
+  // Information only: the dashboard never commits, so this does not block queueing, acceptance or Re-check.
+  (f.info || []).forEach(function (m) { h += '<p class="hint finfo">Not a blocker: ' + esc(m) + '</p>'; });
+  return h;
 }
 function markersHtml(task) {
   var need = needN(task), run = runN(task), q = queN(task), h = '';
