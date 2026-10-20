@@ -30,6 +30,18 @@ from pathlib import Path
 # them, which git itself would otherwise do via `git remote set-url`.
 _PATH_BEARING = ("config", "FETCH_HEAD", "ORIG_HEAD")
 
+# Path-bearing files that live anywhere in the tree rather than directly inside
+# a git directory. `state.json` is the machine-local convergence ledger
+# (data/state.json): once a tree has been through a converge it records
+# destination paths under the tree.
+_PATH_BEARING_ANYWHERE = ("state.json",)
+
+# Path components whose files are never rewritten and never inspected: git's
+# object store holds compressed blobs, which cannot spell a path, and the
+# reflogs under `logs` only narrate history (`clone: from <url>`), so a stale
+# path there is inert.
+_INERT_PARTS = frozenset({"objects", "logs"})
+
 
 def _forms(path: Path):
     """Every spelling of `path` that can appear in a git metadata file, by kind.
@@ -88,8 +100,24 @@ def copy_git_tree(template: Path, dest: Path) -> Path:
             for hook in hooks.iterdir():
                 if hook.is_file():
                     _rewrite_paths(hook, template, dest)
+    for name in _PATH_BEARING_ANYWHERE:
+        for candidate in dest.rglob(name):
+            if candidate.is_file():
+                _rewrite_paths(candidate, template, dest)
     _assert_detached(template, dest)
     return dest
+
+
+def replace_git_tree(template: Path, dest: Path) -> Path:
+    """Swap whatever is at `dest` for a fresh `copy_git_tree` of `template`.
+
+    For a test that has already been handed a tree (the `adding` fixture) and
+    wants it in a later, prebuilt state: every path the test holds stays valid
+    because `dest` keeps its location.
+    """
+    if dest.exists():
+        shutil.rmtree(dest)
+    return copy_git_tree(template, dest)
 
 
 def _assert_detached(template: Path, dest: Path) -> None:
@@ -98,10 +126,16 @@ def _assert_detached(template: Path, dest: Path) -> None:
     A missed rewrite does not error -- it makes the copy operate on the
     template (pushing into its remote, say), so tests silently share state and
     pass or fail depending on order. Cheap to check, unbounded to debug.
+
+    The check reads EVERY text file in the copy, not just the `_PATH_BEARING`
+    names the rewrite knows: a check keyed on the same list as the rewrite is
+    green whenever the rewrite forgot a file, which is the only case it is for.
     """
     forms = _forms(template)
     for candidate in dest.rglob("*"):
-        if not candidate.is_file() or candidate.name not in _PATH_BEARING:
+        if not candidate.is_file() or _INERT_PARTS.intersection(
+            candidate.relative_to(dest).parts
+        ):
             continue
         try:
             text = candidate.read_text(encoding="utf-8")
