@@ -13,7 +13,7 @@ import urllib.parse
 import psutil
 import pytest
 from dashboard_support import FakeEdge, Running, dashboard_world, make_task, runner_environment
-from rig_support import wait_for
+from rig_support import processes_running, wait_for
 
 from task_system.dashboard import proctree, runtime, scheduler
 from task_system.dashboard.inventory import project_id_for
@@ -140,6 +140,13 @@ def teardown_rig(rig: AuthoringRig) -> None:
             proc.kill()
         proc.wait()
     rig.srv.stop()
+    # Killing the runner leaves the job command it started (a stand-in model, say) running as an orphan:
+    # nothing a test started outlives it, as rig_support.Rig.close does.
+    for proc in processes_running(str(rig.tmp_path)):
+        try:
+            proc.kill()
+        except psutil.NoSuchProcess:
+            pass
 
 
 @pytest.fixture
