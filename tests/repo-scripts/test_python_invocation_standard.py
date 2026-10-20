@@ -662,6 +662,21 @@ _SHELL_ALLOWLIST: dict[str, AllowlistEntry] = {
         "deliberately avoids uv per its own documented reason"),
 }
 
+_PYTHON_ALLOWLIST.update({
+    "plugins/task-kit/skills/task/scripts/task_system/dashboard/floor.py": AllowlistEntry(
+        '"uv run python scripts/publish.py"',
+        "string literal in the disallowed-tools floor list: a command the "
+        "unattended dashboard worker is FORBIDDEN to run, not a spawn"),
+    "plugins/task-kit/skills/task/scripts/task_system/dashboard/scheduler.py": AllowlistEntry(
+        "py = python or sys.executable"[:0] + "self._python = python or sys.executable",
+        "parameter name `python` (an interpreter path argument defaulting to "
+        "sys.executable), not a bare interpreter spawn"),
+    "plugins/task-kit/skills/task/scripts/task_system/dashboard/translate.py": AllowlistEntry(
+        "py = python or sys.executable",
+        "local/parameter names `py` and `python` (interpreter path defaulting "
+        "to sys.executable), not a bare interpreter spawn"),
+})
+
 # llm-kit is a dev-only plugin whose source master does not carry, so its launcher
 # entries are present only where its files are tracked (the staleness test and the
 # scan both read git ls-files); an entry for an untracked or absent file would be stale.
