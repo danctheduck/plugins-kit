@@ -150,7 +150,7 @@
     {
       "name": "content-pipeline-kit",
       "description": "Frozen legacy provider. Use llm-kit for the batch content pipeline library, skills, agent, and workflow.",
-      "version": "0.37.0",
+      "version": "0.37.1",
       "author": {
         "name": "Christina"
       },
