@@ -19,6 +19,7 @@ process with its own `tmp_path_factory` basetemp, so N workers build N private
 templates at N distinct paths; no path and no write is shared.
 """
 
+import os
 import shutil
 import stat
 import subprocess
@@ -108,6 +109,24 @@ def copy_git_tree(template: Path, dest: Path) -> Path:
     return dest
 
 
+def _clear_read_only_and_retry(function, path, excinfo) -> None:
+    """`shutil.rmtree` error handler: git writes objects and packs 0444.
+
+    `copy_git_tree` preserves that mode, and on Windows it is the read-only
+    attribute, which makes `rmtree` raise PermissionError. Clear the bit and
+    retry the call that failed; any other failure is raised as it was.
+    """
+    if not isinstance(excinfo, PermissionError):
+        raise excinfo
+    os.chmod(path, stat.S_IWRITE)
+    function(path)
+
+
+def remove_git_tree(path: Path) -> None:
+    """Delete a tree that holds real git objects, read-only files included."""
+    shutil.rmtree(path, onexc=lambda function, target, error: _clear_read_only_and_retry(function, target, error))
+
+
 def replace_git_tree(template: Path, dest: Path) -> Path:
     """Swap whatever is at `dest` for a fresh `copy_git_tree` of `template`.
 
@@ -116,7 +135,7 @@ def replace_git_tree(template: Path, dest: Path) -> Path:
     because `dest` keeps its location.
     """
     if dest.exists():
-        shutil.rmtree(dest)
+        remove_git_tree(dest)
     return copy_git_tree(template, dest)
 
 

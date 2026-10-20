@@ -1,14 +1,16 @@
 """Actual fetched Git views, public authoring effects and stale-read controls."""
 
 import json
+import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 
 import pytest
 
 from sk_publish import fixture_commit_and_push
-from sk_testlib import replace_git_tree
+from sk_testlib import remove_git_tree, replace_git_tree
 
 from secrets_kit import SecretsError, agefile
 from secrets_kit import converge as convergence
@@ -180,6 +182,24 @@ def test_a_served_configured_state_is_detached_from_its_template(adding):
     (adding.plain / 'second.txt').unlink()
     assert (template / 'plain/second.txt').is_file()
     assert str(template) not in (adding.data_dir / 'state.json').read_text()
+
+
+def test_removing_a_tree_survives_read_only_git_objects(tmp_path, monkeypatch):
+    """Windows refuses to delete a read-only file; git writes its objects 0444."""
+    tree = tmp_path / 'tree'
+    (tree / 'objects').mkdir(parents=True)
+    packed = tree / 'objects' / 'pack.idx'
+    packed.write_bytes(b'dummy')
+    packed.chmod(0o444)
+    unlink = os.unlink
+    def windows_unlink(path, *, dir_fd=None):
+        target = os.stat(path, dir_fd=dir_fd)
+        if not target.st_mode & stat.S_IWRITE:
+            raise PermissionError(13, 'read-only', str(path))
+        return unlink(path, dir_fd=dir_fd)
+    monkeypatch.setattr(os, 'unlink', windows_unlink)
+    remove_git_tree(tree)
+    assert not tree.exists()
 
 
 def _publish_other_metadata(adding):
