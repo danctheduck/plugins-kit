@@ -317,12 +317,14 @@ once to start a task does not qualify.
 technique-wrapper skill. It keeps `skill-type: technique-skill`, and its
 SKILL.md holds only what the agent needs on EVERY firing before it can act:
 
-- frontmatter, an identity sentence, the arguments, and a contract block
-  whose technique has ONE step: follow the procedure document in
-  `references/`, reading it first unless its text is already in context this
-  session. The contract floor allows a one-step technique (section 6,
-  technique-skill row);
-- one gotcha or `anti_patterns` record, as the floor requires.
+- frontmatter, one or two sentences saying what the skill does, the arguments,
+  and ONE numbered step: follow the procedure document in `references/`,
+  reading it first unless its text is already in context this session;
+- no YAML contract block. The stub is plain prose, so audit takes the
+  legacy-markdown route: `yaml_contract_block` reports judgment-required
+  (never FAIL) and the legacy technique rows apply, which is why the single
+  step is a numbered list item. A stub also names the other reference files
+  its procedure uses, so each has a direct load-graph edge from SKILL.md.
 
 The procedure itself, with its ordered steps and tool commands, and
 everything those steps consult (output templates, dispatch tables, worked

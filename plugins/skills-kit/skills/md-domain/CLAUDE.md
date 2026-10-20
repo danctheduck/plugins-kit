@@ -811,9 +811,11 @@ claude_md:
         chooses to make and can skip. The first design kept ordered steps in the
         body and moved only consulted content out; the owner then asked for the
         technique itself to move, naming the result a technique-wrapper skill.
-        It stays skill-type technique-skill because the contract floor permits a
-        one-step technique, and a new type value would have meant a schema
-        registry change nobody needed.
+        It stays skill-type technique-skill, and a new type value would have meant
+        a schema registry change nobody needed. The stub is plain prose with one
+        numbered step and no YAML contract block, at the owner's request ("skip
+        the whole yaml structure thing"); audit takes the legacy-markdown route
+        for it, so the missing block is judgment-required and never a FAIL.
         The cost, stated in 3.3: the procedure in a reference loses the schema's
         mechanical step validation (it is audited as a skill reference document,
         section 10), and the first firing pays one extra Read. 3.1's CRP-fail

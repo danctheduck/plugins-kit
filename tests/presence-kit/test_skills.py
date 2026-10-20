@@ -33,7 +33,11 @@ MODEL_REFERENCE = "${CLAUDE_PLUGIN_ROOT}/references/presence.md"
 # procedure document in references/ (skill-standards 3.3). The commands live in
 # the procedure, a reference document, where the harness substitutes nothing, so
 # they name the plugin root in the agent-typed form.
-WRAPPERS = {"recap": "recap-procedure.md"}
+WRAPPERS = {
+    "afk": "afk-procedure.md",
+    "autonomous": "autonomous-procedure.md",
+    "recap": "recap-procedure.md",
+}
 WRAPPER_ROOT = '"${PRESENCE_KIT_ROOT:?presence-kit is not provisioned}/scripts/presence.py"'
 HARNESS_ROOT = '"${CLAUDE_PLUGIN_ROOT}/scripts/presence.py"'
 CONFIG_COMMAND = (
@@ -206,6 +210,12 @@ def test_commands_use_the_interpreter_variable_and_harness_root(name):
 
 @pytest.mark.parametrize("name", NAMES)
 def test_contract_block_parses_with_ordered_steps(name):
+    if name in WRAPPERS:
+        # a wrapper is a short prose stub with one numbered step and no contract block
+        _, body = _split(name)
+        assert "```yaml" not in body
+        assert re.search(r"(?m)^1\. Follow ", body)
+        return
     contract = _contract(name)["technique_skill"]
     assert contract["techniques"]
     for technique in contract["techniques"]:
@@ -228,7 +238,7 @@ def test_skills_are_named_in_full_plugin_skill_form(name):
     ),
 )
 def test_by_flag_paths(name, state_set, behavior):
-    _, body = _split(name)
+    body = _steps_text(name)
     # The two commands are separate lines, so one path cannot be dropped
     # while the other keeps the test green.
     user_lines = [l for l in body.splitlines() if f"{state_set} --by user" in l]
@@ -241,18 +251,18 @@ def test_by_flag_paths(name, state_set, behavior):
 
 
 def test_autonomous_passes_the_goal_and_can_revoke():
-    _, body = _split("autonomous")
+    body = _steps_text("autonomous")
     assert body.count('--goal "<granted goal>"') == 2
     assert "state set normal" in body
 
 
 def test_afk_uses_the_configured_waiter_model():
-    _, body = _split("afk")
+    body = _steps_text("afk")
     assert "values.waiter_model" in body
 
 
 def test_autonomous_uses_the_configured_waiter_model():
-    _, body = _split("autonomous")
+    body = _steps_text("autonomous")
     assert "values.waiter_model" in body
 
 
@@ -300,6 +310,8 @@ def test_recap_ports_the_awesome_kit_phases():
             "recap",
             ("recap-procedure.md", "recap-rows.md", "recap-templates.md", "recap-interview.md"),
         ),
+        ("afk", ("afk-procedure.md",)),
+        ("autonomous", ("autonomous-procedure.md",)),
     ),
 )
 def test_repeat_invoked_skill_body_points_at_its_references(name, files):
@@ -311,6 +323,8 @@ def test_repeat_invoked_skill_body_points_at_its_references(name, files):
     """
     _, body = _split(name)
     assert sorted(_references(name)) == sorted(files)
+    # the stub stays short: that is the point of the form
+    assert len(body.split()) <= 150, f"{name}: stub is {len(body.split())} words"
     # the wrapper's body points only at its procedure; the procedure points at the rest
     assert f"${{CLAUDE_SKILL_DIR}}/references/{WRAPPERS[name]}" in body
     procedure = _steps_text(name)
@@ -336,23 +350,22 @@ def test_recap_names_its_behavior_ids_and_state_reads():
 
 
 def test_afk_undoes_a_hook_set_afk_when_the_user_is_not_leaving():
-    """K3: the prompt hook sets afk itself; the skill's step 2 is the undo branch (`state set present`)."""
-    steps = _contract("afk")["technique_skill"]["techniques"][0]["steps"]
-    step = steps[1]
-    assert step["n"] == 2
-    assert step["tool"] == (
-        '"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" "${CLAUDE_PLUGIN_ROOT}/scripts/presence.py" '
-        "state set present"
-    )
-    action = " ".join(step["action"].split())
+    """K3: the prompt hook sets afk itself; step 2 of the procedure is the undo branch (`state set present`)."""
+    procedure = _steps_text("afk")
+    step = procedure[procedure.index("2. **Decide whether to continue."):procedure.index("3. **Only when")]
+    action = " ".join(step.split())
     assert 'beginning "set the user afk" or "kept the user afk"' in action
     assert "id `afk-on-departure`" in action
     assert "the user is not leaving" in action and "undo it" in action
-    # the undo is the only place the skill unsets afk
-    _, body = _split("afk")
-    assert len([l for l in body.splitlines() if "state set present" in l]) == 1
-    # the config still runs first and the skill keeps its two enter paths
-    assert body.index(CONFIG_COMMAND) < body.index("state set present")
+    # the undo is the only place the skill unsets afk, and it sits in step 2
+    commands = [l for l in procedure.splitlines() if "state set present" in l]
+    assert len(commands) == 1
+    assert "state set present" in step
+    # the config still runs first
+    config = CONFIG_COMMAND.replace(HARNESS_ROOT, WRAPPER_ROOT)
+    assert procedure.index(config) < procedure.index("state set present")
+    # and the stub itself carries no command, so the undo cannot be reached around the procedure
+    assert "state set present" not in _split("afk")[1]
 
 
 def test_afk_description_is_unchanged_by_the_prompt_hook():
