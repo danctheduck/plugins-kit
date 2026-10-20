@@ -279,7 +279,10 @@ def _run_guarded_consumer(tmp_path: Path, *, inherited_flag: "str | None"):
     redirected = tmp_path / "data-dev"
     plugin_venv = redirected / "plugins-kit" / "git-kit" / ".venv"
     # A real, empty venv: the re-exec target must be an executable that starts.
-    venv.create(plugin_venv, with_pip=False)
+    # Symlinked on POSIX, as uv and bootstrap build it: EnvBuilder's default copies
+    # the interpreter binary, and a copied standalone python (macOS, the
+    # @executable_path/../lib libpython rpath) cannot find its library from bin/.
+    venv.EnvBuilder(with_pip=False, symlinks=os.name != "nt").create(plugin_venv)
     script = tmp_path / "consumer.py"
     script.write_text(
         "import sys\n"
