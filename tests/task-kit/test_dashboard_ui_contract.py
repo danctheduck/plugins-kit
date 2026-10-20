@@ -604,6 +604,8 @@ AUTHORING_CAPABILITIES = {
             "codex": {"available": False, "entry": "sol", "efforts": [], "reason": "Codex workers are refused until a live test shows the floor"},
         },
     },
+    "subagents": {"claude": {"state": "off", "reason": "denied by the dashboard floor",
+                             "cli_check": {"state": "unobserved", "detail": "no init event in the baseline run (timeout)"}}},
 }
 
 
@@ -615,12 +617,24 @@ def authoring(tmp_path_factory):
     snap = Inventory(parents=(devroot,), min_interval=0).snapshot()
     cid = _checkout(snap, "open-one")
     queued = _run_row(7, "run-q", cid, "queued", "go-too")
-    payload = snapshot.dashboard_payload(snap, runtime={"capabilities": AUTHORING_CAPABILITIES, "runs": [queued], "held": set(), "run_active": set()})
+    waiting = {"code": "no-slot", "detail": "2 of 2 checkouts are running"}
+    payload = snapshot.dashboard_payload(snap, runtime={"capabilities": AUTHORING_CAPABILITIES, "runs": [queued], "held": set(), "run_active": set(),
+                                                         "queue_view": {"run-q": (1, waiting)},
+                                                         "helpers_by_checkout": {cid: ["local-qwen", "ghost"]}})
     task = snap.find_task(cid, "dev/tasks/open-one")
     scenario = {
         "taskKey": f"{cid}|dev/tasks/open-one", "availItem": f"{cid}|dev/tasks/open-one|go",
         "deferredItem": f"{cid}|dev/tasks/open-one|later", "queuedItem": f"{cid}|dev/tasks/open-one|go-too", "queuedRun": "run-q",
         "detail": snapshot.item_detail(task, "go"),
+        "helperCalls": [
+            {"id": 4, "helper": "local-qwen", "state": "completed", "status": "completed", "entry": "or-qwen",
+             "reserved_at": "2026-10-20T10:00:00.000000+00:00", "ended_at": "2026-10-20T10:00:02.500000+00:00",
+             "input_chars": 120, "output_chars": 300, "usage": {"input_tokens": 30, "output_tokens": 70}, "reported_cost_usd": 0.0021,
+             "detail": None},
+            {"id": 5, "helper": "ghost", "state": "refused", "status": None, "entry": None, "reserved_at": "2026-10-20T10:00:03.000000+00:00",
+             "ended_at": None, "input_chars": 9, "output_chars": None, "usage": None, "reported_cost_usd": None,
+             "detail": "budget-spent: 3 of 3 calls for ghost are spent in this run"},
+        ],
     }
     (tmp / "payload.json").write_text(json.dumps(payload), encoding="utf-8")
     (tmp / "scenario.json").write_text(json.dumps(scenario), encoding="utf-8")
@@ -734,6 +748,15 @@ def test_run_options_of_an_available_item_ride_on_queue(authoring):
 
 
 @needs_node
+def test_a_queued_entry_says_why_it_waits_and_the_run_controls_say_sub_agents_are_off(authoring):
+    queued = authoring["optionsQueued"]
+    assert "Queued #1" in queued and "waiting: 2 of 2 checkouts are running" in queued
+    assert authoring["payload"]["runs"][0]["waiting"] == {"code": "no-slot", "detail": "2 of 2 checkouts are running"}
+    assert 'data-subagents="off"' in queued and "Native sub-agents: off (denied)." in queued
+    assert "Not observed: no init event in the baseline run (timeout)." in queued  # the check did not conclude: said so
+
+
+@needs_node
 def test_a_queued_entry_shows_its_place_its_options_and_saves_a_change_at_once(authoring):
     queued = authoring["optionsQueued"]
     assert "Queued #1" in queued and 'data-action="remove"' in queued and "Remove from queue" in queued
@@ -764,3 +787,22 @@ def test_removed_has_a_label_and_the_authoring_markup_has_no_style_or_handler(au
         assert not re.search(r"\sstyle\s*=", html), surface
         assert not re.search(r"\son[a-z]+\s*=", html), surface
         assert "<form" not in html, surface  # CSP form-action 'none': nothing submits
+
+
+@needs_node
+def test_the_run_controls_name_the_helpers_offered_in_the_repository_and_a_run_lists_its_calls(authoring):
+    queued = authoring["optionsQueued"]
+    assert 'data-helpers="offered"' in queued and "Endpoint helpers for this repository: local-qwen, ghost." in queued
+    rows = {t["id"]: t for t in authoring["payload"]["tasks"]}  # offered per checkout: every task there, no task elsewhere
+    assert rows["dev/tasks/open-one"]["helpers"] == ["local-qwen", "ghost"]
+    assert all(t["helpers"] == (["local-qwen", "ghost"] if t["checkout"] == authoring["cid"] else []) for t in rows.values())
+    calls = authoring["runHelperCalls"]
+    assert "Endpoint helper calls" in calls
+    assert "local-qwen (or-qwen) - answered - 2.5 s - 120 characters in, 300 out - 100 tokens - $0.0021" in calls
+    assert 'data-helper-call="5"' in calls and "ghost - refused - 9 characters in" in calls and "budget-spent: 3 of 3 calls" in calls
+
+
+def test_a_task_with_no_helper_configured_says_so(tmp_path):
+    snap = Inventory(parents=(_world(tmp_path),), min_interval=0).snapshot()
+    payload = snapshot.dashboard_payload(snap, runtime={"capabilities": AUTHORING_CAPABILITIES, "runs": [], "held": set(), "run_active": set()})
+    assert all(t["helpers"] == [] for t in payload["tasks"])

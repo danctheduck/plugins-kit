@@ -141,13 +141,35 @@ Use `http.server.ThreadingHTTPServer`, `sqlite3`, `json`, and other standard lib
 - Runtime records keep task ref, item id, and a source revision; they do not
   override a changed or missing task item.
 ### Configuration seams
-Use `~/.claude/task.local.yaml` for user/machine choices already in that domain: `dashboard.max_parallel_projects` (default 2), `default_timeout_s` (7200), Claude/Codex model entry defaults, effort defaults, Codex network (false), and endpoint-helper declarations (empty). Per-queue model, effort, network, and timeout override these defaults, are disclosed in the UI, and are stored only in runtime state.
+Use `~/.claude/task.local.yaml` for user/machine choices already in that domain: `dashboard.max_parallel_projects` (default 2), `default_timeout_s` (7200), Claude/Codex model entry defaults, effort defaults, Codex network (false), and `dashboard.endpoint_helpers` (empty; see Endpoint helpers). Per-queue model, effort, network, and timeout override these defaults, are disclosed in the UI, and are stored only in runtime state.
 These seams pass the plugin-opinion razor because concurrency, wall time,
 subscription choice, network access, and external-provider use each carry a
 real cost. Loopback binding, one active item per project, no automatic commits,
 and explicit Retry remain hard requirements rather than preferences.
 ## Concurrency and crash recovery
 - Queue order is FIFO within a project; `Run next` changes only that project.
+- Start order is fair across projects: the walk is `(newest started_at of the
+  entry's checkout, or "" if it never started; that checkout's oldest queued seq;
+  seq)`, so the checkout that started a run least recently goes first and
+  checkouts that tie keep first-come order. The page's "Queued #n" is that same
+  walk (`Scheduler.queue_view`).
+- A tick starts at most one run: the first entry whose attempt changes its state
+  (starts, fails, is skipped or blocked) ends the tick, and the scheduler wakes
+  itself while another entry can start. An attempt that leaves its entry queued
+  does not end the tick, so one stuck head cannot starve the others. Bound:
+  Cancel and Remove wait on the tick lock for one start (translation plus the
+  runner handshake), not for the whole queue.
+- A queued entry that cannot start carries a waiting reason shown beside its
+  place: `config`, `llm-kit-unavailable`, `held`, `checkout-busy`, `queued-behind`
+  (an earlier entry of its checkout goes first), `no-slot`, or `cli-check`
+  (a new Claude binary is being observed). The start loop's pre-check and the UI
+  share one function (`Scheduler.wait_reason`).
+- A translation block is refused while a Claude Code session holds the task or
+  any other dashboard run works its folder (409 `held` / `run-active` inside the
+  gate; Queue answers 422 `translation-failed` with `blocked: false`, and a start
+  leaves the entry queued). A run's own job-file block is the one write that
+  ignores the run that owns it: after the lease the run is STARTING and so
+  active, and only a hold or ANOTHER active run refuses.
 - A database transaction acquires one project lease before a runner is spawned.
 - The global bound admits at most `max_parallel_projects`; idle projects do not
   consume a slot.
@@ -283,9 +305,64 @@ a fresh run after in-harness resolution.
 - Put the tested floor only in `Job.options.disallowed_tools`, never JobFile or
   `jobs run`; it denies git commit/push/reset/rebase/stash/clean/restore/checkout/
   switch/branch/worktree/add, publication, destructive deletes, `claude -p`,
-  and `codex exec`. Path-inexpressible delete rules deny the command family.
+  `codex exec`, `task-kit`, `llm-kit jobs`, `llm-kit pipeline` and
+  `llm-kit completion`. Path-inexpressible delete rules deny the command family.
+- The same single comma-joined argument carries tool-level denials after the Bash
+  patterns: `Workflow`, `EnterWorktree`, `RemoteTrigger`, `CronCreate` and
+  `ScheduleWakeup` in every run, and `Agent` while native sub-agents are off (the
+  only state a run can have). These are Claude Code's documented deny channel
+  (`--disallowedTools` takes the same rule syntax as `permissions.deny`); a name a
+  later CLI does not offer is reported by the observation below, not an error.
+  `translate.worker_job_options` is the one builder of the value.
+- Every run's environment sets `CLAUDE_CODE_DISABLE_WORKFLOWS=1` (documented;
+  turning workflows off also makes ultracode unavailable) and
+  `TASK_KIT_AGENT_DEPTH=0` (the marker below). `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=0`
+  is not used: the CLI ignores a zero.
 - Refuse launch if the installed Claude CLI cannot represent the floor; do not
-  silently drop a deny rule.
+  silently drop a deny rule. The CLI is observed once per binary (real path, mtime,
+  size) per server life, on a server-owned thread that never runs under a
+  scheduler lock: the worker argv llm-kit would emit is captured through the edge
+  (`JobsEdge.claude_worker_argv`), then a baseline run (the floor minus every
+  tool-level name) and an actual run (the byte-identical value a run emits) read
+  the CLI-authored `system`/`init` tool list and stop, and a third run asks the
+  model to run `git commit --dry-run` and must show a CLI-authored permission
+  error plus a `permission_denials` entry. States: `observed`; `ignored` (a listed
+  tool is still offered, or the command ran), which refuses Claude runs
+  (Queue 422 `bad-options` with reason `cli-deny-ignored`; an entry already queued
+  ends `failed`, the task untouched); `vacuous` (no sub-agent tool in the
+  baseline); `unobserved`. The last two start runs with the denials, which are the
+  documented control, and the UI says what was not observed. A Claude start for a
+  binary not yet observed waits (reason `cli-check`) for at most the observation
+  (about 110 seconds), once per binary; Cancel never waits on it.
+- The observation spawns the `claude` binary three times per new binary (two
+  stopped at the init event, one haiku call) from a scratch directory under the
+  dashboard root with an empty strict MCP config and `--setting-sources local`.
+- Each run's `spec.json` records `subagents` (state off, the denied tools) and the
+  observation summary.
+### Tripwires, not confinement
+Every nested-run guard is a tripwire against a cooperating or careless worker, the
+same class as the deny floor under `bypassPermissions` (grill ruling 6). None of
+it is confinement.
+
+| Guard | Kind | Stops | Does not stop |
+| --- | --- | --- | --- |
+| `TASK_KIT_AGENT_DEPTH` marker + launcher refusal | tripwire (our code) | `task-kit ...` run with the inherited environment | `env -u`, an emptied environment |
+| launcher ancestry refusal | executable-level guard (our code) | `env -u`, absolute paths, `bash -c`, the `/task dashboard` form `bash <root>/bin/task-kit` | a double fork that reparents before the check; calling the dashboard API with the token in `server.json`; importing dashboard code |
+| deny floor prefixes (git, deletes, publish, `claude -p`, `codex exec`, `task-kit`, `llm-kit jobs/pipeline/completion`) | tripwire (Claude CLI rules) | the plain command forms | wrappers (`bash -c`, `env`, `xargs`), absolute paths, interpreters running inline code, tools whose own subprocess starts a CLI |
+| tool denials `Agent` (while off), `Workflow`, `EnterWorktree`, `RemoteTrigger`, `CronCreate`, `ScheduleWakeup` in the one comma-joined floor argument | documented CLI control, the exact argument observed per binary | those tools | nothing known |
+| `CLAUDE_CODE_DISABLE_WORKFLOWS=1` (every run) | documented CLI control | dynamic workflows; ultracode | nothing known |
+| helper broker (`endpoint_helper.py`) | enforced by the server | widening a run's offers or budgets, an unconsented helper, forged or edited run state, a call after the run ended | direct endpoint calls by importing the model library or `curl` with keys readable in the user's data directory |
+| `floor.check_worker_models` at dispatch | second gate behind translation | a job naming a transport (text-only) entry as a worker | n/a |
+| Codex workers | refused until the Codex floor is proved | all Codex runs | n/a |
+
+The launcher refuses every command (exit 6), `status` and `serve` included, when
+`TASK_KIT_AGENT_DEPTH` is present or when one of its ancestors is a live runner of
+the dashboard it targets: an ancestor whose command line names `runner_cli.py` with
+a run directory under `<root>/projects/`, whose PID and creation time equal that
+directory's `runner.json`. An isolated dashboard (`--data-dir`) has another root and
+is not refused, so task-kit's own tests can run inside a worker. Subprocess
+environments are built explicitly (`floor.run_environment`, tests'
+`dashboard_support.clean_env`); nothing deletes the marker globally.
 ### Codex worker
 - The shared builder, not task-kit, must be verified to emit workspace-write,
   absolute `-C`, nonempty `-o`, absolute add-dirs, and Windows unelevated mode.
@@ -306,20 +383,105 @@ with the user in the harness.
 ## Orchestrator and sub-agents
 - The one top-level job is the Claude or Codex orchestrator and owns the result.
 - Claude uses its native Agent tool; Codex uses its native spawn-agent tool.
-- Enable that instruction only after a live headless characterization test for
-  the exact CLI proves the tool is callable and permissions are inherited.
+- Native sub-agents are OFF in every run: the `Agent` tool and the
+  workflow, worktree, remote and scheduled-agent tools are denied (see Claude
+  worker), and the worker's prompt says so. Enable that instruction only after a
+  live headless characterization test for the exact CLI proves the tool is
+  callable and permissions are inherited.
 - If the test fails, the orchestrator works alone and the UI discloses that
   native sub-agents are unavailable; it never substitutes another top-level model.
 - Maximum native depth is 1, maximum concurrent children is 3, and maximum
   child launches per job is 6. Children may not launch children or jobs.
-- `TASK_KIT_AGENT_DEPTH` is set to 0 for the orchestrator and 1 for children;
-  nested `task-kit`, `llm-kit jobs run`, `codex exec`, or `claude -p` refuses at
-  depth 1 and is included in each worker's deny floor.
-- Configured OpenRouter/local endpoints are available only through a bounded
-  task-kit sub-work helper that calls llm-kit completion without tools.
-- Endpoint helpers receive an explicit excerpt/prompt, return text to the
-  orchestrator, and never own acceptance or write the checkout.
-- No endpoint helper is exposed unless configured; use is logged in run history.
+- `TASK_KIT_AGENT_DEPTH` is set to 0 in a run's environment. In-process
+  sub-agents share the orchestrator's environment, so the variable cannot differ
+  for children: it marks a dashboard run's process tree, and the launcher refuses
+  where it is present (a tripwire; see Tripwires, not confinement). Nested
+  `task-kit`, `llm-kit jobs`, `llm-kit pipeline`, `llm-kit completion`,
+  `codex exec` and `claude -p` are in each worker's deny floor.
+- Configured OpenRouter/local endpoints are available to a run only as endpoint
+  helpers, brokered by the dashboard server (next section). A helper is never a
+  worker.
+### Endpoint helpers
+An endpoint helper is a text-only model (no tools, no file access) a run may ask a
+question. It never owns acceptance, never writes the checkout and is never a
+top-level worker: the worker allowlist stays claude and codex, helper names
+`claude` and `codex` are refused at configuration, a transport entry as a worker is
+refused by translation and again by `floor.check_worker_models` at dispatch, and
+the helper route accepts only a live run's token.
+
+Configuration (`~/.claude/task.local.yaml`, `dashboard.endpoint_helpers`; default
+none). Each helper is a name (`^[a-z][a-z0-9-]{0,31}$`) with `models` (registry
+entry ids), `repositories` (consent), an optional one-line `purpose` (200
+characters), `max_calls` per run (default 20), `timeout_s` per call (default 300)
+and `max_input_chars` (default 100000, at most 1000000), which counts the input and
+the system text together. A shape error names the file.
+
+Consent is by repository identity, never by display name (display names collide on
+purpose). The key is the `origin` URL normalized (scheme and user dropped, host
+lowercased, a default port dropped, `git@host:org/repo` becomes `host/org/repo`,
+`.git` and trailing slashes stripped, the repository path keeping its case); a
+checkout with no `origin` is keyed `path:<realpath>` and listed in `repositories`
+by its absolute path. A helper is offered to a run only when its key is listed. A
+helper whose models include a harness entry (an agent) refuses a run offered it:
+Queue answers 422 `bad-options` with reason `endpoint-helper`, a queued entry ends
+`failed` `bad-options`, and the task is untouched. A model the registry does not
+know is not refused at Queue; the call that names it ends `unroutable` and says
+why.
+
+All authority is server-side. The worker can write every file in its run
+directory, so nothing in it decides anything:
+- Two additive runtime tables (the schema stays 1; an older task-kit opens the
+  database, checks only `meta.schema` and never reads them). `helper_grants` holds,
+  per run, the SHA-256 of the run's token, the offers (helpers, models, limits) and
+  when the grant was revoked; `helper_calls` holds one row per call or refusal
+  (helper, state, entry, status, input characters, output characters, usage,
+  reported cost, detail). The offers never change after dispatch.
+- Dispatch issues the grant for a run offered at least one helper and puts only
+  two variables in its environment: `TASK_KIT_RUN_TOKEN` (the token) and
+  `TASK_KIT_DASHBOARD_ROOT` (where `server.json` lives). A run offered nothing
+  gets neither. The token is registered with the log redactor.
+- Revocation: a terminal `RuntimeDB.set_state` is one `BEGIN IMMEDIATE` holding the
+  run's state update, the grant's revocation and the event; releasing a starting
+  run to the queue revokes too. A server start marks `reserved` calls with no end
+  `interrupted`; they still count (fail closed).
+- Route `POST /api/v1/helper-calls/<helper>`, authenticated only by the
+  `X-Task-Kit-Run-Token` header (checked before the dashboard token, which
+  authorizes nothing here; the run token authorizes nothing else). Host is checked as
+  everywhere; a request that carries an `Origin` header is refused (a page cannot
+  cause egress); the body cap is 4 MiB on this route and 64 KiB elsewhere. Body:
+  `{"input": str, "system": str | null}`. Answers: 401 unknown token, 410 revoked or
+  the run is no longer active, 404 helper not offered (lists the offered ones), 422
+  empty or malformed or oversize request ("input plus system is N characters; this
+  helper accepts M"), 429 budget spent ("n of m calls for <helper>"). Every
+  refusal after the token is recognized writes a `refused` row.
+- Authorize and reserve are one step: `RuntimeDB.reserve_helper_call` runs, in one
+  `BEGIN IMMEDIATE` under the connection lock, the token, the revocation, the run's
+  liveness, the offer, the request size and the per-helper budget (reserved,
+  completed, failed and interrupted rows count), then inserts the `reserved` row.
+  Revocation is a transaction under the same lock, so a reservation is either
+  committed before the revocation or refused 410. Budgets are per helper.
+- The call: `JobsEdge.complete_transport` runs llm-kit's `declaration.run` with the
+  guarantees `filesystem-write`, `shell-exec` and `subagent-spawn` (a transport entry
+  has no tools; a harness entry is armed text-only), one attempt per model, in the
+  request thread, from the run's checkout. The answer is
+  `{status, entry, text, attempts, usage, reported_cost_usd}`; a floor (no usable
+  entry) is `unroutable` with every entry's disposition. The raw input, the
+  caller's system text and the output are kept privately at
+  `<run dir>/helpers/<call id>.in.txt`, `.system.txt` and `.out.txt` and are never
+  served.
+- Client: `helper_cli.py`, standard library only, run as `"<python>" "<path>"
+  <helper>` with the excerpt on stdin. It reads the two environment variables,
+  finds the port in `server.json` on each call and prints the answer. Exit 0
+  answered; 1 the call failed or the server cannot be reached; 2 refused; 3 no
+  usable endpoint. `--check` prints a marker without a server.
+- The worker prompt names the offered helpers and the command only when a helper is
+  offered. The page shows "Endpoint helpers for this repository: <names> | none
+  configured" in the run controls and the calls of a run in its detail
+  (`GET /api/v1/runs/<id>` gains `helpers_offered` and `helper_calls`).
+
+What this does not stop is in the guard table: a process that calls the model
+library directly, or reads an endpoint key from the user's data directory, reaches
+an endpoint without a helper.
 ## Awareness, logs, and history
 - Use polling, not SSE: every 2 seconds while visible, immediately after an
   action, and every 15 seconds while hidden. Polling recovers naturally after
@@ -502,6 +664,9 @@ Tests: `test_dashboard_project_scheduler.py`,
 `test_dashboard_headless_subagents_live.py`, `test_dashboard_recursion_guard.py`,
 `test_dashboard_endpoint_helper.py`.
 Red check: a helper selected as the top-level worker or a depth-2 launch refuses.
+Ships as three releases: scheduler fairness, the explicit sub-work deny with its
+per-binary observation and the nested-run tripwires first; the endpoint helper
+broker second; native sub-agents ON with their expiring characterization last.
 ### Increment 6 - release hardening
 Exercise Windows/macOS/Linux launcher behavior, browser failures, security,
 optional-edge diagnoses, packaging, bootstrap declarations, and publication choice.
@@ -531,7 +696,7 @@ then restored and run targeted. Full-suite work waits for the release gate.
 - Hard task-kit dependency on llm-kit: rejected because published task use must live
   independently of an unpublished optional capability.
 ## Open product questions
-None open. New task defaults to `dev/tasks`; endpoint-helper consent is per project.
+None open. New task defaults to `dev/tasks`; endpoint-helper consent is per repository identity (origin URL, or path without an origin).
 ## Premise outcomes
 - CONFIRMED WITH CONSTRAINTS - one item can be one flat llm-kit Job with a shared
   directory and one-prompt/one-contract ledger. The agentic Claude deny floor must
@@ -540,6 +705,20 @@ None open. New task defaults to `dev/tasks`; endpoint-helper consent is per proj
 - UNTESTED - a headless `claude -p` job can call Agent and `codex exec` can call
   its native spawn-agent mechanism end to end. Source advertises/recognizes the
   tools, but no cited live job proves invocation and permission inheritance.
+  Until it does, sub-agents are denied, not merely unmentioned.
+- CONFIRMED (Claude Code documentation; observed on 2.1.304) - denying the
+  sub-agent tool is a documented control (`--disallowedTools Agent`; the tool is
+  named `Task` in the init event and `Task(...)` rules alias to `Agent`), and the
+  CLI's init tool list shows it removed. `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`
+  and `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` are documented (positive integers
+  only: a zero is ignored); the per-session launch cap variable is removed.
+- REFUTED as enforcement - `TASK_KIT_AGENT_DEPTH`, the deny floor prefixes and the
+  helper's environment are tripwires (`env -u`, wrappers, absolute paths bypass
+  them); only the launcher's ancestry check is executable-level.
+- CONFIRMED - llm-kit's `declaration.run` makes a tool-less completion: the
+  `guarantees` requirement admits a transport entry (no tools) and arms a harness
+  entry text-only (llm-kit 0.1.5 and later; the dashboard requires 0.3.0). The
+  endpoint helper call rests on it, and `jobs_edge` probes its symbols.
 - CONFIRMED - published task-kit can host the dashboard behind an optional
   llm-kit REFUSE edge: bootstrap soft-links optional shared libraries, supports
   manual discovery, and existing task modules do not import llm-kit.
@@ -584,3 +763,5 @@ None open. New task defaults to `dev/tasks`; endpoint-helper consent is per proj
 - 29 fixed (nit) - Increment 2 red checks include the `disallowed_tools` argv test.
 - 30 resolved - New task defaults to `dev/tasks`; endpoint-helper consent is given per project.
 - 31 fixed - "harness changes are never overwritten" narrowed: hold refusal, per-file compare, no folder atomicity, the stated residual race.
+- 32 fixed - fair start order, one start per tick, waiting reasons; a translation block is refused while a run works the folder; sub-work is explicitly denied (Agent, Workflow, EnterWorktree, RemoteTrigger, CronCreate, ScheduleWakeup) with the exact emitted argument observed per CLI binary off the tick lock; the launcher refuses inside a run (marker and ancestry); guards are tripwires, not confinement.
+- 33 fixed - endpoint helpers are brokered by the server: consent by repository identity, offers and per-helper budgets in two additive runtime tables, a run-scoped token revoked in the transaction that ends the run, atomic authorize-and-reserve, size counted over input plus system, and a text-only call made through llm-kit; the run's directory decides nothing.

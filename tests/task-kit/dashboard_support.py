@@ -108,7 +108,7 @@ class Running:
     """An in-process dashboard server on a thread, plus a raw HTTP client."""
 
     def __init__(self, data_dir: Path, parents: tuple[Path, ...], busy=None, edge=None,
-                 config_path: Path | None = None, min_interval: float = 0.0) -> None:
+                 config_path: Path | None = None, min_interval: float = 0.0, cli_observer=False) -> None:
         from task_system.dashboard.inventory import Inventory
         from task_system.dashboard.server import DashboardServer
 
@@ -117,7 +117,7 @@ class Running:
         self.inventory = Inventory(parents=parents, min_interval=min_interval)
         self.server = DashboardServer(
             data_dir=data_dir, scripts_dir=SCRIPTS_DIR, inventory=self.inventory,
-            busy=busy, log=self.log, edge=edge, config_path=config_path,
+            busy=busy, log=self.log, edge=edge, config_path=config_path, cli_observer=cli_observer,
         )
         self.state = self.server.start()
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -196,6 +196,20 @@ class Running:
         assert not self.thread.is_alive(), "server thread did not stop"
 
 
+# The variables a dashboard run's command inherits. A subprocess a test builds for the task-kit launcher must not
+# carry them (a worker running these very tests has them set), so such environments are built through clean_env().
+RUN_MARKERS = ("TASK_KIT_AGENT_DEPTH", "TASK_KIT_RUN_TOKEN", "TASK_KIT_DASHBOARD_ROOT")
+
+
+def clean_env(extra: dict | None = None, *, base: dict | None = None) -> dict:
+    """An environment for a subprocess the test builds: ``base`` (default: this process's) without the run markers."""
+    env = dict(os.environ if base is None else base)
+    for name in RUN_MARKERS:
+        env.pop(name, None)
+    env.update(extra or {})
+    return env
+
+
 def run_task_cli(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
     """task.py in a subprocess, hermetically; stdout/stderr as BYTES."""
     from bootstrap_guard import _REEXEC_SKIP_ENV
@@ -246,13 +260,17 @@ class FakeEdge:
     """
 
     def __init__(self, *, state: str = "ok", detail: str = "", behavior: str = "done", entries: dict | None = None,
-                 invalid_job_file: str | None = None, sleep_s: float = 3.0) -> None:
+                 invalid_job_file: str | None = None, sleep_s: float = 3.0, behavior_args: dict | None = None) -> None:
         from task_system.dashboard.jobs_edge import EntryInfo
 
         self.state = state
         self.detail = detail or ("llm-kit is available" if state == "ok" else f"llm-kit is {state}")
         self.behavior = behavior
+        self.behavior_args = dict(behavior_args or {})  # extra keys for fake_llm's behavior.json (a helper-call script, say)
         self.sleep_s = sleep_s
+        self.transport_calls: list[dict] = []  # every complete_transport call the server made
+        self.transport_gate = None  # a callable run inside complete_transport (a test holds a call open with it)
+        self.transport_answer = lambda prompt: f"echo: {prompt}"
         self.invalid_job_file = invalid_job_file
         self.entries = entries if entries is not None else {
             "opus": EntryInfo(id="opus", kind="harness", harness="claude", model="opus"),
@@ -261,14 +279,36 @@ class FakeEdge:
             "or-qwen": EntryInfo(id="or-qwen", kind="transport", harness=None, model="qwen/qwen3-32b"),
         }
         self.job_files: list[Path] = []
+        self.worker_argv = None
+        self.argv_calls: list[str] = []
 
     def status(self):
         from task_system.dashboard.jobs_edge import EdgeStatus
 
         return EdgeStatus(self.state, self.detail)
 
-    def entry(self, name):
+    def entry(self, name, project_root=None):
         return self.entries.get(name)
+
+    def complete_transport(self, models, *, system, prompt, timeout_s, project_root, **_kw):
+        """A scripted tool-less completion: the first TRANSPORT entry of ``models`` answers, none -> ``unroutable``."""
+        from task_system.dashboard.jobs_edge import TransportOutcome
+
+        self.transport_calls.append({"models": list(models), "system": system, "prompt": prompt, "timeout_s": timeout_s,
+                                     "project_root": str(project_root)})
+        if self.transport_gate is not None:
+            self.transport_gate()
+        usable = [m for m in models if self.entries.get(m) is not None and self.entries[m].kind == "transport"]
+        if not usable:
+            floor = {"kind": "no-usable-routing-target", "caller": "process",
+                     "dispositions": [{"entry": m, "usable": False, "reason": "not a registry entry" if m not in self.entries else "not a transport entry"}
+                                      for m in models]}
+            return TransportOutcome(status="unroutable", entry=None, text="", attempts=(), usage={}, reported_cost_usd=None,
+                                    detail=f"no usable routing target in [{', '.join(models)}]", floor=floor)
+        return TransportOutcome(
+            status="completed", entry=usable[0], text=self.transport_answer(prompt),
+            attempts=({"entry": usable[0], "number": 1, "outcome": "completed"},),
+            usage={"input_tokens": 3, "output_tokens": 2}, reported_cost_usd=0.0001)
 
     EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
@@ -280,6 +320,19 @@ class FakeEdge:
             raise EdgeError(f"no entry {entry!r}")
         return self.EFFORTS if found.harness in ("claude", "codex") else ()
 
+    def claude_worker_argv(self, entry, *, effort, disallowed_tools, cwd):
+        """The argv a Claude worker would launch; ``worker_argv`` (a callable) supplies it, else the edge cannot build one.
+
+        With no ``worker_argv`` the dashboard's per-binary observation ends ``unobserved`` at once, without
+        spawning anything, which keeps every end-to-end test off the real ``claude`` binary.
+        """
+        from task_system.dashboard.jobs_edge import EdgeError
+
+        if self.worker_argv is None:
+            raise EdgeError("the fake edge builds no worker argv")
+        self.argv_calls.append(disallowed_tools)
+        return self.worker_argv(entry, effort=effort, disallowed_tools=disallowed_tools, cwd=cwd)
+
     def validate_job_file(self, path: Path) -> None:
         from task_system.dashboard.jobs_edge import EdgeError
 
@@ -289,7 +342,7 @@ class FakeEdge:
 
     def runner_argv(self, job_file: Path, store: Path, timeout_s: float, run_id: str) -> list[str]:
         (Path(job_file).parent / "behavior.json").write_text(
-            json.dumps({"behavior": self.behavior, "sleep_s": self.sleep_s}), encoding="utf-8")
+            json.dumps({"behavior": self.behavior, "sleep_s": self.sleep_s, **self.behavior_args}), encoding="utf-8")
         return [sys.executable, str(FAKE_LLM), str(job_file), str(store), run_id]
 
     def cancel_argv(self, store: Path, run_id: str, reason: str) -> list[str]:
@@ -334,3 +387,27 @@ def dashboard_world(tmp_path: Path, **kw) -> tuple[Path, Path, Path]:
     """``agent_world`` with the task under dev/tasks, the only root the dashboard reads."""
     kw.setdefault("task_location", "dev/tasks")
     return agent_world(tmp_path, **kw)
+
+
+def make_checkouts(tmp_path: Path, names: tuple[str, ...] = ("proj-a", "proj-b"), *, items=None, sections=None,
+                   stub: str = "alpha") -> tuple[Path, dict[str, tuple[Path, Path]]]:
+    """(devroot, {name: (project root, task folder)}): git checkouts that each hold the same-shaped task.
+
+    Every checkout is its own project to the scheduler (its lease and its slot). Items default to three
+    available ones (``do-it``, ``later-one``, ``third``) with a plan.md section each.
+    """
+    devroot = tmp_path / "devroot"
+    ids = ("do-it", "later-one", "third")
+    made = {}
+    for name in names:
+        project = devroot / name
+        init_repo(project)
+        folder = make_task(
+            project, "dev/tasks", stub, title=f"Task in {name}", status="active",
+            items=items if items is not None else [
+                {"id": i, "title": i.replace("-", " ").title(), "state": "available", "priority": "P2"} for i in ids],
+            sections=sections if sections is not None else {i: f"Do {i}.\n\nDone when {i} exists." for i in ids},
+            log="- 2026-10-01 09:00: began\n",
+        )
+        made[name] = (project, folder)
+    return devroot, made
