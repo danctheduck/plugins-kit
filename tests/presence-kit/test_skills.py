@@ -29,6 +29,13 @@ DESCRIPTIONS = {
 LENGTHS = {"afk": 157, "autonomous": 145, "recap": 158}
 
 MODEL_REFERENCE = "${CLAUDE_PLUGIN_ROOT}/references/presence.md"
+# Technique-wrapper skills: SKILL.md is a stub whose single step points at a
+# procedure document in references/ (skill-standards 3.3). The commands live in
+# the procedure, a reference document, where the harness substitutes nothing, so
+# they name the plugin root in the agent-typed form.
+WRAPPERS = {"recap": "recap-procedure.md"}
+WRAPPER_ROOT = '"${PRESENCE_KIT_ROOT:?presence-kit is not provisioned}/scripts/presence.py"'
+HARNESS_ROOT = '"${CLAUDE_PLUGIN_ROOT}/scripts/presence.py"'
 CONFIG_COMMAND = (
     '"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" '
     '"${CLAUDE_PLUGIN_ROOT}/scripts/presence.py" config'
@@ -101,6 +108,17 @@ def _references(name: str) -> dict[str, str]:
     return {p.name: p.read_text(encoding="utf-8") for p in sorted(folder.glob("*.md"))}
 
 
+def _steps_text(name: str) -> str:
+    """Where the skill's commands live: the procedure document for a wrapper, else the body."""
+    if name in WRAPPERS:
+        return _references(name)[WRAPPERS[name]]
+    return _split(name)[1]
+
+
+def _root(name: str) -> str:
+    return WRAPPER_ROOT if name in WRAPPERS else HARNESS_ROOT
+
+
 def _table_rows(body: str) -> list[list[str]]:
     rows = []
     for line in body.splitlines():
@@ -159,10 +177,12 @@ def test_body_cites_the_model_reference(name):
 
 @pytest.mark.parametrize("name", NAMES)
 def test_config_runs_before_any_state_change(name):
-    _, body = _split(name)
-    assert CONFIG_COMMAND in body
-    first_config = body.index(CONFIG_COMMAND)
-    changers = [body.index(word) for word in STATE_CHANGERS if word in body]
+    body = _steps_text(name)
+    config = CONFIG_COMMAND.replace(HARNESS_ROOT, _root(name))
+    assert config in body
+    first_config = body.index(config)
+    swapped = [word.replace(HARNESS_ROOT, _root(name)) for word in STATE_CHANGERS]
+    changers = [body.index(word) for word in swapped if word in body]
     assert changers, f"{name}: no state-changing command found"
     assert first_config < min(changers)
 
@@ -170,12 +190,17 @@ def test_config_runs_before_any_state_change(name):
 @pytest.mark.parametrize("name", NAMES)
 def test_commands_use_the_interpreter_variable_and_harness_root(name):
     _, body = _split(name)
-    commands = [line for line in body.splitlines() if "presence.py" in line and "scripts/" in line]
+    text = _steps_text(name)
+    commands = [line for line in text.splitlines() if "presence.py" in line and "scripts/" in line]
     assert commands
     for line in commands:
         assert '"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}"' in line, line
-        assert '"${CLAUDE_PLUGIN_ROOT}/scripts/presence.py"' in line, line
-    assert "PRESENCE_KIT_ROOT" not in body
+        assert _root(name) in line, line
+    if name in WRAPPERS:
+        # a wrapper's body carries no command at all
+        assert "presence.py" not in body
+    else:
+        assert "PRESENCE_KIT_ROOT" not in body
     assert not re.search(r"(?<![\w{}:?-])(python3?|py)\s+\S*presence\.py", body)
 
 
@@ -238,7 +263,7 @@ def test_recap_contains_every_trigger_row():
 
 
 def test_recap_records_each_away_trigger():
-    _, body = _split("recap")
+    body = _steps_text("recap")
     away_rows = [
         row for row in _table_rows(_references("recap")["recap-rows.md"]) if "recap-done" in row[3]
     ]
@@ -249,7 +274,8 @@ def test_recap_records_each_away_trigger():
     # The one command template every away row runs stays in the body.
     assert (
         '"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" '
-        '"${CLAUDE_PLUGIN_ROOT}/scripts/presence.py" recap-done <trigger> <pid>'
+        + WRAPPER_ROOT
+        + " recap-done <trigger> <pid>"
     ) in body
 
 
@@ -270,11 +296,14 @@ def test_recap_ports_the_awesome_kit_phases():
 @pytest.mark.parametrize(
     "name, files",
     (
-        ("recap", ("recap-rows.md", "recap-templates.md", "recap-interview.md")),
+        (
+            "recap",
+            ("recap-procedure.md", "recap-rows.md", "recap-templates.md", "recap-interview.md"),
+        ),
     ),
 )
 def test_repeat_invoked_skill_body_points_at_its_references(name, files):
-    """A skill that fires repeatedly keeps content out of its body (skill-standards 3.3).
+    """A technique-wrapper keeps procedure and content out of its body (skill-standards 3.3).
 
     The body cites each reference by its skill-dir path, the file exists, and the
     content the references carry is absent from the body: reverting the move
@@ -282,9 +311,15 @@ def test_repeat_invoked_skill_body_points_at_its_references(name, files):
     """
     _, body = _split(name)
     assert sorted(_references(name)) == sorted(files)
+    # the wrapper's body points only at its procedure; the procedure points at the rest
+    assert f"${{CLAUDE_SKILL_DIR}}/references/{WRAPPERS[name]}" in body
+    procedure = _steps_text(name)
     for file in files:
-        assert f"${{CLAUDE_SKILL_DIR}}/references/{file}" in body
+        if file != WRAPPERS[name]:
+            assert file in procedure
     for moved in (
+        "Read the configuration",
+        "recap-done <trigger>",
         "What got done",
         "Decided for you",
         "No decisions pending.",
@@ -295,7 +330,7 @@ def test_repeat_invoked_skill_body_points_at_its_references(name, files):
 
 
 def test_recap_names_its_behavior_ids_and_state_reads():
-    _, body = _split("recap")
+    body = _steps_text("recap")
     for token in ("recap-on-return", "ending-recap", "unresolved", "greeted", "state get"):
         assert token in body
 

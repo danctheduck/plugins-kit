@@ -298,7 +298,7 @@ Counter-example: a tool-wrapper layering audit found 5 of 7 SKILL.md
 gotchas were common across sessions OUTSIDE that tool's domain and belonged
 in CLAUDE.md -- frequency fired and trigger-relevance did not.
 
-### 3.3 A skill that fires repeatedly keeps its body procedural
+### 3.3 A skill that fires repeatedly is a technique-wrapper
 
 3.1 prices a split at one invocation. A skill invoked N times in one session
 pays for its SKILL.md N times, because each Skill call injects the full body
@@ -313,19 +313,31 @@ recurring event (each turn end, each return, each completed job); another
 skill's steps invoke it; or it is the target of a loop. A skill the user runs
 once to start a task does not qualify.
 
-**Rule.** For a qualifying technique-skill, SKILL.md holds only what the
-agent needs on EVERY firing before it can act:
+**Rule: the technique-wrapper.** A qualifying technique-skill is a
+technique-wrapper skill. It keeps `skill-type: technique-skill`, and its
+SKILL.md holds only what the agent needs on EVERY firing before it can act:
 
-- frontmatter, an identity sentence, and the contract block with ordered
-  steps, tool commands and on_failure handling;
-- for each step that needs content, a pointer naming the reference and the
-  condition under which to read it.
+- frontmatter, an identity sentence, the arguments, and a contract block
+  whose technique has ONE step: follow the procedure document in
+  `references/`, reading it first unless its text is already in context this
+  session. The contract floor allows a one-step technique (section 6,
+  technique-skill row);
+- one gotcha or `anti_patterns` record, as the floor requires.
 
-Everything the steps merely consult moves to `references/`: output templates,
-trigger or dispatch tables, worked examples, selection rules, interview or
-escalation procedures, anti-pattern prose. Each pointer says to read the
-reference only when its content is not already in context this session, so
-the second firing costs the steps plus nothing.
+The procedure itself, with its ordered steps and tool commands, and
+everything those steps consult (output templates, dispatch tables, worked
+examples, selection rules, anti-pattern prose) live in `references/`. The
+procedure points at the other references by file name and says when to read
+each. The first firing pays the SKILL.md plus one Read; every later firing
+pays the stub alone, because the procedure is already in context. A reference
+document is not a substituted surface, so commands inside it name the plugin
+root in the agent-typed form the repository requires of references, not the
+harness variable.
+
+A wrapper trades away mechanical step validation: the schema validates the
+contract block's `steps:` list, and a procedure in a reference is audited only
+as a skill reference document (section 10). Use the form for a skill that
+passes the criterion below, and keep an ordinary technique-skill otherwise.
 
 **Why this does not trip the 3.1 anti-pattern.** 3.1 condemns a stub that
 always co-loads its references because that costs two tool calls for one
@@ -334,9 +346,10 @@ first and conditional on the branch taken (a bare recap and an away recap
 read different templates), so the split passes CRP on both counts. The test
 that separates the cases is repeat firing, not file size.
 
-**What stays in the body regardless.** The caution that prevents a harmful
-act on the first firing (a wrong `--by` flag, a state write) stays beside the
-step it guards. Moving it behind a Read turns a guard into a suggestion.
+**What stays in the stub regardless.** A caution that must hold BEFORE the
+procedure can be read stays in SKILL.md. The procedure's own step-level
+cautions travel with the procedure, because the stub's single step is to read
+and follow it.
 
 **Test.** Count the lines a second firing re-injects. Content in the body that
 no step branches on, and that a repeat firing would not need again, is a
@@ -663,7 +676,7 @@ diverge, the registry wins**; the table gets updated to match.
 |---|---|
 | **Required blocks** | SKILL.md file with frontmatter and trigger; >=1 technique with an ordered-step body (`steps:` list, min 1 step); >=1 gotcha OR >=1 `anti_patterns` record. Gotchas and `anti_patterns` records are alternate containers for the same caution surface; state each caution once. `output_template:` is an optional companion to `steps:` carrying the output-shape contract for the agent's reply -- not a substitute for steps. Even user-only slash-command skills reduce to a 1-step procedure ("invoke command; render output") and write that step explicitly. |
 | **Required patterns** | activation metadata, exclusion clause, technique, known gotchas (satisfiable by gotchas OR `anti_patterns` records) |
-| **Conditionally required patterns** | explicit step-tracking -- IF the technique has more than 3 steps (criterion + OR-form + YAML-canonical note: see 2.4); utility bundle -- IF the procedure has deterministic steps that would otherwise be regenerated each call (criterion: any step whose output depends only on input); self-correcting loop -- IF the procedure produces output that can be programmatically validated (criterion: a validator script or rubric exists); plan-validate-execute -- IF the procedure has batch operations or irreversible side effects (criterion: any step that modifies external state at scale or is hard to undo); procedural body -- IF the skill is expected to fire more than once in a session (criterion: section 3.3) |
+| **Conditionally required patterns** | explicit step-tracking -- IF the technique has more than 3 steps (criterion + OR-form + YAML-canonical note: see 2.4); utility bundle -- IF the procedure has deterministic steps that would otherwise be regenerated each call (criterion: any step whose output depends only on input); self-correcting loop -- IF the procedure produces output that can be programmatically validated (criterion: a validator script or rubric exists); plan-validate-execute -- IF the procedure has batch operations or irreversible side effects (criterion: any step that modifies external state at scale or is hard to undo); technique-wrapper form -- IF the skill is expected to fire more than once in a session (criterion: section 3.3) |
 | **Prohibited patterns** | adversarial pressure testing |
 | **Audit** | Can the agent apply the method to a novel scenario? Try variation and missing-information tests. |
 
