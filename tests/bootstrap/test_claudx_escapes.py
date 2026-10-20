@@ -340,11 +340,21 @@ def test_inherited_loop_flag_does_not_leave_a_child_on_the_wrong_interpreter(tmp
             tmp_path / "data-dev" / "plugins-kit" / "p4-kit" / ".venv" / "bin" / "python"
         ),
     )
-    refused = res.returncode != 0 and not prefix
+    # The guard's only refusal in this state is SystemExit(2) with its
+    # "redirected plugin interpreter is missing" line. The fixture venv exists, so
+    # that refusal is not expected to fire here; it is accepted only by its exact
+    # exit code and message. A crash or a signal exit (negative returncode) never
+    # satisfies it, and neither does any other nonzero exit.
+    refused = (
+        res.returncode == 2
+        and not prefix
+        and "redirected plugin interpreter is missing" in res.stderr
+    )
     assert _on_plugin_venv(prefix, plugin_venv) or refused, (
         f"{_LOOP_FLAG} was inherited, the redirected venv {plugin_venv} exists, and "
-        f"the process stayed on sys.prefix={prefix!r} (exit {res.returncode}); "
-        "reexec_under_plugin_venv returned on the flag before checking sys.prefix"
+        f"the process stayed on sys.prefix={prefix!r} (exit {res.returncode}, "
+        f"stderr={res.stderr!r}); neither a re-exec into the venv nor the guard's "
+        "refusal (exit 2 with its missing-interpreter message) happened"
     )
 
 
