@@ -93,6 +93,14 @@ def _contract(name: str) -> dict:
     return yaml.safe_load(blocks[0])
 
 
+def _references(name: str) -> dict[str, str]:
+    """The skill's reference documents by file name (empty when it has none)."""
+    folder = SKILLS / name / "references"
+    if not folder.is_dir():
+        return {}
+    return {p.name: p.read_text(encoding="utf-8") for p in sorted(folder.glob("*.md"))}
+
+
 def _table_rows(body: str) -> list[list[str]]:
     rows = []
     for line in body.splitlines():
@@ -135,6 +143,12 @@ def test_description_meets_skill_standards(name):
 @pytest.mark.parametrize("name", NAMES)
 def test_files_are_ascii(name):
     _text(name).encode("ascii")
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_reference_files_are_ascii(name):
+    for text in _references(name).values():
+        text.encode("ascii")
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -218,22 +232,21 @@ def test_autonomous_uses_the_configured_waiter_model():
 
 
 def test_recap_contains_every_trigger_row():
-    _, body = _split("recap")
-    rows = _table_rows(body)
+    rows = _table_rows(_references("recap")["recap-rows.md"])
     for expected in RECAP_ROWS:
         assert list(expected) in rows, f"missing trigger row: {expected[0]}"
 
 
 def test_recap_records_each_away_trigger():
     _, body = _split("recap")
-    away_rows = [row for row in _table_rows(body) if "recap-done" in row[3]]
+    away_rows = [
+        row for row in _table_rows(_references("recap")["recap-rows.md"]) if "recap-done" in row[3]
+    ]
     assert [row[3] for row in away_rows] == [
         f"`presence.py recap-done {trigger} <pid>`"
         for trigger in ("return", "return", "afk-ending", "autonomous-done")
     ]
-    for trigger in AWAY_TRIGGERS:
-        assert f"recap-done {trigger} <pid>" in body
-    # The one command template every away row runs.
+    # The one command template every away row runs stays in the body.
     assert (
         '"${BOOTSTRAP_PYTHON:?requires bootstrap >= 0.120.0}" '
         '"${CLAUDE_PLUGIN_ROOT}/scripts/presence.py" recap-done <trigger> <pid>'
@@ -241,16 +254,44 @@ def test_recap_records_each_away_trigger():
 
 
 def test_recap_ports_the_awesome_kit_phases():
-    _, body = _split("recap")
+    refs = _references("recap")
+    templates, interview = refs["recap-templates.md"], refs["recap-interview.md"]
     for heading in (
-        "### Phase 1 -- the recap: text only, NO AskUserQuestion",
-        "### Phase 2 -- on a neutral reply: interview",
+        "## Phase 1 -- the recap: text only, NO AskUserQuestion",
         "## What \"what got done\" means",
         "## Selecting decisions",
     ):
-        assert heading in body
-    assert "No decisions pending." in body
-    assert "ONE AskUserQuestion call carrying every pending decision (max 4)" in body
+        assert heading in templates
+    assert "# Phase 2 -- on a neutral reply: interview" in interview
+    assert "No decisions pending." in templates
+    assert "ONE AskUserQuestion call carrying every pending decision (max 4)" in interview
+
+
+@pytest.mark.parametrize(
+    "name, files",
+    (
+        ("recap", ("recap-rows.md", "recap-templates.md", "recap-interview.md")),
+    ),
+)
+def test_repeat_invoked_skill_body_points_at_its_references(name, files):
+    """A skill that fires repeatedly keeps content out of its body (skill-standards 3.3).
+
+    The body cites each reference by its skill-dir path, the file exists, and the
+    content the references carry is absent from the body: reverting the move
+    (inlining a template or a table row back) turns this red.
+    """
+    _, body = _split(name)
+    assert sorted(_references(name)) == sorted(files)
+    for file in files:
+        assert f"${{CLAUDE_SKILL_DIR}}/references/{file}" in body
+    for moved in (
+        "What got done",
+        "Decided for you",
+        "No decisions pending.",
+        "(Recommended)",
+        "| Trigger | Window |",
+    ):
+        assert moved not in body, f"{name}: '{moved}' belongs in references/"
 
 
 def test_recap_names_its_behavior_ids_and_state_reads():
