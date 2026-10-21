@@ -123,6 +123,22 @@ dashboard:
 
 `task work <ref>` is preceded by `task_hold.py <ref> --session "${CLAUDE_SESSION_ID}"`, which tells a running dashboard that this session is working that task folder, so the dashboard stops starting autonomous runs on it while the session lives. It is bounded by 2 seconds, never gates the work verb and always exits 0. With no dashboard running it prints nothing. Otherwise it prints at most one line on stderr and nothing on stdout. When a dashboard run is already live on the same task, that line names its run id and state, says the run keeps running and its edits may collide with the session's, and says to cancel it in the dashboard (Cancel run) or let it end by itself or at its time limit. The run is never touched by the handshake.
 
+## Working-session registrations
+
+`/task work` registers the session in git (`<task root>/.sessions/<host>.yaml`); the dashboard reads those files for every physical task root and shows each registration on the task row as a small inline marker, with the full list in the task details:
+
+| Marker | Meaning | Effect |
+|---|---|---|
+| `Claude Code session working (<host>, since <time>)` | this machine's record, session verified running (process id plus exact creation stamp) | **holds the task**: no run starts or queue-starts on it, authoring is refused (409 `held`, naming the session), and a queued run's waiting reason names the session |
+| `not running (<host>, <age>)` | this machine's record, its process is gone | shown only; blocks nothing and is never released because the process ended |
+| `on <host>, <age>` (tinted; the state "unverified" is in its tooltip and aria-label) | another machine's record, which this machine cannot verify | shown only; blocks nothing |
+
+We never prevent an action because of an unverifiable state, so only the first kind holds. Re-check reports the registrations that remain and never releases one; a registration ends at `/task hand-off`, or with `task sessions release <ref> --all-local`. The dashboard has no Release button.
+
+**Dismiss** (task details, on an unverified record). User ruling: "The human dismissing is contribution of information." So the dismissal is an authoritative fact, not a local view setting. It is recorded in git, in this machine's own session file (`dismissed:` with the target's host, session id and `registered_at`, plus `dismissed_at`; the file's host says who), and published like a registration, so no machine ever edits another machine's file. Every reader hides the dismissed record at once. The owning machine drops it at its next write even if its process looks alive; a session that is in fact still working registers again at its next `/task work` (a new `registered_at`) and shows again. This machine drops its dismissal entry once the target record is gone.
+
+In the background (one pass per minute) the server reconciles this machine's session files -- records on closed, archived or missing tasks, records some machine dismissed, and dismissal entries whose target is gone -- and publishes this machine's pending session files, bounded and logged to `publish.log` in the data directory. It never pushes a file that is not this machine's own.
+
 ## Launcher exit codes
 
 The launcher (`task-kit`, or `/task dashboard`) exits 0 ok, 1 error, 3 `status`: not running, 4 server up but the browser could not be opened (the URL is still printed), 5 refused because jobs are running, 6 refused inside a dashboard run. `--no-open` (or `TASK_KIT_NO_OPEN=1`) skips the browser. A corrupt server record, or something else answering on the recorded port, stops the launcher with a message naming the file.

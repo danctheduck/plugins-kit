@@ -67,7 +67,8 @@ _SESSION_ID_SAFE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 _TIMESTAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _FINGERPRINT = re.compile(r"^[0-9a-f]{16}$")
 _OS_INSTANCES = ("macos", "linux", "linux-wsl", "windows")
-_FILE_KEYS = ("_schema_version", "host", "machine", "os_instance", "sessions")
+_FILE_KEYS = ("_schema_version", "host", "machine", "os_instance", "sessions", "dismissed")
+_DISMISSAL_KEYS = ("host", "session_id", "registered_at", "dismissed_at")
 _RECORD_KEYS = ("session_id", "harness", "task", "checkout", "transcript_path", "registered_at", "process")
 _REQUIRED_RECORD_KEYS = tuple(key for key in _RECORD_KEYS if key != "transcript_path")
 
@@ -128,12 +129,39 @@ class Record:
 
 
 @dataclass(frozen=True)
+class Dismissal:
+    """A human's statement that another machine's registration is not to be shown.
+
+    Written to the DISMISSER's own file (``<root>/.sessions/<by>.yaml``, key ``dismissed``), so it travels with
+    git like a registration and no machine ever edits another machine's file. It names the target by
+    ``(host, session_id, registered_at)``: a later registration (another session id or registered_at) is a new
+    record and shows again. Honored by every reader, and by the owner at its next write, whatever its process
+    looks like: the human dismissing is a contribution of information.
+    """
+
+    host: str  # the machine whose file holds the target record
+    session_id: str
+    registered_at: str
+    dismissed_at: str
+    by: str = ""  # the host id of the file this entry is in (filled in when read)
+
+    @property
+    def target(self) -> tuple[str, str, str]:
+        return (self.host, self.session_id, self.registered_at)
+
+    def persisted(self) -> dict:
+        return {"host": self.host, "session_id": self.session_id, "registered_at": self.registered_at,
+                "dismissed_at": self.dismissed_at}
+
+
+@dataclass(frozen=True)
 class RootView:
-    """Every record of one physical task root (all files), plus a note per unreadable file."""
+    """Every record of one physical task root (all files) not hidden by a dismissal, plus a note per unreadable file."""
 
     root: Path
     records: tuple[Record, ...]
     notes: tuple[str, ...]
+    dismissals: tuple[Dismissal, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -175,6 +203,28 @@ class ReleaseResult:
 class RefreshResult:
     refreshed: tuple[Record, ...]
     dropped: tuple[Record, ...]
+    changed_files: tuple[Path, ...]
+    notes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DismissResult:
+    root: Path
+    dismissal: Dismissal
+    target: Record  # the dismissed record, as it was
+    changed_files: tuple[Path, ...]  # empty when the same dismissal was already recorded
+    notes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ReconcileResult:
+    """What a write of this machine's file in one root removed on its own: closed-task records, dismissed records,
+    and dismissal entries whose target is gone."""
+
+    root: Path
+    dropped: tuple[Record, ...]  # this machine's records on closed, archived or absent tasks
+    dismissed: tuple[Record, ...]  # this machine's records some machine dismissed
+    tombstones: tuple[Dismissal, ...]  # this machine's dismissal entries whose target record no longer exists
     changed_files: tuple[Path, ...]
     notes: tuple[str, ...]
 
@@ -333,6 +383,26 @@ class _FileData:
     machine: str
     os_instance: str
     records: tuple[Record, ...]
+    dismissals: tuple[Dismissal, ...] = ()
+
+
+def _parse_dismissal(raw: object, index: int, by: str) -> Dismissal:
+    where = f"dismissed[{index}]"
+    if not isinstance(raw, dict):
+        raise _FormatError(f"{where} is not a mapping")
+    unknown = sorted(set(raw) - set(_DISMISSAL_KEYS))
+    if unknown:
+        raise _FormatError(f"{where} has unknown keys {unknown}")
+    missing = [key for key in _DISMISSAL_KEYS if key not in raw]
+    if missing:
+        raise _FormatError(f"{where} lacks {missing}")
+    session_id = _require_str(raw, "session_id", where)
+    if not _SESSION_ID_SAFE.match(session_id):
+        raise _FormatError(f"{where}: session_id {session_id!r} is not a valid session id")
+    for key in ("registered_at", "dismissed_at"):
+        if not _TIMESTAMP.match(_require_str(raw, key, where)):
+            raise _FormatError(f"{where}: {key} must be a UTC timestamp like 2026-10-21T18:04:11Z")
+    return Dismissal(_require_str(raw, "host", where), session_id, raw["registered_at"], raw["dismissed_at"], by)
 
 
 def _require_str(data: Mapping, key: str, where: str) -> str:
@@ -402,22 +472,30 @@ def _parse_file(text: str, stem: str) -> _FileData:
     if not isinstance(raw_records, list):
         raise _FormatError("sessions must be a list")
     records = tuple(_parse_record(raw, i) for i, raw in enumerate(raw_records))
+    raw_dismissed = data.get("dismissed", [])
+    if not isinstance(raw_dismissed, list):
+        raise _FormatError("dismissed must be a list")
+    dismissals = tuple(_parse_dismissal(raw, i, host) for i, raw in enumerate(raw_dismissed))
     seen: set[tuple[str, str]] = set()
     for record in records:
         key = (record.task, record.session_id)
         if key in seen:
             raise _FormatError(f"task {record.task} lists session {record.session_id[:8]} twice")
         seen.add(key)
-    return _FileData(host, machine_fp, os_instance, records)
+    return _FileData(host, machine_fp, os_instance, records, dismissals)
 
 
 def _sorted(records: Iterable[Record]) -> list[Record]:
     return sorted(records, key=lambda record: (record.task, record.session_id))
 
 
-def _serialize(host: str, fingerprint: str, os_instance: str, records: Iterable[Record]) -> str:
+def _serialize(host: str, fingerprint: str, os_instance: str, records: Iterable[Record],
+               dismissals: Iterable[Dismissal] = ()) -> str:
     document = {"_schema_version": SCHEMA_VERSION, "host": host, "machine": fingerprint, "os_instance": os_instance,
                 "sessions": [record.persisted() for record in _sorted(records)]}
+    ordered = sorted(dismissals, key=lambda d: d.target)
+    if ordered:  # absent when empty, so a file without dismissals is byte-identical to one written before the key existed
+        document["dismissed"] = [d.persisted() for d in ordered]
     return yaml.safe_dump(document, sort_keys=False, default_flow_style=False)
 
 
@@ -446,6 +524,10 @@ def _scan_root(root: Path) -> list[_Scanned]:
             data, error = None, f"unreadable: {exc}"
         scanned.append(_Scanned(path, data, error))
     return scanned
+
+
+def _dismissals_of(scanned: Iterable[_Scanned]) -> tuple[Dismissal, ...]:
+    return tuple(d for item in scanned if item.data is not None for d in item.data.dismissals)
 
 
 def _owns(scanned: _Scanned, machine: Machine) -> bool:
@@ -490,7 +572,10 @@ def read_root(task_root: Path, machine: Machine, *, check_tasks: bool = True) ->
     notes = [f"{item.path.name}: not a valid session file ({item.error}); its records are ignored"
              for item in scanned if item.error is not None]
     records = _decorate(scanned, root, machine, check_tasks, notes)
-    return RootView(root, tuple(_sorted(records)), tuple(notes))
+    dismissals = _dismissals_of(scanned)
+    targets = {d.target for d in dismissals}
+    records = [r for r in records if (r.host, r.session_id, r.registered_at) not in targets]
+    return RootView(root, tuple(_sorted(records)), tuple(notes), dismissals)
 
 
 def read_project(project_root: Path, machine: Machine, *, check_tasks: bool = True) -> tuple[RootView, ...]:
@@ -511,8 +596,10 @@ class _RootEdit:
         scanned = _scan_root(self.root)
         self.target = self.root / SESSIONS_DIRNAME / f"{machine.host}.yaml"
         self.files: dict[Path, list[Record]] = {}
+        self.dismissals: dict[Path, list[Dismissal]] = {}
         self._headers: dict[Path, _FileData] = {}
         self.foreign: list[Record] = []
+        targets = {d.target for d in _dismissals_of(scanned)}
         for item in scanned:
             if item.path == self.target:
                 if item.data is None:
@@ -528,14 +615,52 @@ class _RootEdit:
                 self.notes.append(f"{item.path.name}: not a valid session file ({item.error}); its records are ignored")
             elif item.data.machine == machine.fingerprint:
                 self.files[item.path] = list(item.data.records)
+                self.dismissals[item.path] = list(item.data.dismissals)
                 self._headers[item.path] = item.data
             else:
                 self.foreign.extend(dataclasses.replace(r, host=item.data.host, owned=False, root=self.root,
-                                                        state=STATE_UNVERIFIED) for r in item.data.records)
+                                                        state=STATE_UNVERIFIED) for r in item.data.records
+                                    if (item.data.host, r.session_id, r.registered_at) not in targets)
         self.target_existed = self.target in self.files
         self.files.setdefault(self.target, [])
+        self.dismissals.setdefault(self.target, [])
         self._original = {path: list(records) for path, records in self.files.items()}
+        self._original_dismissals = {path: list(entries) for path, entries in self.dismissals.items()}
         self._task_states: dict[str, str] = {}
+        # every record of another machine's file, dismissed or not (a dismissed record is still the target of its tombstone)
+        self._foreign_keys = {(item.data.host, r.session_id, r.registered_at) for item in scanned
+                              if item.data is not None and item.data.machine != machine.fingerprint
+                              for r in item.data.records}
+        self._all_valid = all(item.data is not None for item in scanned)
+        self.dismissed_away: list[tuple[Path, Record]] = []
+        self.tombstones_dropped: list[Dismissal] = []
+        self._reconcile(targets)
+
+    def _reconcile(self, targets: set) -> None:
+        """Drop this machine's records that some machine dismissed, then its dismissal entries whose target is gone.
+
+        The owner honors a dismissal whatever its record's process looks like; a session that is in fact alive
+        registers again at its next ``/task work`` (a new ``registered_at``, so a new record). Tombstones do not
+        accumulate: an entry goes once its target record is no longer in the target host's file. A tree with an
+        unreadable session file keeps every tombstone (the target may live in that file).
+        """
+        for path in list(self.files):
+            host = self._headers[path].host if path in self._headers else path.stem
+            for record in list(self.files[path]):
+                if (host, record.session_id, record.registered_at) in targets:
+                    self.files[path].remove(record)
+                    self.dismissed_away.append((path, record))
+        if not self._all_valid:
+            return
+        existing = set(self._foreign_keys)
+        for path, records in self.files.items():
+            host = self._headers[path].host if path in self._headers else path.stem
+            existing.update((host, r.session_id, r.registered_at) for r in records)
+        for path in list(self.dismissals):
+            for entry in list(self.dismissals[path]):
+                if entry.target not in existing:
+                    self.dismissals[path].remove(entry)
+                    self.tombstones_dropped.append(entry)
 
     def own_records(self) -> list[tuple[Path, Record]]:
         return [(path, record) for path, records in self.files.items() for record in records]
@@ -565,23 +690,25 @@ class _RootEdit:
                 dropped.append((path, record))
         return dropped
 
-    def _text(self, path: Path, records: Iterable[Record]) -> str:
+    def _text(self, path: Path, records: Iterable[Record], dismissals: Iterable[Dismissal] = ()) -> str:
         header = self._headers.get(path)
         host = header.host if header is not None else path.stem
-        return _serialize(host, self.machine.fingerprint, self.machine.os_instance, records)
+        return _serialize(host, self.machine.fingerprint, self.machine.os_instance, records, dismissals)
 
     def commit(self) -> tuple[Path, ...]:
         """Write every file whose record set changed (an unchanged set is never rewritten)."""
         written = []
         for path, records in self.files.items():
             existed = path in self._headers
-            if not existed and not records:
+            entries = self.dismissals.get(path, [])
+            if not existed and not records and not entries:
                 continue
-            if existed and self._text(path, self._original[path]) == self._text(path, records):
+            if existed and self._text(path, self._original[path], self._original_dismissals.get(path, [])) \
+                    == self._text(path, records, entries):
                 continue
             if not existed and path != self.target:
                 continue
-            _atomic_write(path, self._text(path, records))
+            _atomic_write(path, self._text(path, records, entries))
             written.append(path)
         return tuple(written)
 
@@ -993,6 +1120,65 @@ def rekey_after_clear(identity: harness.Identity, machine: Machine, transcript_p
         for pruned_id in sorted({new_id} | swept):
             _prune_index(local, machine, pruned_id, notes)
     return RekeyResult(tuple(previous), tuple(rekeyed), tuple(dropped), tuple(changed), tuple(notes))
+
+
+def dismiss(machine: Machine, project_root: Path, target_host: str, session_id: str, registered_at: str, *,
+            data_dir: Path | None = None) -> DismissResult:
+    """Record, in THIS machine's own file, that the human dismissed another machine's registration.
+
+    ``(target_host, session_id, registered_at)`` names a record in some other machine's file under one of the
+    project's task roots. The entry (``host``, ``session_id``, ``registered_at``, ``dismissed_at``) goes into
+    ``<root>/.sessions/<this host>.yaml`` under the root lock; the caller publishes it like any record. Readers
+    hide the record at once; its owner drops it at its next write, even when the process looks alive, and this
+    machine drops the entry once the record is gone. Another machine's file is never edited. Dismissing the same
+    record twice writes nothing the second time; a record of this machine is released, not dismissed.
+    """
+    session_id = _check_session_id(session_id)
+    if not _TIMESTAMP.match(registered_at or ""):
+        raise SessionsError(f"registered_at {registered_at!r} is not a UTC timestamp like 2026-10-21T18:04:11Z")
+    local = _sessions_dir(data_dir)
+    notes: list[str] = []
+    for root in task_roots(project_root):
+        found = [(item, r) for item in _scan_root(root) if item.data is not None and item.data.host == target_host
+                 for r in item.data.records if r.session_id == session_id and r.registered_at == registered_at]
+        if not found:
+            continue
+        item, record = found[0]
+        if _owns(item, machine):
+            raise SessionsError(f"session {session_id[:8]} on {target_host} is this machine's own registration; "
+                                f"release it (task sessions release {record.task} --all-local), do not dismiss it")
+        with _locked(local, (), (root,)):
+            edit = _RootEdit(root, machine)
+            notes.extend(edit.notes)
+            entry = Dismissal(target_host, session_id, registered_at, utc_now(), machine.host)
+            existing = [d for d in edit.dismissals[edit.target] if d.target == entry.target]
+            if not existing:
+                edit.dismissals[edit.target].append(entry)
+            changed = edit.commit()
+            _checkpoint("root_written")
+        shown = dataclasses.replace(record, host=target_host, owned=False, root=root, state=STATE_UNVERIFIED)
+        return DismissResult(root, existing[0] if existing else entry, shown, changed, tuple(notes))
+    raise SessionsError(f"no registration of session {session_id[:8]} on {target_host} (registered {registered_at}) "
+                        f"under {Path(project_root)}'s task roots; it may already be gone")
+
+
+def reconcile(machine: Machine, task_root: Path, *, data_dir: Path | None = None) -> ReconcileResult:
+    """Apply the owner-side cleanups to this machine's file in one root, without any registration change.
+
+    The same cleanups every write performs: drop this machine's records on closed, archived or absent tasks, its
+    records some machine dismissed, and its dismissal entries whose target record is gone. Nothing is dropped
+    because a process is not running. Writes only when something changed; the caller publishes.
+    """
+    root = Path(task_root)
+    local = _sessions_dir(data_dir)
+    with _locked(local, (), (root,)):
+        edit = _RootEdit(root, machine)
+        dropped = edit.sweep()
+        changed = edit.commit()
+        _checkpoint("root_written")
+    notes = list(edit.notes)
+    return ReconcileResult(root, tuple(r for _p, r in dropped), tuple(r for _p, r in edit.dismissed_away),
+                           tuple(edit.tombstones_dropped), changed, tuple(notes))
 
 
 def _merge_duplicates(edit: _RootEdit) -> None:

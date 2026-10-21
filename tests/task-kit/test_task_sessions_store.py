@@ -723,3 +723,93 @@ def test_to_home_relative(world):
     inside = world.home / ".claude" / "projects" / "p" / "s.jsonl"
     assert sessions.to_home_relative(inside) == "~/.claude/projects/p/s.jsonl"
     assert sessions.to_home_relative(world.base / "elsewhere" / "s.jsonl") is None
+
+
+# -- dismissals: a human hides another machine's registration, recorded in git ------------------------------
+
+
+def _other_registration(world, ref="alpha", session="far-session"):
+    """A live registration of OTHER on ``ref``; returns (record, bytes of OTHER's file)."""
+    world.register(world.ident(session), ref=ref, machine=OTHER)
+    record = next(r for r in world.records(OTHER) if r.session_id == session and r.task == ref)
+    return record, world.file("otherhost").read_bytes()
+
+
+def _dismiss(world, record, machine=HOST):
+    return sessions.dismiss(machine, world.project, record.host, record.session_id, record.registered_at,
+                            data_dir=world.data)
+
+
+def test_a_dismissal_goes_into_the_dismissers_own_file_and_never_into_the_targets(world):
+    record, before = _other_registration(world)
+    result = _dismiss(world, record)
+    assert world.file("otherhost").read_bytes() == before  # one writer per file: the owner's file is untouched
+    document = yaml.safe_load(world.file("testhost").read_text(encoding="utf-8"))
+    assert document["dismissed"] == [{"host": "otherhost", "session_id": "far-session",
+                                      "registered_at": record.registered_at, "dismissed_at": result.dismissal.dismissed_at}]
+    assert result.changed_files == (world.file("testhost"),)
+    assert result.dismissal.by == "testhost" and result.target.host == "otherhost"
+
+
+def test_readers_hide_a_dismissed_record_for_every_machine(world):
+    keep, _ = _other_registration(world, "beta", "stays")
+    gone, _ = _other_registration(world, "alpha", "gone")
+    assert {r.session_id for r in world.records(HOST)} == {"stays", "gone"}
+    _dismiss(world, gone)
+    assert {r.session_id for r in world.records(HOST)} == {"stays"}
+    assert {r.session_id for r in world.records(OTHER)} == {"stays"}  # the owner reads it hidden too
+    assert [d.session_id for d in sessions.read_root(world.root, HOST).dismissals] == ["gone"]
+    assert keep.session_id == "stays"
+
+
+def test_the_owners_next_write_drops_a_dismissed_record_even_though_its_process_is_alive_then_the_tombstone_goes(world):
+    gone, _ = _other_registration(world, "alpha", "gone")
+    assert world.state("alpha", "gone", OTHER) == "running"  # alive: the dismissal still wins
+    _dismiss(world, gone)
+    world.register(world.ident("other-later"), ref="beta", machine=OTHER)  # any write of the owner's file
+    owner_file = yaml.safe_load(world.file("otherhost").read_text(encoding="utf-8"))
+    assert [r["session_id"] for r in owner_file["sessions"]] == ["other-later"]
+    assert "dismissed" in yaml.safe_load(world.file("testhost").read_text(encoding="utf-8"))  # not yet: it is HOST's file
+    result = sessions.reconcile(HOST, world.root, data_dir=world.data)  # the dismisser's next write
+    assert [d.session_id for d in result.tombstones] == ["gone"]
+    assert "dismissed" not in yaml.safe_load(world.file("testhost").read_text(encoding="utf-8"))
+
+
+def test_a_tombstone_is_kept_while_its_target_still_exists_and_while_a_file_is_unreadable(world):
+    gone, _ = _other_registration(world, "alpha", "gone")
+    _dismiss(world, gone)
+    assert sessions.reconcile(HOST, world.root, data_dir=world.data).tombstones == ()  # the target is still there
+    world.file("otherhost").write_text("not: [valid", encoding="utf-8")
+    assert sessions.reconcile(HOST, world.root, data_dir=world.data).tombstones == ()  # and may live in the broken file
+    assert "dismissed" in yaml.safe_load(world.file("testhost").read_text(encoding="utf-8"))
+
+
+def test_a_new_registration_of_the_dismissed_session_shows_again(world, monkeypatch):
+    gone, _ = _other_registration(world, "alpha", "gone")
+    _dismiss(world, gone)
+    monkeypatch.setattr(sessions, "utc_now", lambda: "2030-01-01T00:00:00Z")  # a later registered_at
+    world.register(world.ident("gone"), ref="alpha", machine=OTHER)  # the same session works the task again
+    shown = [r for r in world.records(HOST) if r.session_id == "gone"]
+    assert len(shown) == 1 and shown[0].registered_at == "2030-01-01T00:00:00Z"
+    assert shown[0].registered_at != gone.registered_at
+
+
+def test_dismissing_is_idempotent_and_refuses_the_dismissers_own_record_and_an_unknown_one(world):
+    gone, _ = _other_registration(world)
+    first = _dismiss(world, gone)
+    again = _dismiss(world, gone)
+    assert again.changed_files == () and again.dismissal == first.dismissal
+    world.register(world.ident("mine"), ref="beta")
+    mine = next(r for r in world.records(HOST) if r.session_id == "mine")
+    with pytest.raises(sessions.SessionsError, match="own registration"):
+        _dismiss(world, mine)
+    with pytest.raises(sessions.SessionsError, match="no registration"):
+        sessions.dismiss(HOST, world.project, "otherhost", "nobody", "2026-10-20T10:00:00Z", data_dir=world.data)
+
+
+def test_a_file_without_dismissals_is_serialized_exactly_as_before(world):
+    world.register(world.ident("plain"), ref="alpha")
+    text = world.file("testhost").read_text(encoding="utf-8")
+    assert "dismissed" not in text
+    document = yaml.safe_load(text)
+    assert list(document) == ["_schema_version", "host", "machine", "os_instance", "sessions"]
