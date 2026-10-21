@@ -128,6 +128,6 @@ User rulings, 2026-10-21, from which these principles derive:
 
 > I am not convinced we need anything besides global state tracked into git.
 
-Request: "let's just have documented principles for how we handle truth in a distributed environment."
-
 > 6 is just a valid information signal as the user has visibility across machines.
+
+Request: "let's just have documented principles for how we handle truth in a distributed environment."
