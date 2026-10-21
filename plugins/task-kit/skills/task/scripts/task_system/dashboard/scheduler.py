@@ -129,12 +129,13 @@ from typing import Callable
 import yaml
 
 from .. import init as task_init
+from .. import procspawn
 from ..task_items import read_task_items, sort_items
 from ..types import HAND_OFF
 from ..validate import validate_ref
 from . import authoring
 from . import findings as findings_mod
-from . import cli_check, endpoint_helper, floor, proctree, procspawn, redact, repo_identity, runfiles, subagents, vcs
+from . import cli_check, endpoint_helper, floor, proctree, redact, repo_identity, runfiles, subagents, vcs
 from .blocker import BlockOutcome, concise, record_block, record_blocks
 from .config import DashboardConfig, DashboardConfigError, load_config
 from .inventory import project_id_for

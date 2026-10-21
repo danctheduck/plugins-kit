@@ -27,8 +27,13 @@ DASHBOARD_PACKAGE = ("task_system", "dashboard")
 # another module listed here). tests/task-kit/test_dashboard_code_hash.py
 # derives this set from the dashboard's real imports and fails on any drift.
 IMPORTED_TASK_SYSTEM_MODULES = (
+    "datadir.py",
     "discovery.py",
+    "harness.py",
     "init.py",
+    "oslock.py",
+    "procspawn.py",
+    "procstamp.py",
     "relocate.py",
     "resolve.py",
     "schemas.py",
