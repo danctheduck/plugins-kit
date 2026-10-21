@@ -59,14 +59,17 @@ reach every machine through git like any other fact.
 Instance: dismissing an unverified field in the dashboard writes a tombstone and
 commits it; all machines then hide that record.
 
-## 6. Owners reconcile
+## 6. A human's cross-machine view is a valid signal
 
-The owning machine applies others' contributions to its own file at its next
-write. It drops the dismissed records, and drops the tombstone once its target
-is gone.
+The human sees every machine; no single machine does. So a contribution a
+human makes from any machine (a dismissal) is valid information on its own,
+and the owning machine applies it without re-checking or overruling it. The
+owner removing the dismissed record from its file at its next write is
+housekeeping that keeps one writer per file (principle 2), not arbitration;
+the tombstone is dropped once its target is gone.
 
-Why: it keeps one writer per file (principle 2) while still letting any machine
-change what the others show.
+Why: the human has visibility across machines that no machine has, so their
+signal outranks any one machine's local view.
 
 ## 7. Commit locally first, publish eventually, report always
 
@@ -126,3 +129,5 @@ User rulings, 2026-10-21, from which these principles derive:
 > I am not convinced we need anything besides global state tracked into git.
 
 Request: "let's just have documented principles for how we handle truth in a distributed environment."
+
+> 6 is just a valid information signal as the user has visibility across machines.
