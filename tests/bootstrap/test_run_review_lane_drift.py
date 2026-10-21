@@ -62,11 +62,11 @@ class TestWrapperCopiesMatch:
         # bootstrap_lib.model_declaration (parse, CORE_IDS), first shipped in
         # bootstrap 0.129.0, and its manifest requires the release that first
         # recognizes llm_kit as a first-party shared library (0.157.0). git-kit
-        # and p4-kit need 0.158.1, whose stdlib-only code_review.sections module
+        # and p4-kit need 0.158.4, whose stdlib-only code_review.sections module
         # their step 7 runs under bootstrap's own interpreter.
         expected = {
-            "git-kit": "0.158.1",
-            "p4-kit": "0.158.1",
+            "git-kit": "0.158.4",
+            "p4-kit": "0.158.4",
             "llm-kit": "0.157.0",
         }
         minimum = {"git-kit": "0.113.0", "p4-kit": "0.113.0",
