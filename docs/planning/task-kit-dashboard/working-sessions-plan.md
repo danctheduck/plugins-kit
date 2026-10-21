@@ -1,7 +1,9 @@
 # task-kit working sessions: implementation plan
 
-Status: plan only (unit `plan-working-sessions`, 2026-10-21; revision 2 folds in the user rulings
-on registration lifetime and session identity, and the codex sol cross-check). Target release:
+Status: plan only (unit `plan-working-sessions`, 2026-10-21; revision 3 folds in the user rulings
+on registration lifetime and session identity, and two rounds of codex sol cross-check). Two
+decisions are OPEN for the user (Q1, Q2 under "Questions") and block the units named there.
+Target release:
 task-kit 0.13.0 (dev and master both carry task-kit 0.12.0 on 2026-10-21). Publishing task-kit is
 pre-approved for this work: `uv run python scripts/publish.py --only task-kit`.
 
@@ -77,13 +79,17 @@ hook refreshes this machine's record for that session (a write only when such a 
 | # | Finding | Disposition |
 |---|---|---|
 | 1 | A rejected push stops; a final SessionEnd removal can be lost; a stale record can stay forever | Accepted for what survives. SessionEnd is gone (ruling), so the "last event is the exit" case dissolves. A non-fast-forward rejection is treated as the expected race: re-fetch, integrate, retry, bounded (3 attempts, 60 s). Pending state is derived from git (this machine's session files that differ from upstream) and drained by every later publish from this machine in that repository, by the dashboard on this machine, and by `task sessions publish`. Test: two barrier-synchronized publishers on two clones. |
-| 2 | Hostname ownership is not collision-safe | Accepted with one counter-argument. Each file carries a machine fingerprint (salted SHA-256 of the OS machine id); a machine owns every file carrying its fingerprint (so a renamed host still owns its old file), refuses to write a file named with its host id that carries another fingerprint, and reads such a file as another machine's. `sessions.host` overrides the host id to resolve a real name clash. Counter-argument to "preferably the filename": the file name stays the host id, because the user accepted `.sessions/<hostname>.yaml`, a reader of the repository should see which machine wrote it, and the future verification service addresses machines by name; the fingerprint inside the file supplies the collision safety. |
+| 2 | Hostname ownership is not collision-safe | Accepted with one counter-argument, which the reviewer accepted in round 2. Each file carries a machine fingerprint (salted SHA-256 of the OS machine id); a machine owns every file carrying its fingerprint (so a renamed host still owns its old file), refuses to write a file named with its host id that carries another fingerprint, and reads such a file as another machine's. `sessions.host` overrides the host id to resolve a real name clash. Counter-argument to "preferably the filename": the file name stays the host id, because the user accepted `.sessions/<hostname>.yaml`, a reader of the repository should see which machine wrote it, and the future verification service addresses machines by name; the fingerprint inside the file supplies the collision safety. |
 | 3 | Moving a session between roots is not crash-consistent | Partly dissolved, rest accepted. The cross-root move came from "one task per session", which the lifetime ruling removes (only hand-off ends a registration). What remains is the local index plus root files: writers serialize on a per-session lock, write the index as a superset before touching root files, and shrink it after; root files are the truth and recovery is idempotent. Tests interrupt after every phase. |
 | 4 | The PID-reuse guarantee contradicts the 1.0 s tolerance it reuses | Accepted. Sessions use a platform-exact stamp (decision 2), not `proctree.live`. The red test uses a stamp 0.5 s off, inside the old window. |
 | 5 | Windows ships unmeasured | Mostly dissolved, rest accepted. Detached SessionEnd publication is gone. What remains Windows-specific (`CLAUDE_PID` ancestry from Git Bash and PowerShell, msvcrt locks, the stamp, the async resume hook) is a release gate (U7): measured over ssh on a Windows fleet machine, or the release refuses registration on Windows with a stated reason. |
 | 6 | Unit dependencies are wrong (dashboard and hook call CLI verbs another unit owns) | Accepted. CLI, hook and dashboard all call a library API owned by U2/U3 (fixed below); none calls another unit's verb. |
-| 7 | Local, ignored and non-git modes conflict with "still needs to be commited" | Accepted, with one counter-argument. A durable root (`dev/tasks`) must be publishable -- a git work tree, the file not ignored, the branch tracking an upstream -- or registration is refused with nothing written. The `local` and `commit` modes are removed; `sessions.record: false` disables recording outright. `tmp` roots stay local-only (machine-local by definition; the dashboard does not show them). Counter-argument: a TRANSIENT failure (offline, retries exhausted, `index.lock` held) keeps the committed record and reports it as unpublished rather than "not registered". Reporting "not registered" while a committed record exists would be false; rolling the record back would make offline work unregistrable and hide the claim from the one machine that can verify it; the pending record publishes at the next drain. |
+| 7 | Local, ignored and non-git modes conflict with "still needs to be commited" | Accepted, with one counter-argument. A durable root (`dev/tasks`) must be publishable -- a git work tree, the file not ignored, the branch tracking an upstream -- or registration is refused with nothing written. The `local` and `commit` modes are removed; `sessions.record: false` disables recording outright. `tmp` roots stay local-only (machine-local by definition; the dashboard does not show them). Counter-argument: a TRANSIENT failure (offline, retries exhausted, `index.lock` held) keeps the committed record and reports it as unpublished rather than "not registered". Reporting "not registered" while a committed record exists would be false; rolling the record back would make offline work unregistrable and hide the claim from the one machine that can verify it; the pending record publishes at the next drain. Round 2: the reviewer accepted the policy and found the algorithm fetched before committing; fixed by R2-1. |
 | 8 | Two guards can pass vacuously | Accepted. The environment guard spawns a child pytest with `CLAUDE_PID` and `CLAUDE_CODE_SESSION_ID` deliberately set and asserts the inner test sees them removed. The hook fast-path test runs the real hook script with a fake interpreter that writes a marker, and asserts no marker when the index is absent. |
+| R2-1 | Offline publication left the record uncommitted (fetch came before commit) | Accepted. Publication commits this machine's session files before any network access, then fetches, integrates and pushes ("Git publication"). The offline test asserts on `git status` and `git log`, not on file presence. |
+| R2-2 | `/task work` takeover and Re-check still release a record because its process is not running, which is implicit unregistering on process death; "Re-check" does not say it releases | OPEN, held for the user (Q2). Decisions 5 and 11 mark the affected clauses; U2's takeover code and U6's Re-check wait for the answer. |
+| R2-3 | `/clear` changes the session id, the hook matched only `resume`, and one later `work` would migrate only its own task | Accepted. The SessionStart hook also matches `clear` and re-keys EVERY registration of the calling process, plus the index, by process stamp (decision 7, "Lifecycle"). Test: two registered tasks across clear, exit and resume. |
+| R2-4 | Whether another machine's registration blocks this machine's dashboard is consequential and must not be a default | OPEN, held for the user (Q1). Decision 12 no longer applies a default for it; U6 waits for the answer. |
 
 ## Decisions
 
@@ -111,20 +117,27 @@ hook refreshes this machine's record for that session (a write only when such a 
    verb, and release must be the last state change, after `update` has been re-run until its
    findings are clean.
 5. **Takeover at `/task work` on the same machine.** For the same task, a record whose session id
-   equals the caller's, or whose process stamp equals the caller's process (a `/clear` changes the
-   session id but not the process), is refreshed in place; a record by another session whose
-   process is not running is replaced (`session: took over ...`); a record by another session whose
-   process is running is kept (both show). Another machine's record cannot be edited (one writer per
+   equals the caller's, or whose process stamp equals the caller's process (a `/clear` whose hook
+   did not run), is refreshed in place. A record by another session whose process is running is
+   kept (both show). A record by another session whose process is NOT running: OPEN (Q2) --
+   either `/task work` replaces it (`session: took over ...`), or it is kept and reported and only
+   an explicit, named release removes it. Another machine's record cannot be edited (one writer per
    file); `work` reports it.
 6. **A session may hold several registrations.** Only hand-off ends one, so `/task work` on a second
    task leaves the first registered and prints `session: this session also holds <id>`.
-7. **Resume refresh (hypothesis until U0).** A SessionStart hook with matcher `resume`, `async:
-   true`, updates the process stamp and `transcript_path` of this machine's records carrying that
-   session id, and publishes. It writes nothing when no such record exists. If U0 shows the id does
-   not survive a plain resume, this hook is dropped and the resumed session's `/task work` takes the
-   record over (decision 5).
-8. **Publication runs inside the command that changed the record** (work, release, the resume hook,
-   the dashboard's Re-check), bounded, with retry on the push race; pending files publish with the
+7. **Session-start refresh: matchers `resume` and `clear`** (one SessionStart hook, `async: true`;
+   it writes nothing when this machine holds no matching record).
+   - `resume` (hypothesis until U0): the session id is kept and `CLAUDE_PID` changes, so every
+     record of this machine carrying that session id gets the resumed process's stamp and
+     `transcript_path`, then publishes. If U0 shows the id does not survive a plain resume, the
+     `resume` half is dropped and the resumed session's `/task work` takes the record over
+     (decision 5).
+   - `clear`: the session id changes and the process does not, so every record of this machine
+     whose process stamp equals the calling process is re-keyed to the post-clear session id, together
+     with its index entry, in one locked operation ("Lifecycle", re-key), then publishes. Every
+     registration of the session moves, not only the next one `/task work` touches.
+8. **Publication runs inside the command that changed the record** (work, release, the
+   session-start hook, and any dashboard release Q2 allows), bounded, with retry on the push race; pending files publish with the
    next publish from this machine in that repository, from the dashboard, or from
    `task sessions publish`.
 9. **Git never publishes work that is not this machine's session records, and never rewrites.**
@@ -133,15 +146,16 @@ hook refreshes this machine's record for that session (a write only when such a 
    force, rebase, reset, stash or branch switch.
 10. **Durable roots must be publishable; `tmp` roots are local-only; `sessions.record: false`
     turns recording off** (finding 7).
-11. **What ends a record**: release at hand-off; takeover (decision 5); `task sessions release <ref>
-    --all-local`, the human's cleanup after an interruption ("that is on the human"); the
-    dashboard's Re-check, which releases this machine's not-running records on that task (also a
-    human action); and a machine's own records on tasks that are closed, archived or absent, dropped
-    at that machine's next write in that root (no workable task remains to work). Nothing else.
-12. **Every registration holds the task in the dashboard** -- running, not running, or another
-    machine's: under the ruling a registered task is being worked until hand-off, and "the harness
-    always wins" is the dashboard's founding contract. Question Q1 asks the user to confirm the
-    cross-machine part.
+11. **What ends a record**: release at hand-off; `task sessions release <ref> --all-local`, the
+    human's explicit cleanup after an interruption ("that is on the human"); a machine's own records
+    on tasks that are closed, archived or absent, dropped at that machine's next write in that root
+    (no workable task remains to work). OPEN (Q2): whether a `/task work` takeover of a not-running
+    record (decision 5) and the dashboard's Re-check may also end one, or only an explicit, named
+    release may. Nothing ends a record because its process died.
+12. **This machine's registrations hold the task in its dashboard** -- running or not running:
+    under the ruling a registered task is being worked until hand-off, and "the harness always
+    wins" is the dashboard's founding contract. OPEN (Q1): whether ANOTHER machine's registration
+    holds this machine's dashboard. No default is applied; U6 waits for the answer.
 13. **Read verbs never write.** `list`, `show`, `status` and `task sessions` (list) stay read-only
     and offline.
 14. **No heartbeat commits**; every display shows the record's age. **Item-level "in flight" is
@@ -187,9 +201,11 @@ sessions:
 
 Local state in the user-scoped data directory
 (`${CLAUDE_BOOTSTRAP_DATA_ROOT:-~/.claude/plugins/data}/plugins-kit/task-kit/sessions/`):
-`index/<session id>.json` (the physical roots and stubs the session holds; a hint, the root files
-are the truth), `locks/` (per session, per physical root, per repository; never nested except
-session then root), and `publish.log` (one line per publication outcome from a hook or the
+`index/<session id>.json` (the physical roots and stubs the session holds, plus the process stamp
+it was last recorded under, which is how a `clear` re-key finds the previous session id; a hint,
+the root files are the truth), `locks/` (per session, per physical root, per repository; taken in
+the order session locks by id, then root locks by path, and never otherwise nested), and
+`publish.log` (one line per publication outcome from a hook or the
 dashboard).
 
 ## Record states
@@ -224,31 +240,43 @@ this machine holds for the task. Root file first, then the index shrinks; publis
 of matching records and publishes. A forked session (`--fork-session`, source `fork`) gets a fresh
 id and registers through `/task work`.
 
-**`/clear`.** The record keeps the old session id and the same process, so it stays `running`;
-release and takeover match it by process stamp.
+**Clear re-key** (decision 7). The hook script exits before starting Python when the index
+directory is empty. Otherwise, with the calling process's stamp S and the post-clear id N: find every
+index entry recorded under S (the previous ids, usually one); take the session locks of those ids
+and N in id order; write `index/N.json` as the union of their entries (the superset step); for
+each root they name, under its root lock, rewrite every record of this machine whose stamp is S to
+session id N; then delete the previous ids' index files; release; publish. Each step is idempotent,
+so a re-run after an interruption at any phase completes the move, and the root files stay the
+truth throughout. Resuming the conversation from before the `/clear` afterwards finds no records
+under its id (they moved to N) and registers again through `/task work`.
 
 **Interruption.** A session that ends without hand-off leaves its registration in place, shown as
-`not running` on its own machine and `unverified` elsewhere, until a `/task work` on that machine
-takes it over or a human releases it. Per the ruling, that is on the human.
+`not running` on its own machine and `unverified` elsewhere, until a human releases it (per the
+ruling, that is on the human) or -- depending on Q2 -- a `/task work` on that machine takes it over.
 
 ## Git publication
 
 `session_publish.publish(repo)` holds the per-repository lock, runs every git command with
 `GIT_TERMINAL_PROMPT=0`, stdin closed, 20 s bounds on network commands and 30 s on local ones, and
-makes at most 3 attempts within 60 s. One attempt:
+makes at most 3 network attempts within 60 s.
 
-1. `git fetch` the upstream.
-2. With no local-only commits and HEAD behind upstream: `git merge --ff-only`.
-3. Commit each of this machine's session files in the repository that differs from HEAD:
-   `git add -- <file>` only when untracked, then `git commit -q -m "task-kit sessions: <host id>"
-   -- <files>` (pathspec commit; other staged content is left alone).
-4. If any local-only commit (merge-base..HEAD) touches a path that is not this machine's session
-   file: stop, `not published: unpushed commits outside this machine's session records`. Else, if
-   diverged: `git merge --no-edit -q <upstream>`. Content conflicts cannot occur, because this
-   machine's commits change only its own files and no other writer changes those; a merge git
-   refuses to start (uncommitted edits on incoming paths) leaves no merge state and is reported; a
-   merge that stops with conflicts anyway is aborted (`git merge --abort`) and reported.
-5. If the net diff `git diff --name-only <upstream> HEAD` is non-empty and names only this
+First, before any network access (R2-1): commit each of this machine's session files in the
+repository that differs from HEAD -- `git add -- <file>` only when untracked, then
+`git commit -q -m "task-kit sessions: <host id>" -- <files>` (pathspec commit; other staged content
+is left alone). A commit failure stops here (`not committed`). From this point the record is
+committed whatever the network does. Then each network attempt:
+
+1. `git fetch` the upstream. A failure stops (`not published: fetch failed`).
+2. If any local-only commit (merge-base..HEAD) touches a path that is not this machine's session
+   file: stop, `not published: unpushed commits outside this machine's session records`.
+3. If HEAD is an ancestor of upstream: `git merge --ff-only`. Else, if upstream has commits HEAD
+   lacks: `git merge --no-edit -q <upstream>`. Because the record commit comes first, a branch that
+   was behind is integrated by a merge commit rather than a fast-forward; that is the cost of never
+   leaving a record uncommitted. Content conflicts cannot occur, because this machine's commits
+   change only its own files and no other writer changes those; a merge git refuses to start
+   (uncommitted edits on incoming paths) leaves no merge state and is reported; a merge that stops
+   with conflicts anyway is aborted (`git merge --abort`) and reported.
+4. If the net diff `git diff --name-only <upstream> HEAD` is non-empty and names only this
    machine's session files: `git push -q <remote> HEAD:<upstream branch>`. A non-fast-forward
    rejection starts the next attempt; any other failure stops.
 
@@ -256,10 +284,11 @@ makes at most 3 attempts within 60 s. One attempt:
 |---|---|
 | durable root not a git work tree, file ignored, no upstream | registration refused before any write |
 | `tmp` root | `local only: tmp is machine-local` (no git) |
-| in step, or behind with nothing local | `published` |
+| in step | `published` |
+| behind upstream | merge (record commit first), push -> `published` |
 | another machine pushed first | retried: fetch, merge, push -> `published` |
-| retries exhausted | `registered on this machine; not published after 3 attempts: <last git line>` |
-| offline, auth failure, fetch timeout | `registered on this machine; not published: fetch failed: <line>` |
+| retries exhausted | `registered on this machine; committed; not published after 3 attempts: <last git line>` |
+| offline, auth failure, fetch timeout | `registered on this machine; committed; not published: fetch failed: <line>` |
 | fast-forward or merge refused (local edits on incoming paths) | `registered on this machine; not published: <line>` |
 | unpushed commits by others | `registered on this machine; not published: unpushed commits outside this machine's session records` |
 | commit fails (`index.lock` held, a commit hook) | `registered on this machine; not committed: <line>` |
@@ -280,7 +309,7 @@ byte-identical. Added after a passing gate, inside a Claude Code subprocess only
 `session:`:
 
 - `session: registered <host id> on <task id> (session <first 8>); <publication outcome>`
-- `session: took over <task id> from session <first 8> (not running)`
+- `session: took over <task id> from session <first 8> (not running)` -- only if Q2 allows takeover
 - `session: also working this task: <host id> <state> <age> (session <first 8>)`, per other record
 - `session: this session also holds <task id>[, ...]`
 - `session: not registered: <reason>` -- exit stays 0, because the gate passed and work may proceed
@@ -300,15 +329,17 @@ routes "who is working on X".
 **Handshake**: `task_hold.py` takes its PID and session id from decision 2; otherwise unchanged.
 `find_session_process` stays as a shim emitting `DeprecationWarning` for two minor versions
 (docs/reference/deprecation-policy.md).
-**Plugin hooks**: `plugins/task-kit/hooks/hooks.json` gains the SessionStart `resume` hook
-(decision 7). task-kit ships no other hook.
+**Plugin hooks**: `plugins/task-kit/hooks/hooks.json` gains one SessionStart hook with matchers
+`resume` and `clear` (decision 7). task-kit ships no other hook.
 **Dashboard**: each task row carries `sessions` (host id, state, age, checkout, short session id)
-and a badge; the details list them; `held` becomes "runtime hold OR any registration" (decision
-12), with the reason naming the machine and how to release; Re-check releases this machine's
-not-running records on that task and names the rest; the snapshot revision covers records and
-states; while this machine has pending files in a repository, the dashboard runs one publish for it
-per refresh cycle in a background thread. references/dashboard.md changes accordingly, including
-the blocked-run resolution flow (`/task work`, fix, `/task hand-off` or Re-check).
+and a badge; the details list them; `held` becomes "runtime hold OR any of this machine's
+registrations" (decision 12; whether other machines' registrations also hold is Q1), with the
+reason naming the machine and how to release; what Re-check does to this machine's not-running
+records is Q2 (if it may release them, the control must say so, not read as a plain re-check); the
+snapshot revision covers records and states; while this machine has pending files in a repository,
+the dashboard runs one publish for it per refresh cycle in a background thread.
+references/dashboard.md changes accordingly, including the blocked-run resolution flow
+(`/task work`, fix, `/task hand-off`, then Re-check).
 
 ## Cross-cutting cases
 
@@ -330,7 +361,7 @@ the blocked-run resolution flow (`/task work`, fix, `/task hand-off` or Re-check
 |---|---|
 | Automatic commit, fetch, integrate and push of session records | Passes, so configurable: `sessions.record` (default `true`). Scenarios: tasks tracked in a project repository whose pushes start CI or whose branch is protected; a repository readable by people who should not see host names or transcript paths. `false` records nothing (finding 7: no undistributed state). |
 | A registration survives harness exit until hand-off | Passes for a user who ends sessions without hand-off (registrations accumulate and hold their tasks); declined on the user's 2026-10-21 ruling. U7 adds a register entry in plugins/CLAUDE.md; the remedy is `/task hand-off`, `task sessions release --all-local`, or `sessions.record: false`. |
-| Every registration holds the dashboard | Follows from the entry above; confirm with Q1. |
+| This machine's registrations hold its dashboard | Follows from the entry above. Other machines' registrations: OPEN (Q1). |
 | Host id from the hostname | Not an opinion (an observed fact); `sessions.host` exists only to resolve a detected collision, which refuses registration with a message naming the key. |
 | No heartbeat | Fails: the age is always shown. |
 
@@ -349,19 +380,20 @@ tests/task-kit/<file> -v`) and shows each listed check failing first.
 Library API (fixed so U4, U5 and U6 depend on U2/U3 only):
 `sessions.register(identity, machine, project_root, ref)`, `sessions.release(identity, machine,
 project_root, ref, all_local=False)`, `sessions.refresh(identity, machine, transcript_path)`,
-`sessions.read_root(task_root, machine)` (records with states and notes);
+`sessions.rekey_after_clear(identity, machine)`, `sessions.read_root(task_root, machine)` (records
+with states and notes);
 `session_publish.preflight(task_root)`, `session_publish.publish(repo_root, machine)`,
 `session_publish.pending(repo_root, machine)`.
 
 | Unit | Scope | Owns | Depends on |
 |---|---|---|---|
-| U0 probe | With a scratch plugin carrying only SessionStart hooks that log their input and environment: start a real session; record `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_BRIDGE_SESSION_ID` (if set), `CLAUDE_PID` and `transcript_path`; exit; repeat after `claude --resume <id>`, `claude --continue` and `claude --resume <id> --fork-session`; compare. Record the SessionStart `source` and `session_id` in each case, whether an `async: true` plugin SessionStart hook completes in an interactive session, and `CLAUDE_PID` ancestry from Git Bash and PowerShell on a Windows fleet machine (ssh). Settles the two session hypotheses; if the session id does not survive a plain resume, decision 7 is dropped. | `docs/reference/claude-code-plugin-platform.md` (a "Session identity across resume, measured" section) | none |
+| U0 probe | With a scratch plugin carrying only SessionStart hooks that log their input and environment: start a real session; record `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_BRIDGE_SESSION_ID` (if set), `CLAUDE_PID` and `transcript_path`; exit; repeat after `claude --resume <id>`, `claude --continue` and `claude --resume <id> --fork-session`; compare; then `/clear` inside a session and confirm the SessionStart source `clear` carries a different id while `CLAUDE_PID` is unchanged. Record the SessionStart `source` and `session_id` in each case, whether an `async: true` plugin SessionStart hook completes in an interactive session, and `CLAUDE_PID` ancestry from Git Bash and PowerShell on a Windows fleet machine (ssh). Settles the two session hypotheses; if the session id does not survive a plain resume, decision 7 is dropped. | `docs/reference/claude-code-plugin-platform.md` (a "Session identity across resume, measured" section) | none |
 | U1 identity | `task_system/harness.py` (identity, ancestry, dashboard-run detection, transcript lookup); `task_system/machine.py` (host id, fingerprint, `os_instance`); `task_system/procstamp.py` (platform stamp; measures repeated-read stability per platform); `task_system/oslock.py` (OS file lock; `mutation.ProcessLock` delegates); `task_system/datadir.py` (resolver moved from `dashboard/state.py`, re-exported); handshake on the identity, with the shim | those five modules; `task_system/dashboard/{mutation,state,handshake}.py`; `task_hold.py`; `tests/task-kit/{test_task_harness_identity.py,fake_claude.py,conftest.py,test_dashboard_harness_hold.py,test_task_env_sanitized.py}` | none |
-| U2 store | format, validation, fingerprint ownership and collision refusal, per-session and per-root locks, the index superset protocol, states, register / takeover / release / refresh / drop-closed, reading every file of a root | `task_system/sessions.py`; `tests/task-kit/test_task_sessions_store.py` | U1 |
+| U2 store | format, validation, fingerprint ownership and collision refusal, per-session and per-root locks, the index superset protocol, states, register / takeover / release / refresh / clear re-key / drop-closed, reading every file of a root | `task_system/sessions.py`; `tests/task-kit/test_task_sessions_store.py` | U1; the not-running takeover rule waits for Q2 |
 | U3 publisher | preflight, the attempt loop and its rules, pending detection, `publish.log` | `task_system/session_publish.py`; `tests/task-kit/{test_task_sessions_publish.py,git_remote_support.py}` | U1 |
 | U4 CLI and skill | `work` registration and `session:` lines (in `_cmd_work` after `state_ops.work` returns; `state_ops` untouched); `sessions` verb; `list`/`show`/`status`; docstring; SKILL.md (work relay, hand-off release step, `sessions` capability); the `sessions:` keys of `task.local.yaml` | `task.py`; `task_system/listing.py`; `plugins/task-kit/skills/task/SKILL.md`; `tests/task-kit/test_task_sessions_cli.py` and any task-kit test asserting list/show/status/work text | U2, U3 |
-| U5 resume hook | `hooks.json` (SessionStart, matcher `resume`, `async: true`); the bash 3.2/zsh-safe script (forced interpreter chain as in `plugins/presence-kit/hooks/stop/presence-stop.sh`; `task.py` re-execs into the venv) | `plugins/task-kit/hooks/hooks.json`; `plugins/task-kit/hooks/sessionstart/session-resume.sh`; `task_session_resume.py`; `tests/task-kit/test_task_session_resume_hook.py`; the allowlist entry in `tests/repo-scripts/test_python_invocation_standard.py` | U2, U3, U0 |
-| U6 dashboard | inventory read of `.sessions` per physical root; task-row `sessions`; revision; `held` from any registration; Re-check release; background pending publish; badge and details | `task_system/dashboard/{inventory,snapshot,scheduler,server}.py`; `task_system/dashboard/static/{app.js,app.css}`; `plugins/task-kit/skills/task/references/dashboard.md`; `tests/task-kit/{test_dashboard_sessions.py,test_dashboard_inventory.py,test_dashboard_ui_contract.py,ui_harness.js}` | U2, U3 |
+| U5 session-start hook | `hooks.json` (SessionStart, matchers `resume` and `clear`, `async: true`); the bash 3.2/zsh-safe script (forced interpreter chain as in `plugins/presence-kit/hooks/stop/presence-stop.sh`; `task.py` re-execs into the venv), dispatching on the input's `source` | `plugins/task-kit/hooks/hooks.json`; `plugins/task-kit/hooks/sessionstart/session-start.sh`; `task_session_start.py`; `tests/task-kit/test_task_session_start_hook.py`; the allowlist entry in `tests/repo-scripts/test_python_invocation_standard.py` | U2, U3, U0 |
+| U6 dashboard | inventory read of `.sessions` per physical root; task-row `sessions`; revision; `held` from registrations; Re-check behavior; background pending publish; badge and details | `task_system/dashboard/{inventory,snapshot,scheduler,server}.py`; `task_system/dashboard/static/{app.js,app.css}`; `plugins/task-kit/skills/task/references/dashboard.md`; `tests/task-kit/{test_dashboard_sessions.py,test_dashboard_inventory.py,test_dashboard_ui_contract.py,ui_harness.js}` | U2, U3; Q1 and Q2 answered |
 | U7 docs, Windows gate, release | register entry (plugins/CLAUDE.md: registration lasts until hand-off; the git-privilege entry extended to session publication); README; design doc section; version 0.13.0 in plugin.json and pyproject.toml; Windows smoke over ssh (or ship with Windows registration refused and say why); review; claudx smoke; publish | `plugins/CLAUDE.md`; `plugins/task-kit/{README.md,.claude-plugin/plugin.json,pyproject.toml}`; `plugins/task-kit/skills/task/design/task-system-design.md` | all |
 
 Order: U0 and U1 in parallel; then U2 and U3 in parallel; then U4, U5 and U6 in parallel; U7 last.
@@ -379,34 +411,43 @@ Order: U0 and U1 in parallel; then U2 and U3 in parallel; then U4, U5 and U6 in 
 4. Stamp: a stamp 0.5 s off reads `not running` (revert to the 1.0 s tolerance -> `running`, red);
    a live sleeper reads `running`; a killed sleeper reads `not running` and its record is KEPT
    (revert: prune on death -> the record disappears, red).
-5. Store: same-session refresh; same-process takeover after `/clear`; a not-running other session
-   is replaced; a running other session is kept; release by session id and by process stamp;
+5. Store: same-session refresh; same-process refresh when the clear hook did not run; a running
+   other session is kept; a not-running other session follows Q2's answer (replaced, or kept and
+   reported); release by session id and by process stamp;
    `--all-local`; records on closed, archived or absent tasks dropped at the owner's next write;
    the index superset protocol interrupted after each phase, then recovered idempotently; an
    unchanged set rewrites nothing; an invalid own file is not overwritten.
-6. Publisher, against a bare remote and clones: in step; behind then fast-forward; two
+6. Publisher, against a bare remote and clones: offline first -- with the remote unreachable,
+   `git status --porcelain -- <file>` is clean and `git log -1 -- <file>` shows the record commit
+   (revert to fetch-before-commit -> the file is still modified, red); in step; behind then merged
+   and pushed; two
    barrier-synchronized publishers on two clones both reach the remote (remove the retry -> one is
    missing, red); a racing upstream task-record commit is merged and the push succeeds; a local
    foreign commit blocks integration and push (remove the guard -> the foreign commit reaches the
    remote, red); exhausted retries name the last git line; ignored, non-git and no-upstream durable
    roots refuse registration with no write and no commit; `tmp` stays local; pre-staged unrelated
-   content survives; an unreachable remote leaves a committed pending file that a later publish
-   delivers.
+   content survives; the committed pending file from the offline case is delivered by a later
+   publish.
 7. `work`: stdout byte-identical with and without registration; each `session:` line; nothing
    without `CLAUDE_CODE_SESSION_ID`; refusal under `TASK_KIT_AGENT_DEPTH` and with
    `sessions.record: false`; exit 0 on a registration failure.
 8. Read verbs never write: `list`, `show`, `status` and `sessions` leave the tree and the data
    directory byte-identical with `not running` and foreign records present.
-9. Resume hook: the real script with a fake interpreter that writes a marker -- no marker when the
-   index entry is absent (revert the fast path -> marker written, red); with a matching record the
-   stamp and `transcript_path` refresh; no write when the session holds no record; `hooks.json`
-   shape; bash 3.2 constructs only.
+9. Session-start hook: the real script with a fake interpreter that writes a marker -- no marker
+   when the index entry (resume) or every index entry (clear) is absent (revert the fast path ->
+   marker written, red); with a matching record the stamp and `transcript_path` refresh; no write
+   when the session holds no record; `hooks.json` shape; bash 3.2 constructs only. Scenario: one
+   session registers two tasks, then `/clear` -> BOTH records and the index move to the post-clear id
+   (revert to re-keying only the record `/task work` touches -> one record keeps the old id, red);
+   then exit -> both stay, `not running`; then resume of the post-clear id -> both refresh to the resumed
+   process; then hand-off of one task releases only that one. The re-key is also interrupted after
+   each phase and re-run to completion.
 10. validate, list and the inventory ignore a dirty `.sessions` sibling (control: the same file
     inside the task folder trips validate).
-11. Dashboard: one read per physical root across three checkouts; a running, a not-running and a
-    foreign record each hold the task (revert the union -> the scheduler starts a run, red);
-    Re-check releases only this machine's not-running records; the revision changes when a process
-    dies; the background publish touches only this machine's files.
+11. Dashboard: one read per physical root across three checkouts; a running and a not-running
+    local record each hold the task (revert the union -> the scheduler starts a run, red); a
+    foreign record holds or not per Q1; Re-check per Q2; the revision changes when a process dies;
+    the background publish touches only this machine's files.
 12. Environment guard: a child pytest started with `CLAUDE_PID` and `CLAUDE_CODE_SESSION_ID` set
     sees both removed (remove the conftest removal -> the child sees them, red).
 
@@ -414,8 +455,9 @@ Order: U0 and U1 in parallel; then U2 and U3 in parallel; then U4, U5 and U6 in 
 
 Run the targeted files, then the task-kit directory serially; `git-kit:git-code-review` over the
 range; Windows gate; `claudx --all` smoke in a scratch project whose `dev/tasks` is a clone of a
-scratch bare remote (`/task work`, confirm the record and its push; exit and resume, confirm the
-refresh; `/task hand-off`, confirm the release and its push); then `uv run python
+scratch bare remote (`/task work` on two tasks, confirm the records and their push; `/clear`,
+confirm the re-key; exit and resume, confirm the refresh; `/task hand-off` of one, confirm the
+release and its push); then `uv run python
 scripts/publish.py --only task-kit`, and confirm that a real `/task work` in Afterplay produces a
 pushed record in the tasks repository. `requires_bootstrap` stays 0.138.0.
 
@@ -430,7 +472,17 @@ holds each machine's tailscale name), and the two state names are reserved above
 
 ## Questions for the user
 
-- **Q1.** Should another machine's registration hold the dashboard on this machine (refuse
-  autonomous runs and dashboard edits on that task), given that only that machine (or its future
-  service) can release it? Default applied in this plan: yes, every registration holds, because a
-  registered task is being worked until hand-off.
+Both are OPEN: no default is applied, and the units named wait for the answer (cross-check R2-2
+and R2-4).
+
+- **Q1 (R2-4; blocks U6).** Should another machine's registration hold the dashboard on this
+  machine -- refuse autonomous runs and dashboard edits on that task -- given that this machine can
+  neither verify nor release it, so a registration left on a machine that is off or forgotten holds
+  the task until someone releases it there (or, later, through that machine's task-kit service)?
+  The alternative shows the registration beside Queue and leaves the choice to the person queueing.
+- **Q2 (R2-2; blocks U2's takeover rule and U6's Re-check).** When the session that registered a
+  task is no longer running on this machine, may (a) another session's `/task work` on that task
+  take the registration over, and (b) the dashboard's Re-check release it? Or must both keep it,
+  leaving an explicit, named release (`task sessions release <ref> --all-local`, or a dashboard
+  action labelled as a release and confirmed) as the only way? The reviewer reads (a) and (b) as
+  unregistering on process death, which the lifetime ruling excludes.
