@@ -1,13 +1,15 @@
 """write_chunks tells a reader how to page each chunk without a failed Read.
 
 The Read tool refuses a page over about 25,000 tokens. Each index entry
-therefore carries the line count, the longest line, and a page size that keeps
-`page_lines * longest_line_bytes` under 100,000 bytes.
+therefore carries the line count, the longest line, and a page size such that
+no `page_lines` consecutive lines, terminators included, exceed 100,000 bytes.
 """
 
 from __future__ import annotations
 
-from bootstrap_lib.code_review.chunking import write_chunks
+import random
+
+from bootstrap_lib.code_review.chunking import READ_PAGE_MAX_BYTES, chunk_read_geometry, write_chunks
 
 
 def _entry(tmp_path, text: str) -> dict:
@@ -21,8 +23,31 @@ def test_long_lines_shrink_the_page(tmp_path):
     entry = _entry(tmp_path, text)
     assert entry["lines"] == 3500
     assert entry["longest_line_bytes"] == 299
-    assert entry["page_lines"] == 100_000 // 299
-    assert entry["page_lines"] * entry["longest_line_bytes"] <= 100_000
+    # Each line is 299 bytes plus its terminator as written: CRLF on Windows, where write_text translates.
+    line_bytes = len((tmp_path / entry["path"]).read_bytes()) // 3500
+    assert entry["page_lines"] == 100_000 // line_bytes
+    assert entry["page_lines"] * line_bytes <= 100_000
+
+
+def test_one_long_line_among_short_lines_keeps_a_large_page(tmp_path):
+    text = "x" * 10_000 + "\n" + ("y" * 39 + "\n") * 3000
+    entry = _entry(tmp_path, text)
+    assert entry["longest_line_bytes"] == 10_000
+    assert entry["page_lines"] >= 400  # the longest-line rule answered 10
+
+
+def test_every_window_fits_the_byte_cap():
+    rng = random.Random(7)
+    for _ in range(40):
+        widths = [rng.choice((5, 80, 400, 6000, 30_000)) for _ in range(rng.randint(1, 600))]
+        data = b"".join(b"z" * w + b"\n" for w in widths)
+        _lines, _longest, page = chunk_read_geometry(data)
+        sizes = [w + 1 for w in widths]
+        n = min(page, len(sizes))
+        assert all(sum(sizes[i:i + n]) <= READ_PAGE_MAX_BYTES for i in range(len(sizes) - n + 1))
+        if page < 800 and page < len(sizes):
+            # One more line would overflow somewhere: the page is the largest that fits.
+            assert any(sum(sizes[i:i + page + 1]) > READ_PAGE_MAX_BYTES for i in range(len(sizes) - page))
 
 
 def test_short_lines_cap_at_800(tmp_path):

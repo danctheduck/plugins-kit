@@ -124,19 +124,48 @@ READ_PAGE_MAX_LINES = 800
 READ_PAGE_MAX_BYTES = 100_000
 
 
+def _max_window_lines(widths: list[int], cap_bytes: int, cap_lines: int) -> int:
+    """Largest N <= cap_lines such that every N consecutive widths sum to at most cap_bytes; at least 1."""
+
+    def fits(n: int) -> bool:
+        total = sum(widths[:n])
+        if total > cap_bytes:
+            return False
+        for i in range(n, len(widths)):
+            total += widths[i] - widths[i - n]
+            if total > cap_bytes:
+                return False
+        return True
+
+    # A window longer than the chunk is the whole chunk, so only N up to len(widths) needs testing.
+    hi = min(cap_lines, len(widths))
+    if hi == 0 or fits(hi):
+        return cap_lines
+    lo = 1
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if fits(mid):
+            lo = mid
+        else:
+            hi = mid - 1
+    return lo
+
+
 def chunk_read_geometry(data: bytes) -> tuple[int, int, int]:
     """Return (lines, longest_line_bytes, page_lines) for one written chunk.
 
-    `lines` counts a final line that has no terminator. Line widths exclude the
-    line terminator. `page_lines` is the largest `limit` for a Read call that
-    keeps `page_lines * longest_line_bytes` within READ_PAGE_MAX_BYTES, capped
-    at READ_PAGE_MAX_LINES and never below 1.
+    `lines` counts a final line that has no terminator. `longest_line_bytes`
+    excludes the line terminator. `page_lines` is the largest `limit` for a
+    Read call such that no `page_lines` consecutive lines, terminators
+    included, exceed READ_PAGE_MAX_BYTES, capped at READ_PAGE_MAX_LINES and
+    never below 1. Bounding the window rather than the widest line keeps one
+    outlier line from shrinking the page of its whole chunk.
     """
     parts = data.split(b"\n")
     if parts and parts[-1] == b"":
         parts.pop()
     longest = max((len(p.rstrip(b"\r")) for p in parts), default=0)
-    page = max(1, min(READ_PAGE_MAX_LINES, READ_PAGE_MAX_BYTES // max(longest, 1)))
+    page = _max_window_lines([len(p) + 1 for p in parts], READ_PAGE_MAX_BYTES, READ_PAGE_MAX_LINES)
     return len(parts), longest, page
 
 
